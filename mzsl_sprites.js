@@ -43,7 +43,7 @@ class LightingSprite extends PIXI.Sprite {
         this.fileName = options.filename;
         this.lightName = options.name;
         this.colorFilter = options.colorfilter;
-        this.setTexture();
+        this.setTexture(0);
 
         this.offset = new OffsetAnimation(options.offset.x, options.offset.y);
         this.setPostion(options);
@@ -51,7 +51,7 @@ class LightingSprite extends PIXI.Sprite {
         this.scale.x = this.scale.y = options.range / 100;
 
         // animation
-        this.rotate = new RotationAnimation(this, options.rotation, options.animation.rotation);
+        //this.rotate = new RotationAnimation(this, options.rotation, options.animation.rotation);
         this.pulse = new PulseAnimation(this, options.animation.pulse, this.scale.x);
         this.flicker = new FlickerAnimation(this, options.animation.flicker);
         this.color = new ColorAnimation(this, Number(options.tint));
@@ -107,7 +107,7 @@ class LightingSprite extends PIXI.Sprite {
         this.pulse.destroy();
         this.flicker.destroy();
         this.color.destroy();
-        this.rotate.destroy();
+        //this.rotate.destroy();
         if (this._shadow) {
             this.renderTexture.destroy(true);
             this.renderTexture = null;
@@ -137,17 +137,17 @@ class LightingSprite extends PIXI.Sprite {
 
     updateShadow() {
         if (!this._shadow || this._static) return;
-        if (this.rotate.updating() || this.character.isMoving() || this.offset.updating() || this.pulse.updating()) {
+        if (this.character.isMoving() || this.offset.updating() || this.pulse.updating()) {
             if (!this.renderable) return;
             if (this.character.isMoving() || this.offset.updating() || !this.id) 
                 this.shadow.update(this.x + this.shadowOffsetX, this.y + this.shadowOffsetY, this.localBounds());
             if (!this.filters) {
-                this.setTexture();
+                this.setTexture(1);
                 this.setMask(this.shadow.mask);
             }
-        } 
-        else if (this.filters) {
+        } else if (this.filters) {
             this.rotation = 0;
+            this.setTexture(1); 
             this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
             this.snapshot();
             this.setMask(null);
@@ -165,15 +165,14 @@ class LightingSprite extends PIXI.Sprite {
         this.offset.update();
         this.color.update();
         this.pulse.update();
-        this.rotate.update();
+        // if (this.rotate.needReset) {
+        //     this.rotate.needReset = 0;
+        //     this.setTexture(0);
+        // }
+        // this.rotate.update();
     }
 
     updateDisplay() {
-        if (this.shadow && (this.rotate.updating() || this.pulse.updating())) {
-            this.shadow.update(this.x + this.shadowOffsetX, this.y + this.shadowOffsetY, this.localBounds());
-            this.setTexture();
-            this.setMask(this.shadow.mask);
-        }
         let [x, y] = [this.character.screenX(), this.character.screenY()];
         let minX = x - (this.width / 2),
             minY = y - (this.height / 2),
@@ -210,8 +209,11 @@ class LightingSprite extends PIXI.Sprite {
         this.y = this.character.screenY();
     }
 
-    setTexture() {
-        this.texture = TextureManager.filter($shoraLayer.load(this.fileName), this.colorFilter, this.lightName);
+    setTexture(rotate) {
+        if (rotate) {
+            this.texture = TextureManager.filter($shoraLayer.load(this.fileName.substr(0, this.fileName.length - 2) + '_' + this.character.direction()), this.colorFilter, this.lightName + '_' + this.character.direction());
+        }
+        else this.texture = TextureManager.filter($shoraLayer.load(this.fileName), this.colorFilter, this.lightName);
     }
 
     // command

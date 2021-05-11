@@ -257,82 +257,91 @@ class PulseAnimation extends Shora.Animation {
 }
 
 class RotationAnimation extends Shora.Animation {
-    constructor(sprite, rotation, animation) {
+    constructor(sprite, angle, animation) {
         super(sprite, 0);
-        if (rotation === 'animate') {
+        if (angle === 'animate') {
             this._status = 2; rotation = 0;
-        } else if (rotation === 'auto') {
-            this._status = 1; rotation = 0;
-        } else rotation = rotation / 360 * 6.25;
-        this.r0 = this.r1 = rotation; this.tickSync = this.space = 0;
+        } else if (angle === 'auto') {
+            this._status = 1; angle = 0;
+        } else angle = angle / 360 * 6.25;
+        this.r0 = this.r1 = angle; this.tickSync = this.space = 0;
         this.tick = this.time = this.delta = 0;
         this.type = 1; this.animationSpeed = animation.rotatespeed / 60;
-        if (this._status === 1) {
-            switch (this._sprite.character.direction()) {
-                case 2:
-                    this._sprite.rotation = 3.125;
-                    break;
-                case 4:
-                    this._sprite.rotation = 4.6875;
-                    break;
-                case 6:
-                    this._sprite.rotation = 1.5625;
-                    break;
-                case 8:
-                    this._sprite.rotation = 0;
-                    break;
-            }
-        } else if (!this._status) {
-            this._sprite.rotation = rotation;
+        this.offset = 0; this.currentDirection = 8; this.needReset = 0;
+        // if (this._status === 1) {
+        //     switch (this._sprite.character.direction()) {
+        //         case 2:
+        //             this._sprite.rotation = 3.125;
+        //             break;
+        //         case 4:
+        //             this._sprite.rotation = 4.6875;
+        //             break;
+        //         case 6:
+        //             this._sprite.rotation = 1.5625;
+        //             break;
+        //         case 8:
+        //             this._sprite.rotation = 0;
+        //             break;
+        //     }
+        // } else 
+        if (!this._status) {
+            this._sprite.rotation = angle;
         }
     }
 
     updating() {
-        return this._sprite.rotation != 0 || this._status || this.tick < this.time;
+        return this.tick < this.time;
     }
 
     update() {
-        if (this._status === 1) { // Sync with direction
-            switch (this._sprite.character.direction()) {
+        if (this._status === 1 && this.currentDirection !== this._sprite.character.direction()) { // Sync with direction
+            this.currentDirection = this._sprite.character.direction();
+            this.needReset = 1;
+            switch (this.currentDirection) {
                 case 2:
-                    this.set(3.125, 5);
+                    this.set(3.125, 30);
                     break;
                 case 4:
-                    if (this._sprite.rotation < 1.5625) this._sprite.rotation += 6.25;
-                    this.set(4.6875, 5);
+                    this.set(4.6875, 30);
                     break;
                 case 6:
-                    this.set(1.5625, 5);
+                    this.set(1.5625, 30);
                     break;
                 case 8:
-                    if (this._sprite.rotation > 3.125) this._sprite.rotation -= 6.25;
-                    this.set(0, 5);
+                    this.set(0, 30);
                     break;
             }
-            if (this.tickSync) {
-                this._sprite.rotation += this.space;
-                this.tickSync--;
-            }
-        } else if (this._status === 2) { // automanic animation
+        } else if (this._status === 2) { // automatic animation
             this._sprite.rotation += this.animationSpeed;
-            if (this._sprite.rotatation > 6.25) this._sprite.rotatation -= 6.25;
+            if (this._sprite.rotation > 6.25) this._sprite.rotation -= 6.25;
         } else if (this.tick < this.time) { // custom rotation animation
             this._sprite.rotation = this.r0 + Shora.Animation.transition[this.type](this.tick / this.time) * this.delta;
             this.tick++;
         }
     }
 
-    set(angle, time, type) {
-        if (this._status === 1) {
-            if (Math.abs(angle - this._sprite.rotation) < 0.01) return this.tickSync = 0;
-            this.tickSync = time;
-            this.space = (angle - this._sprite.rotation) / time;
-        } else {
-            this.r0 = this.r1; this.r1 = angle;
-            this.delta = this.r1 - this.r0;
-            this.time = time; this.tick = 0;
-            if (type) this.type = type - 1;
+    setDirectedSprite() {
+        switch (this._sprite.character.direction()) {
+            case 2:
+                this.offset = 3.125;
+                break;
+            case 4:
+                this.offset = 4.6875;
+                break;
+            case 6:
+                this.offset = 1.5625;
+                break;
+            case 8:
+                this.offset = 0;
+                break;
         }
+    }
+
+    set(angle, time, type) {
+        this.r0 = this.r1; this.r1 = angle;
+        this.delta = this.r1 - this.r0;
+        this.time = time; this.tick = 0;
+        if (type) this.type = type - 1;
     }
 
     setAuto(auto) {
