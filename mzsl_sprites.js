@@ -43,15 +43,23 @@ class LightingSprite extends PIXI.Sprite {
         this.fileName = options.filename;
         this.lightName = options.name;
         this.colorFilter = options.colorfilter;
-        this.setTexture(0);
+
+        this.updateTexture();
 
         this.offset = new OffsetAnimation(options.offset.x, options.offset.y);
         this.setPostion(options);
         this.anchor = new PIXI.Point(0.5, 0.5);
-        this.scale.x = this.scale.y = options.range / 100;
+        this.scale.x = this.scale.y = options.range;
+
+        // direction
+        if (options.rotation != "") {
+            // this.rotate = new RotationAnimation(this, options.rotation, options.animation.rotation);
+            this.rotation = options.rotation / 360 * 6.25;
+        } else if (options.direction) {
+            this.direction = new DirectionManager(this);
+        }
 
         // animation
-        //this.rotate = new RotationAnimation(this, options.rotation, options.animation.rotation);
         this.pulse = new PulseAnimation(this, options.animation.pulse, this.scale.x);
         this.flicker = new FlickerAnimation(this, options.animation.flicker);
         this.color = new ColorAnimation(this, Number(options.tint));
@@ -63,7 +71,7 @@ class LightingSprite extends PIXI.Sprite {
             this.shadowOffsetY = options.shadowOffsetY || 0; // 54.00001; tw * h + 6 + eps
             this.shadowOffsetY += $gameShadow.getWallHeight(this.globalX(), this.globalY());
             this.renderTexture = PIXI.RenderTexture.create({ width: this.width, height: this.height }); // texture to cache
-            this.shadow = new Shadow(this.x + this.shadowOffsetX, this.y + this.shadowOffsetY, this.localBounds());
+            this.shadow = new Shadow(this.globalX() + this.shadowOffsetX, this.globalY() + this.shadowOffsetY, this.globalBounds());
             this.setMask(this.shadow.mask);
             if (this._static) {
                 this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
@@ -94,7 +102,7 @@ class LightingSprite extends PIXI.Sprite {
             this.mask = null;
             this.blendMode = 0;
             if (!this.shadowFilter) {
-                this.shadowFilter = [new PIXI.SpriteMaskFilter(this.shadow.mask)];
+                this.shadowFilter = [new PIXI.SpriteMaskFilter(sprite)];
                 this.shadowFilter[0].blendMode = PIXI.BLEND_MODES.ADD;
             }
             this.filters = this.shadowFilter;
@@ -107,7 +115,7 @@ class LightingSprite extends PIXI.Sprite {
         this.pulse.destroy();
         this.flicker.destroy();
         this.color.destroy();
-        //this.rotate.destroy();
+        this.direction.destroy();
         if (this._shadow) {
             this.renderTexture.destroy(true);
             this.renderTexture = null;
@@ -135,22 +143,43 @@ class LightingSprite extends PIXI.Sprite {
         this.updateAnimation();
     }
 
+    needUpdateShadowMask() {
+        return this.character.isMoving() || this.pulse.updating()
+        || (this.direction && this.direction.rotate.updating());// || !this.rotate;
+    }
+
+    needRecalculateShadow() {
+        return this.character.isMoving() || this.offset.updating() || !this.id;
+    }
+
     updateShadow() {
-        if (!this._shadow || this._static) return;
-        if (this.character.isMoving() || this.offset.updating() || this.pulse.updating()) {
-            if (!this.renderable) return;
-            if (this.character.isMoving() || this.offset.updating() || !this.id) 
+        if (!this._shadow || this._static || !this.renderable) return;
+
+        // if shadow stopped -> take a snap
+        if (this.needUpdateShadowMask()) {
+            // update shadow
+            //this.shadow.mask.renderable = true;
+            if (this.needRecalculateShadow()) 
                 this.shadow.update(this.x + this.shadowOffsetX, this.y + this.shadowOffsetY, this.localBounds());
+            else {
+                // pulse and rotation need only the mask to update global postion
+                this.shadow.mask.x = -$gameMap.displayX() * $gameMap.tileWidth(); 
+                this.shadow.mask.y = -$gameMap.displayY() * $gameMap.tileHeight();
+                //console.log(this.shadow.mask.x, this.shadow.mask.y);
+            }
+            // update mask 
             if (!this.filters) {
-                this.setTexture(1);
+                this.updateTexture(); 
                 this.setMask(this.shadow.mask);
             }
         } else if (this.filters) {
+            // snap
+            //console.log('snapped');
             this.rotation = 0;
-            this.setTexture(1); 
             this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
             this.snapshot();
             this.setMask(null);
+            this.shadow.mask.renderable = false;
         }
     }
 
@@ -165,11 +194,7 @@ class LightingSprite extends PIXI.Sprite {
         this.offset.update();
         this.color.update();
         this.pulse.update();
-        // if (this.rotate.needReset) {
-        //     this.rotate.needReset = 0;
-        //     this.setTexture(0);
-        // }
-        // this.rotate.update();
+        if (this.direction) this.direction.update();
     }
 
     updateDisplay() {
@@ -209,11 +234,8 @@ class LightingSprite extends PIXI.Sprite {
         this.y = this.character.screenY();
     }
 
-    setTexture(rotate) {
-        if (rotate) {
-            this.texture = TextureManager.filter($shoraLayer.load(this.fileName.substr(0, this.fileName.length - 2) + '_' + this.character.direction()), this.colorFilter, this.lightName + '_' + this.character.direction());
-        }
-        else this.texture = TextureManager.filter($shoraLayer.load(this.fileName), this.colorFilter, this.lightName);
+    updateTexture() {
+        this.texture = TextureManager.filter($shoraLayer.load(this.fileName), this.colorFilter, this.lightName);
     }
 
     // command
@@ -227,7 +249,7 @@ class LightingSprite extends PIXI.Sprite {
     }
 
     setRange(range, time) {
-        this.pulse.set(range / 100, time || 1);
+        this.pulse.set(range, time || 1);
     }
 
     setOffsetX(x, time, type) {
@@ -278,6 +300,7 @@ class Shadow {
     }
 
     update(x, y, bounds) {
+        //console.log("update x =" + x + " y = " + y);
         this.polygon = ShadowManager.computeViewport([x, y], $gameShadow.segments, [this.bounds.left, this.bounds.top], [this.bounds.right, this.bounds.bottom]);
         this.bounds = bounds;
         this._parallelSegments = {};
@@ -289,6 +312,7 @@ class Shadow {
     }
 
     updateGlobal(ox, oy, bounds) {
+        //console.log("update global x =" + ox + " y = " + oy);
         this.bounds = bounds;
         this.polygon = ShadowManager.computeViewport([ox, oy], $gameShadow.globalSegments, [this.bounds.left, this.bounds.top], [this.bounds.right, this.bounds.bottom]);
         this._parallelSegments = {};

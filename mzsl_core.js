@@ -8,25 +8,33 @@
  * @help
  *
  * @param Game
- * @text Game Overall Settings
+ * @text [Game: Settings]
  * @type struct<GameSettings>
  * @desc Settings for game.
  * @default {"region_start":"1"}
  * 
+ * @param sep0
+ * @text ==================================
+ * @default ==================================
+ * 
  * @param Map
  * @type struct<MapSettings>
- * @text Map Default Settings
+ * @text [Map: Default]
  * @desc Default Settings for all map.
  * @default {"ambient":"#333333"}
  * 
+ * @param sep1
+ * @text ==================================
+ * @default ==================================
+ * 
  * @param default
- * @text Lights Default Settings
+ * @text [Lights: Default]
  * @type struct<LightSettings>
  * @desc The default settings for all light. You can use [light] or [light default] in actor/item note or event comment to use this setting. * 
- * @default {"name":"default","filename":"lights","range":"0","offset":"{\"x\":\"0\",\"y\":\"0\"}","rotation":"0","tint":"#ffffff","colorfilter":"{\"hue\":\"0\",\"colortone\":\"rgba(0,0,0,0)\",\"blendcolor\":\"rgba(0,0,0,0)\",\"brightness\":\"255\"}","animation":"{\">Static Effects<\":\"=====================\",\"flicker\":\"{\\\"status\\\":\\\"true\\\",\\\"flickintensity\\\":\\\"1\\\",\\\"flickspeed\\\":\\\"1\\\"}\",\">Dynamic Effects<\":\"=====================\",\"pulse\":\"{\\\"status\\\":\\\"false\\\",\\\"pulsefactor\\\":\\\"1\\\",\\\"pulsespeed\\\":\\\"1\\\"}\",\"rotation\":\"{\\\"rotatespeed\\\":\\\"1\\\"}\"}","shadow":"true","static":"auto","bwall":"false"}
+ * @default {"name":"default","filename":"lights","range":"1","direction":"true","sep0":"==================================","tint":"#ffffff","colorfilter":"{\"hue\":\"0\",\"colortone\":\"rgba(0,0,0,0)\",\"blendcolor\":\"rgba(0,0,0,0)\",\"brightness\":\"255\"}","sep1":"==================================","animation":"{\">Static Effects<\":\"=====================\",\"flicker\":\"{\\\"status\\\":\\\"false\\\",\\\"flickintensity\\\":\\\"1\\\",\\\"flickspeed\\\":\\\"1\\\"}\",\">Dynamic Effects<\":\"=====================\",\"pulse\":\"{\\\"status\\\":\\\"true\\\",\\\"pulsefactor\\\":\\\"1\\\",\\\"pulsespeed\\\":\\\"1\\\"}\",\"rotation\":\"{\\\"rotatespeed\\\":\\\"1\\\"}\"}","sep2":"==================================","offset":"{\"x\":\"0\",\"y\":\"0\"}","rotation":"","sep4":"==================================","shadow":"true","static":"auto","bwall":"false"}
  * 
  * @param LightList
- * @text [List: Custom Lights]
+ * @text [Lights: Custom]
  * @type struct<LightSettings>[]
  * @default []
  * 
@@ -80,65 +88,84 @@
  */
 /*~struct~LightSettings:
  * @param name
- * @text Light Name
+ * @text Ref
  * @desc The registered name for this light. Use [light <name>] to use it. Ex: [light flashlight]; [light] is equivalent as [light default]
  * 
  * @param filename
- * @text File
+ * @text Image
  * @type file
  * @dir img/lights/
  * @desc The filename of the default light (string).
  * @default lights
  * 
  * @param range
- * @text Range
- * @type number
+ * @text Scale
  * @desc The range (scale) of the default light (float).
- * @default 100
+ * @default 1
+ * 
+ * @param direction
+ * @text Direction
+ * @desc Sync with direction setting. Will be overrided if set advanced rotation.
+ * @default false
+ * 
+ * @param sep0
+ * @text ==================================
+ * @default ==================================
+ * 
+ * @param tint
+ * @text [Color: Tint]
+ * @desc The tint of the default light (Hexadecimal). #ffffff is unchanged.  Leave this blank to generate random color.
+ * @default #ffffff
+ * 
+ * @param colorfilter
+ * @text [Color: Filters]
+ * @type struct<ColorFilterSettings>
+ * @desc The color setting for default light.
+ * @default {"hue":"0","colortone":"[\"0\",\"0\",\"0\",\"0\"]","blendcolor":"[\"0\",\"0\",\"0\",\"0\"]","brightness":"255"}
+ * 
+ * @param sep1
+ * @text ==================================
+ * @default ==================================
+ * 
+ * @param animation
+ * @text [Animation: Settings]
+ * @type struct<AnimationSettings>
+ * @desc The animation setting for default light.
+ * 
+ * @param sep2
+ * @text ==================================
+ * @default ================================== 
+ *
  * 
  * @param offset
- * @text Offset
+ * @text [Advanced: Offset]
  * @type struct<OffsetSettings>
  * @desc The offset coordinate.
  * @default {"x":"0","y":"0"}
  * 
  * @param rotation
- * @text Rotation
- * @type combo
- * @desc Rotation in angle. ("auto" to make the light automatically sync with character direction);
- * @option auto
- * @option animate
- * @default 0
+ * @text [Advanced: Rotation]
+ * @type Number
+ * @desc Rotation in angle. Setting this will override default direction syncing and disable it. 
+ * @default 
  * 
- * @param tint
- * @text Tint
- * @desc The tint of the default light (Hexadecimal). #ffffff is unchanged.  Leave this blank to generate random color.
- * @default #ffffff
- * 
- * @param colorfilter
- * @text Color Settings
- * @type struct<ColorFilterSettings>
- * @desc The color setting for default light.
- * @default {"hue":"0","colortone":"[\"0\",\"0\",\"0\",\"0\"]","blendcolor":"[\"0\",\"0\",\"0\",\"0\"]","brightness":"255"}
- * 
- * @param animation
- * @text Animation Settings
- * @type struct<AnimationSettings>
- * @desc The animation setting for default light.
+ * @param sep4
+ * @text ==================================
+ * @default ================================== 
  * 
  * @param shadow
- * @text Cast Shadow
+ * @text [Shadow]
  * @type boolean
  * @desc Set the shadow status.
  * @default true
  * 
  * @param static
- * @text Static/Dynamic.
+ * @text [Shadow: State]
  * @desc The static/dynamic state for light. (static/auto)
  * @default auto
  * 
  * @param bwall
- * @text Behind Wall
+ * @text [Shadow: z-Index]
  * @type boolean
  * @desc Is this light behind the wall or not?
  * @default false
@@ -300,7 +327,7 @@ Shora.CallCommand = function(params, line) {
                 params.name = command[2];
                 break;
             case 'rotation':
-                params.rotation = command[2] == 'auto' ? 'auto' : Number(command[2]);
+                params.rotation = Number(command[2]);
                 break;
             case 'pulsefactor':
             case 'pulsespeed':

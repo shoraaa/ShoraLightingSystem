@@ -469,6 +469,8 @@ class GameLighting {
         }
         console.log('Lighting ' + name + ' has been registered');
         parameters.range = Number(parameters.range);
+        parameters.direction = parameters.direction === 'true';
+
         parameters.tint = parameters.tint.toHexValue();
 
         parameters.wall = parameters.bwall === 'false';
