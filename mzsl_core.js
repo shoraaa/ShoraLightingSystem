@@ -31,8 +31,8 @@
  * @text [Lights: Default]
  * @type struct<LightSettings>
  * @desc The default settings for all light. You can use [light] or [light default] in actor/item note or event comment to use this setting. * 
- * @default {"name":"default","filename":"lights","range":"1","direction":"true","sep0":"==================================","tint":"#ffffff","colorfilter":"{\"hue\":\"0\",\"colortone\":\"rgba(0,0,0,0)\",\"blendcolor\":\"rgba(0,0,0,0)\",\"brightness\":\"255\"}","sep1":"==================================","animation":"{\">Static Effects<\":\"=====================\",\"flicker\":\"{\\\"status\\\":\\\"false\\\",\\\"flickintensity\\\":\\\"1\\\",\\\"flickspeed\\\":\\\"1\\\"}\",\">Dynamic Effects<\":\"=====================\",\"pulse\":\"{\\\"status\\\":\\\"true\\\",\\\"pulsefactor\\\":\\\"1\\\",\\\"pulsespeed\\\":\\\"1\\\"}\",\"rotation\":\"{\\\"rotatespeed\\\":\\\"1\\\"}\"}","sep2":"==================================","offset":"{\"x\":\"0\",\"y\":\"0\"}","rotation":"","sep4":"==================================","shadow":"true","static":"auto","bwall":"false"}
- * 
+ * @default {"name":"default","filename":"lights","range":"1","sep0":"==================================","tint":"#ffffff","colorfilter":"{\"hue\":\"0\",\"colortone\":\"rgba(0,0,0,0)\",\"blendcolor\":\"rgba(0,0,0,0)\",\"brightness\":\"255\"}","sep1":"==================================","animation":"{\".Static\":\"=====================\",\"flicker\":\"{\\\"status\\\":\\\"false\\\",\\\"flickintensity\\\":\\\"1\\\",\\\"flickspeed\\\":\\\"1\\\"}\",\".Dynamic\":\"=====================\",\"pulse\":\"{\\\"status\\\":\\\"true\\\",\\\"pulsefactor\\\":\\\"1\\\",\\\"pulsespeed\\\":\\\"1\\\"}\",\"rotation\":\"{\\\"rotatespeed\\\":\\\"1\\\"}\"}","sep2":"==================================","offset":"{\"x\":\"0\",\"y\":\"0\"}","direction":"false","rotation":"0","sep4":"==================================","shadow":"true","static":"auto","bwall":"false"}
+ *  
  * @param LightList
  * @text [Lights: Custom]
  * @type struct<LightSettings>[]
@@ -103,11 +103,6 @@
  * @desc The range (scale) of the default light (float).
  * @default 1
  * 
- * @param direction
- * @text Direction
- * @desc Sync with direction setting. Will be overrided if set advanced rotation.
- * @default false
- * 
  * @param sep0
  * @text ==================================
  * @default ==================================
@@ -131,6 +126,7 @@
  * @text [Animation: Settings]
  * @type struct<AnimationSettings>
  * @desc The animation setting for default light.
+ * @default {".Static":"=====================","flicker":"{\"status\":\"true\",\"flickintensity\":\"1\",\"flickspeed\":\"1\"}",".Dynamic":"=====================","pulse":"{\"status\":\"false\",\"pulsefactor\":\"1\",\"pulsespeed\":\"1\"}","rotation":"{\"rotatespeed\":\"1\"}"}
  * 
  * @param sep2
  * @text ==================================
@@ -143,11 +139,17 @@
  * @desc The offset coordinate.
  * @default {"x":"0","y":"0"}
  * 
+ * @param direction
+ * @text -[Advanced: Direction]
+ * @type boolean
+ * @desc Sync with direction setting. Will be overrided if set advanced rotation.
+ * @default false
+ * 
  * @param rotation
- * @text [Advanced: Rotation]
+ * @text -[Advanced: Rotation]
  * @type Number
  * @desc Rotation in angle. Setting this will override default direction syncing and disable it. 
- * @default 
+ * @default 0
  * 
  * @param sep4
  * @text ==================================
@@ -194,21 +196,23 @@
  * @default 255
  */
 /*~struct~AnimationSettings:
- * @param >Static Effects<
+ * @param .Static
+ * @text [Effects: Static]
  * @default =====================
  * @param flicker
- * @text Flicker Effect
- * @parent >Static Effects<
+ * @text - [Flicker]
+ * @parent Static
  * @type struct<FlickerAnimation>
- * @param >Dynamic Effects<
+ * @param .Dynamic
+ * @text [Effect: Dynamic]
  * @default =====================
  * @param pulse
- * @text Pulse Effect
- * @parent >Dynamic Effects<
+ * @text - [Pulse]
+ * @parent Dynamic
  * @type struct<PulseAnimation>
  * @param rotation
- * @text Rotation Effect
- * @parent >Dynamic Effects<
+ * @text - [Rotation]
+ * @parent Dynamic
  * @type struct<RotationAnimation>
 */
 /*~struct~OffsetSettings:
@@ -316,6 +320,8 @@ Shora.Lighting.PARAMETERS = PluginManager.parameters(Shora.Lighting.pluginName);
 
 Shora.tempMatrix = new PIXI.Matrix();
 Shora.maskTexture = PIXI.RenderTexture.create({ width: 0, height: 0 });
+
+Shora.DEBUG_GRAPHICS = new PIXI.Graphics();
 
 Shora.CallCommand = function(params, line) {
     if (!line) return;

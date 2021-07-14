@@ -52,7 +52,7 @@ class LightingSprite extends PIXI.Sprite {
         this.scale.x = this.scale.y = options.range;
 
         // direction
-        if (options.rotation != "") {
+        if (options.rotation > 0) {
             // this.rotate = new RotationAnimation(this, options.rotation, options.animation.rotation);
             this.rotation = options.rotation / 360 * 6.25;
         } else if (options.direction) {
@@ -115,7 +115,7 @@ class LightingSprite extends PIXI.Sprite {
         this.pulse.destroy();
         this.flicker.destroy();
         this.color.destroy();
-        this.direction.destroy();
+        if (this.direction) this.direction.destroy();
         if (this._shadow) {
             this.renderTexture.destroy(true);
             this.renderTexture = null;
@@ -174,8 +174,9 @@ class LightingSprite extends PIXI.Sprite {
             }
         } else if (this.filters) {
             // snap
+            this.shadow.mask.renderable = true;
             //console.log('snapped');
-            this.rotation = 0;
+            //this.rotation = 0;
             this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
             this.snapshot();
             this.setMask(null);
@@ -294,8 +295,11 @@ class Shadow {
     destroy() {
         this.polygon = null; this.bounds = null; this._parallelSegments = null;
         this._shadowMask.destroy(true); this._shadowMask = null;
-        this._shadowTexture.destroy(true); this._shadowTexture = null;
-        this.shadowMask.destroy(true); this.shadowMask = null;
+        this._shadowTexture = null; this.shadowMask = null;
+        /* this will get destroyed by layer call
+        this._shadowTexture.destroy(true); 
+        this.shadowMask.destroy(true); 
+        */
         this.bounds = null;
     }
 

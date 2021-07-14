@@ -298,18 +298,20 @@ class DirectionManager {
         this._sprite = null;
     }
 
-    static dest = [ [3.125, 4.6875, 1.5625, 0],
-                    [-3.125, -1.5625, -4.6825, 6.25] ];
+    static dest = [3.125, 4.6875, 1.5625, 0]; //[ [3.125, 4.6875, 1.5625, 0], [-3.125, -1.5625, -4.6825, 6.25] ];
     angle() {
-        let x = DirectionManager.dest[0][this.direction / 2 - 1], 
-            y = DirectionManager.dest[1][this.direction / 2 - 1];
-        return (Math.abs(this._sprite.rotation - x) < Math.abs(this._sprite.rotation - y) ? x : y);
+        let x = DirectionManager.dest[this.direction / 2 - 1];
+        if (Math.abs(this._sprite.rotation - 6.25 - x) < Math.abs(this._sprite.rotation - x)) 
+            this._sprite.rotation -= 6.25;
+        else if (Math.abs(this._sprite.rotation + 6.25 - x) < Math.abs(this._sprite.rotation - x)) 
+            this._sprite.rotation += 6.25;
+        return x;
     }
 
     update() {
         if (this.direction != this._sprite.character.direction()) {
             this.direction = this._sprite.character.direction();
-            this.rotate.set(this.angle(), 30, 2);
+            this.rotate.set(this.angle(), 20, 2);
          }
         this.rotate.update();
     }

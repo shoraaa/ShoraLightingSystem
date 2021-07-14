@@ -469,6 +469,8 @@ class GameLighting {
         }
         console.log('Lighting ' + name + ' has been registered');
         parameters.range = Number(parameters.range);
+
+        parameters.rotation = Number(parameters.rotation);
         parameters.direction = parameters.direction === 'true';
 
         parameters.tint = parameters.tint.toHexValue();
@@ -491,7 +493,7 @@ class GameLighting {
 
         parameters.animation = JSON.parse(parameters.animation);
         for (const p in parameters.animation) {
-            if (p[0] === '>') continue;
+            if (p[0] === '.') continue;
             parameters.animation[p] = JSON.parse(parameters.animation[p]);
             for (let a in parameters.animation[p]) {
                 parameters.animation[p][a] = JSON.parse(parameters.animation[p][a]);
@@ -612,7 +614,7 @@ class GameShadow {
         for (var i = 0; i < $gameMap.height(); ++i) {
             this.topWalls.push([]);
             for (var j = 0; j < $gameMap.width(); ++j) {
-                if ($gameMap.regionId(j, i) - regionStart > 0) {
+                if ($gameMap.regionId(j, i) >= regionStart) {
                     this.map[i][j] = $gameMap.regionId(j, i) - regionStart;
                 }
                 if (this.map[i][j]) {

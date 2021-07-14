@@ -31,8 +31,8 @@
  * @text [Lights: Default]
  * @type struct<LightSettings>
  * @desc The default settings for all light. You can use [light] or [light default] in actor/item note or event comment to use this setting. * 
- * @default {"name":"default","filename":"lights","range":"1","direction":"true","sep0":"==================================","tint":"#ffffff","colorfilter":"{\"hue\":\"0\",\"colortone\":\"rgba(0,0,0,0)\",\"blendcolor\":\"rgba(0,0,0,0)\",\"brightness\":\"255\"}","sep1":"==================================","animation":"{\">Static Effects<\":\"=====================\",\"flicker\":\"{\\\"status\\\":\\\"false\\\",\\\"flickintensity\\\":\\\"1\\\",\\\"flickspeed\\\":\\\"1\\\"}\",\">Dynamic Effects<\":\"=====================\",\"pulse\":\"{\\\"status\\\":\\\"true\\\",\\\"pulsefactor\\\":\\\"1\\\",\\\"pulsespeed\\\":\\\"1\\\"}\",\"rotation\":\"{\\\"rotatespeed\\\":\\\"1\\\"}\"}","sep2":"==================================","offset":"{\"x\":\"0\",\"y\":\"0\"}","rotation":"","sep4":"==================================","shadow":"true","static":"auto","bwall":"false"}
- * 
+ * @default {"name":"default","filename":"lights","range":"1","sep0":"==================================","tint":"#ffffff","colorfilter":"{\"hue\":\"0\",\"colortone\":\"rgba(0,0,0,0)\",\"blendcolor\":\"rgba(0,0,0,0)\",\"brightness\":\"255\"}","sep1":"==================================","animation":"{\".Static\":\"=====================\",\"flicker\":\"{\\\"status\\\":\\\"false\\\",\\\"flickintensity\\\":\\\"1\\\",\\\"flickspeed\\\":\\\"1\\\"}\",\".Dynamic\":\"=====================\",\"pulse\":\"{\\\"status\\\":\\\"true\\\",\\\"pulsefactor\\\":\\\"1\\\",\\\"pulsespeed\\\":\\\"1\\\"}\",\"rotation\":\"{\\\"rotatespeed\\\":\\\"1\\\"}\"}","sep2":"==================================","offset":"{\"x\":\"0\",\"y\":\"0\"}","direction":"false","rotation":"0","sep4":"==================================","shadow":"true","static":"auto","bwall":"false"}
+ *  
  * @param LightList
  * @text [Lights: Custom]
  * @type struct<LightSettings>[]
@@ -103,11 +103,6 @@
  * @desc The range (scale) of the default light (float).
  * @default 1
  * 
- * @param direction
- * @text Direction
- * @desc Sync with direction setting. Will be overrided if set advanced rotation.
- * @default false
- * 
  * @param sep0
  * @text ==================================
  * @default ==================================
@@ -131,6 +126,7 @@
  * @text [Animation: Settings]
  * @type struct<AnimationSettings>
  * @desc The animation setting for default light.
+ * @default {".Static":"=====================","flicker":"{\"status\":\"true\",\"flickintensity\":\"1\",\"flickspeed\":\"1\"}",".Dynamic":"=====================","pulse":"{\"status\":\"false\",\"pulsefactor\":\"1\",\"pulsespeed\":\"1\"}","rotation":"{\"rotatespeed\":\"1\"}"}
  * 
  * @param sep2
  * @text ==================================
@@ -143,11 +139,17 @@
  * @desc The offset coordinate.
  * @default {"x":"0","y":"0"}
  * 
+ * @param direction
+ * @text -[Advanced: Direction]
+ * @type boolean
+ * @desc Sync with direction setting. Will be overrided if set advanced rotation.
+ * @default false
+ * 
  * @param rotation
- * @text [Advanced: Rotation]
+ * @text -[Advanced: Rotation]
  * @type Number
  * @desc Rotation in angle. Setting this will override default direction syncing and disable it. 
- * @default 
+ * @default 0
  * 
  * @param sep4
  * @text ==================================
@@ -194,21 +196,23 @@
  * @default 255
  */
 /*~struct~AnimationSettings:
- * @param >Static Effects<
+ * @param .Static
+ * @text [Effects: Static]
  * @default =====================
  * @param flicker
- * @text Flicker Effect
- * @parent >Static Effects<
+ * @text - [Flicker]
+ * @parent Static
  * @type struct<FlickerAnimation>
- * @param >Dynamic Effects<
+ * @param .Dynamic
+ * @text [Effect: Dynamic]
  * @default =====================
  * @param pulse
- * @text Pulse Effect
- * @parent >Dynamic Effects<
+ * @text - [Pulse]
+ * @parent Dynamic
  * @type struct<PulseAnimation>
  * @param rotation
- * @text Rotation Effect
- * @parent >Dynamic Effects<
+ * @text - [Rotation]
+ * @parent Dynamic
  * @type struct<RotationAnimation>
 */
 /*~struct~OffsetSettings:
@@ -316,6 +320,8 @@ Shora.Lighting.PARAMETERS = PluginManager.parameters(Shora.Lighting.pluginName);
 
 Shora.tempMatrix = new PIXI.Matrix();
 Shora.maskTexture = PIXI.RenderTexture.create({ width: 0, height: 0 });
+
+Shora.DEBUG_GRAPHICS = new PIXI.Graphics();
 
 Shora.CallCommand = function(params, line) {
     if (!line) return;
@@ -691,6 +697,825 @@ Shora.warn = function(err) {
     const message = new PIXI.Text('Shora Lighting Plugin: ' + err, {fontFamily : 'Arial', fontSize: 12, fill : 0xffffff, align : 'left'});
     message.y += Shora.MessageY; Shora.MessageY += message.height;
     if (Graphics.app.stage) Graphics.app.stage.addChild(message);
+}
+
+
+
+class LightingSurface extends PIXI.Graphics {
+    constructor() {
+        super();
+        this.id = -1;
+        this.beginFill(0xffffff);
+	    this.drawRect(0, 0, Graphics.width, Graphics.height);
+        this.endFill();
+        this.tint = 0xffffff;
+        this.color = new ColorAnimation(this, $gameLighting.shadowColor());
+    }
+
+    destroy() {
+        this.color.destroy();
+        this.color = null;
+        super.destroy();
+    }
+
+    setMapColor(color, time) {
+        $gameLighting.PARAMETERS.ambient = color;
+        this.color.set(color, time || 1);
+    }
+
+    update() {
+        this.color.update();
+        $gameLighting.PARAMETERS.ambient = this.tint;
+    }
+    updateDisplay() {
+        //
+    }
+
+}
+
+class LightingSprite extends PIXI.Sprite {
+    constructor(options) {
+        super();
+
+        this.renderable = false;
+        this.id = options.id;
+        this.static = options.static;
+
+        this.fileName = options.filename;
+        this.lightName = options.name;
+        this.colorFilter = options.colorfilter;
+
+        this.updateTexture();
+
+        this.offset = new OffsetAnimation(options.offset.x, options.offset.y);
+        this.setPostion(options);
+        this.anchor = new PIXI.Point(0.5, 0.5);
+        this.scale.x = this.scale.y = options.range;
+
+        // direction
+        if (options.rotation > 0) {
+            // this.rotate = new RotationAnimation(this, options.rotation, options.animation.rotation);
+            this.rotation = options.rotation / 360 * 6.25;
+        } else if (options.direction) {
+            this.direction = new DirectionManager(this);
+        }
+
+        // animation
+        this.pulse = new PulseAnimation(this, options.animation.pulse, this.scale.x);
+        this.flicker = new FlickerAnimation(this, options.animation.flicker);
+        this.color = new ColorAnimation(this, Number(options.tint));
+
+        this._shadow = options.shadow;
+        if (this._shadow) {
+            this._static = options.static;
+            this.shadowOffsetX = options.shadowOffsetX || 0;
+            this.shadowOffsetY = options.shadowOffsetY || 0; // 54.00001; tw * h + 6 + eps
+            this.shadowOffsetY += $gameShadow.getWallHeight(this.globalX(), this.globalY());
+            this.renderTexture = PIXI.RenderTexture.create({ width: this.width, height: this.height }); // texture to cache
+            this.shadow = new Shadow(this.globalX() + this.shadowOffsetX, this.globalY() + this.shadowOffsetY, this.globalBounds());
+            this.setMask(this.shadow.mask);
+            if (this._static) {
+                this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
+                this.snapshot();
+                this.setMask(null);
+                this.shadow.destroy();
+                this.shadow = null;
+            }
+        } else {
+            this.blendMode = PIXI.BLEND_MODES.ADD;
+        }
+
+        this.updateDisplay();
+    }
+
+    setMask(sprite) {
+        if (!sprite) {
+            this.mask = null;
+            this.filters = null;
+            this.blendMode = PIXI.BLEND_MODES.ADD;
+            return;
+        }
+        if (sprite instanceof PIXI.Graphics) {
+            this.filters = null;
+            this.mask = sprite;
+            this.blendMode = PIXI.BLEND_MODES.ADD;
+        } else {
+            this.mask = null;
+            this.blendMode = 0;
+            if (!this.shadowFilter) {
+                this.shadowFilter = [new PIXI.SpriteMaskFilter(sprite)];
+                this.shadowFilter[0].blendMode = PIXI.BLEND_MODES.ADD;
+            }
+            this.filters = this.shadowFilter;
+        }
+    }
+
+    destroy() {
+        this.character.lighting = null;
+        this.character = null;
+        this.pulse.destroy();
+        this.flicker.destroy();
+        this.color.destroy();
+        if (this.direction) this.direction.destroy();
+        if (this._shadow) {
+            this.renderTexture.destroy(true);
+            this.renderTexture = null;
+            if (this.shadow) this.shadow.destroy();
+            this.shadow = null;
+            this.shadowFilter[0].destroy();
+            this.shadowFilter = null;
+        }
+        this.pulse = null;
+        this.flicker = null;
+        this.color = null;
+        this.offset = null;
+        this.rotate = null;
+        this.filters = null;
+        super.destroy();
+    }
+
+    snapshot() {
+        TextureManager.snapshot(this)
+    }
+
+    update() {
+        this.updatePostion();
+        this.updateShadow();
+        this.updateAnimation();
+    }
+
+    needUpdateShadowMask() {
+        return this.character.isMoving() || this.pulse.updating()
+        || (this.direction && this.direction.rotate.updating());// || !this.rotate;
+    }
+
+    needRecalculateShadow() {
+        return this.character.isMoving() || this.offset.updating() || !this.id;
+    }
+
+    updateShadow() {
+        if (!this._shadow || this._static || !this.renderable) return;
+
+        // if shadow stopped -> take a snap
+        if (this.needUpdateShadowMask()) {
+            // update shadow
+            //this.shadow.mask.renderable = true;
+            if (this.needRecalculateShadow()) 
+                this.shadow.update(this.x + this.shadowOffsetX, this.y + this.shadowOffsetY, this.localBounds());
+            else {
+                // pulse and rotation need only the mask to update global postion
+                this.shadow.mask.x = -$gameMap.displayX() * $gameMap.tileWidth(); 
+                this.shadow.mask.y = -$gameMap.displayY() * $gameMap.tileHeight();
+                //console.log(this.shadow.mask.x, this.shadow.mask.y);
+            }
+            // update mask 
+            if (!this.filters) {
+                this.updateTexture(); 
+                this.setMask(this.shadow.mask);
+            }
+        } else if (this.filters) {
+            // snap
+            this.shadow.mask.renderable = true;
+            //console.log('snapped');
+            //this.rotation = 0;
+            this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
+            this.snapshot();
+            this.setMask(null);
+            this.shadow.mask.renderable = false;
+        }
+    }
+
+    updatePostion() {
+        this.x = this.character.screenX() + this.offset.x;
+        this.y = this.character.screenY() + this.offset.y;
+    }
+
+    updateAnimation() {
+        if (!this.renderable) return;
+        this.flicker.update();
+        this.offset.update();
+        this.color.update();
+        this.pulse.update();
+        if (this.direction) this.direction.update();
+    }
+
+    updateDisplay() {
+        let [x, y] = [this.character.screenX(), this.character.screenY()];
+        let minX = x - (this.width / 2),
+            minY = y - (this.height / 2),
+            maxX = x + (this.width / 2),
+            maxY = y + (this.height / 2);
+        this.renderable = $gameLighting.inDisplay(minX, minY, maxX, maxY);
+    }
+
+    globalX() {
+        return this.x + $gameMap.displayX() * $gameMap.tileWidth() + this.shadowOffsetX;
+    }
+
+    globalY() {
+        return this.y + $gameMap.displayY() * $gameMap.tileHeight() + this.shadowOffsetY;
+    }
+
+    globalBounds() {
+        let bounds = this.getBounds();
+        bounds.x += $gameMap.displayX() * $gameMap.tileWidth() + this.shadowOffsetX;
+        bounds.y += $gameMap.displayY() * $gameMap.tileHeight() + this.shadowOffsetY;
+        return bounds;
+    }
+
+    localBounds() {
+        const bounds = this.getBounds();
+        bounds.x += this.shadowOffsetX;
+        bounds.y += this.shadowOffsetY;
+        return bounds;
+    }
+
+    setPostion(options) {
+        this.character = options.character;
+        this.x = this.character.screenX();
+        this.y = this.character.screenY();
+    }
+
+    updateTexture() {
+        this.texture = TextureManager.filter($shoraLayer.load(this.fileName), this.colorFilter, this.lightName);
+    }
+
+    // command
+    /**
+     * Set light to color in time tick(s).
+     * @param {Number} color 
+     * @param {Number} time 
+     */
+    setColor(color, time) {
+        this.color.set(color, time || 1);
+    }
+
+    setRange(range, time) {
+        this.pulse.set(range, time || 1);
+    }
+
+    setOffsetX(x, time, type) {
+        this.offset.setX(x, time || 1, type);
+    }
+
+    setOffsetY(y, time, type) {
+        this.offset.setY(y, time || 1);
+    }
+
+    setRotation(angle, time, type) {
+        this.rotate.setAuto(false);
+        this.rotate.set((angle / 360) * 6.25, time || 1, type);
+    }
+
+    setAutoDirection(auto) {
+        this.rotate.setAuto(auto);
+    }
+
+    setShadow(shadow) {
+        this._shadow = shadow;
+    }
+
+    setStatic(_static) {
+        this.static = _static;
+    }
+}
+
+class Shadow {
+    get mask() {
+        return this.shadowMask;
+    }
+    constructor(ox, oy, bounds) {
+        // TODO: Calculate Transform.
+        this._shadowMask = new PIXI.Graphics();
+        this._shadowTexture = PIXI.RenderTexture.create($gameLighting.width(), $gameLighting.height());
+        this.shadowMask = new PIXI.Sprite(this._shadowTexture);
+
+        this.updateGlobal(ox, oy, bounds);
+    }
+
+    destroy() {
+        this.polygon = null; this.bounds = null; this._parallelSegments = null;
+        this._shadowMask.destroy(true); this._shadowMask = null;
+        this._shadowTexture = null; this.shadowMask = null;
+        /* this will get destroyed by layer call
+        this._shadowTexture.destroy(true); 
+        this.shadowMask.destroy(true); 
+        */
+        this.bounds = null;
+    }
+
+    update(x, y, bounds) {
+        //console.log("update x =" + x + " y = " + y);
+        this.polygon = ShadowManager.computeViewport([x, y], $gameShadow.segments, [this.bounds.left, this.bounds.top], [this.bounds.right, this.bounds.bottom]);
+        this.bounds = bounds;
+        this._parallelSegments = {};
+        this._shadowMask.clear();
+        this.draw(y, $gameShadow.lowerWalls);
+        Graphics.app.renderer.render(this._shadowMask, this._shadowTexture);
+        // top-wall
+        Graphics.app.renderer.render($gameShadow.upperWalls, this._shadowTexture, false);
+    }
+
+    updateGlobal(ox, oy, bounds) {
+        //console.log("update global x =" + ox + " y = " + oy);
+        this.bounds = bounds;
+        this.polygon = ShadowManager.computeViewport([ox, oy], $gameShadow.globalSegments, [this.bounds.left, this.bounds.top], [this.bounds.right, this.bounds.bottom]);
+        this._parallelSegments = {};
+        this._shadowMask.clear();
+        this.draw(oy, $gameShadow.globalLowerWalls);
+        Graphics.app.renderer.render(this._shadowMask, this._shadowTexture);
+        // top-wall
+        let {x, y} = $gameShadow.upperWalls;
+        $gameShadow.upperWalls.x = $gameShadow.upperWalls.y = 0;
+        Graphics.app.renderer.render($gameShadow.upperWalls, this._shadowTexture, false);
+        $gameShadow.upperWalls.x = x; $gameShadow.upperWalls.y = y;
+    }
+
+    drawWall(index, oy, lowerWalls) {
+		let [x, y] = this.polygon[index], last = (index == 0 ? this.polygon.length - 1 : index - 1);
+		let [nx, ny] = this.polygon[last];
+
+		let tw = $gameMap.tileWidth();
+		if (y == ny) {
+			if (!this._parallelSegments[y]) this._parallelSegments[y] = [];
+			this._parallelSegments[y].push([nx, x]);
+		}
+		for (let i = 0; i < lowerWalls.length; ++i) {
+			let [x2, y2, x1, y1, height] = lowerWalls[i];
+			if (y == ny && y == y1 && x >= x1 && x <= x2 && nx >= x1 && nx <= x2 && oy >= y1) {
+				this._shadowMask.lineTo(nx, ny - tw * height)
+							   .lineTo(x, y - tw * height)
+			}
+		}
+	};
+
+    containParallelSegment(y, u, v) {
+		if (!this._parallelSegments[y]) return false;
+		let lo = 0, hi = this._parallelSegments[y].length - 1, result = -1;
+		while (lo <= hi) {
+			let mid = (lo + hi) >> 1;
+			if (this._parallelSegments[y][mid][0] >= u) {
+				result = mid;
+				hi = mid - 1;
+			} else lo = mid + 1;
+		}
+		if (result == -1) return false;
+		let [x1, x2] = this._parallelSegments[y][result];
+		if (v >= x1) return true;
+		if (result === 0) return false; [x1, x2] = this._parallelSegments[y][result - 1];
+		if (v >= x1) return true;
+	}
+
+    draw(oy, lowerWalls) {
+        this._shadowMask.beginFill(0x333333);
+		this._shadowMask.drawRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height);
+		this._shadowMask.endFill();
+
+		this._shadowMask.beginFill(0xffffff);
+		this._shadowMask.moveTo(this.polygon[0][0], this.polygon[0][1]);
+		for (let i = 1; i < this.polygon.length; ++i) {
+			this.drawWall(i, oy, lowerWalls);
+            this._shadowMask.lineTo(this.polygon[i][0], this.polygon[i][1]);
+        }
+        this._shadowMask.lineTo(this.polygon[0][0], this.polygon[0][1]);
+		this.drawWall(0, oy, lowerWalls);
+		if (this.polygon[0][1] == this.polygon[this.polygon.length - 1][1]) {
+			if (!this._parallelSegments[this.polygon[0][1]]) this._parallelSegments[this.polygon[0][1]] = [];
+			this._parallelSegments[this.polygon[0][1]].push([this.polygon[0][0], this.polygon[this.polygon.length - 1][0]]);
+		}
+		this._shadowMask.endFill(); 
+
+		for (let y in this._parallelSegments) {
+			for (let i in this._parallelSegments[y]) {
+				if (this._parallelSegments[y][i][0] > this._parallelSegments[y][i][1])
+				[this._parallelSegments[y][i][0], this._parallelSegments[y][i][1]] = [this._parallelSegments[y][i][1], this._parallelSegments[y][i][0]];
+			}
+			this._parallelSegments[y].sort((a, b) => a[0] - b[0]);
+		}
+
+		//drawing lower-walls
+        this._shadowMask.beginFill(0x333333); 
+        let tw = $gameMap.tileWidth();
+		for (let i = 0; i < lowerWalls.length; ++i) {
+			let [x2, y2, x1, y1, height] = lowerWalls[i];
+            if (this.containParallelSegment(y1, x1, x2)) continue;
+			this._shadowMask.moveTo(x1, y1);
+			this._shadowMask.lineTo(x1, y1-tw*height);
+			this._shadowMask.lineTo(x2, y2-tw*height);
+			this._shadowMask.lineTo(x2, y2);
+		}
+        this._shadowMask.endFill();
+        
+        // drawing top-walls
+        // this._shadowMask.beginFill(0x333333);
+        // for (let i = Math.max(0, Math.floor(this.bounds.top / 48));
+        //     i <= Math.min($gameShadow.topWalls.length - 1, Math.ceil(this.bounds.bottom / 48)); ++i) {
+        //     let j = $gameShadow.topWalls[i].pair_floor_search(this.bounds.left, 1) + 1;
+        //     for (; j < $gameShadow.topWalls[i].length && $gameShadow.topWalls[i][j][0] < this.bounds.right; ++j) {
+        //         let [begin, end] = $gameShadow.topWalls[i][j];
+        //         this._shadowMask.drawRect(begin, i*48, end-begin, 48);
+        //     }
+        // }
+        // this._shadowMask.endFill();
+    }
+}
+
+
+
+class Layer {
+    constructor() {
+        this.baseTextureCache = {};
+        this.lightingCache = {};
+        this.mapId = 0;
+        this.preload();
+    }
+    
+    preload() {
+        const fs = require('fs');
+        const path = require('path');
+        let cache = this.baseTextureCache;
+        let dirPath = path.join(Shora.DIR_PATH, 'img', 'lights');
+		fs.readdir(dirPath, function (err, files) {
+		    if (err) return Shora.warn('Unable to scan directory: ' + err);
+		    files.forEach(function(file) {
+                cache[file] = ImageManager.loadLight(file);
+            });
+		});
+    }
+
+    /**
+     * Load a base texture from cache.
+     * @param {String} name 
+     */
+    load(name) {
+        return this.baseTextureCache[name + '.png']._baseTexture;
+    }
+
+    /**
+     * Return the texture of cached lighting.
+     * @param {String} name 
+     */
+    textureCache(name) {
+        return this.lightingCache[name];
+    }
+
+    /**
+     * Create a layer instance.
+     * @param {Spriteset_Base} spriteset 
+     */
+    createLayer(spriteset) {  
+        this._spriteset = spriteset;
+    }
+
+    loadScene() {
+        Shora.MessageY = 0;
+
+        if ($gameMap.mapId() === this.mapId && this.lighting) {
+            this._spriteset.addChild(this.lighting.lightSprite); return;
+        }
+
+        this.mapId = $gameMap.mapId();
+        if (this.lighting) this.lighting.destroy();
+		switch (this._spriteset.type()) {
+			case 'map':
+				this.lighting = new LightingLayer();
+		}
+        this._spriteset.addChild(this.lighting.lightSprite);
+    }
+
+    update() {
+        this.updateLight();
+    }
+
+    updateLight() {
+        this.lighting.update();
+    }
+    
+}
+
+class LightingLayer {
+    constructor() {
+        this.layer = new PIXI.Container();
+        this.layer.filters = [new PIXI.filters.BlurFilter(1e-4, 2e-4)];
+
+        this.lightTexture = PIXI.RenderTexture.create(Graphics.width, Graphics.height);
+		this.lightSprite = new PIXI.Sprite(this.lightTexture);
+        this.lightSprite.blendMode = PIXI.BLEND_MODES.MULTIPLY;
+        
+        this._displayX = this._displayY = -1;
+
+        $gameShadow.refresh();
+        this.createDarkenLayer();
+        this.createLightingSprite();
+    }
+
+    destroy() {
+        this.layer.destroy(true);
+        this.layer.filters = null;
+        this.layer = null;
+        this.lightTexture.destroy(true);
+        this.lightSprite = null;
+        this.lightTexture = null;
+        $gameLighting._lighting = [];
+    }
+
+    createDarkenLayer() {
+        this._surface = new LightingSurface();
+	    this.layer.addChild(this._surface);
+    }
+
+    createLightingSprite() {
+        for (const light of $gameLighting.lighting()) this.addLight(light);
+    }
+
+    /**
+     * Add a light sprite to layer.
+     * @param {Object} options 
+     */
+    addLight(options) {
+        const lighting = new LightingSprite(options);
+        this.layer.addChild(lighting);
+        if (lighting.shadow) this.layer.addChild(lighting.shadow.mask);
+        return lighting;
+    }
+
+    /**
+     * Remove a light sprite to layer.
+     * @param {Number} id 
+     */
+    removeLight(id) {
+		let index = this.layer.children.findIndex(light => light.id === id);
+        if (index === -1) { Shora.warn('cant remove light' + id); return; }
+        const light = this.layer.removeChildAt(index);
+        light.destroy(light.static);
+	}
+
+    update() {
+        if (this._displayX !== $gameMap.displayX() || this._displayY !== $gameMap.displayY()) {
+            this._displayX = $gameMap.displayX(); this._displayY = $gameMap.displayY();
+            this.updateDisplay();
+        }
+        for (const child of this.layer.children) {
+            if (child.update) child.update();
+        }
+        Graphics.app.renderer.render(this.layer, this.lightTexture, false);
+    }
+
+    updateDisplay() {
+        $gameLighting.updateDisplay();
+        $gameShadow.update();
+        for (const child of this.layer.children) {
+            if (child.updateDisplay) child.updateDisplay();
+        }
+    }
+
+    // command
+    /**
+     * 
+     * @param {Number} color 
+     * @param {Number} time 
+     */
+    setMapColor(color, time) {
+        this._surface.setMapColor(color, time);
+    }
+}
+
+Shora.Animation = class {
+    constructor(sprite, status) {
+        this._sprite = sprite;
+        this._status = status;
+    }
+    static get transition() {
+        return [
+            function(time) { // linear
+                return time;
+            },
+            function(time) { // easeInOut
+                let sqt = time * time;
+                return sqt / (2.0 * (sqt - time) + 1.0);
+            }
+        ]
+    }
+    destroy() {
+        this._sprite = null;
+    }
+}
+
+class FlickerAnimation extends Shora.Animation {
+    constructor(sprite, options) {
+        super(sprite, options.status);
+
+        this.oalpha = 1;
+	    this.flickIntensity = options.flickintensity || 1;
+        this.flickSpeed = options.flickspeed || 1;
+        
+	    this._flickSpeed = 20 * this.flickSpeed;
+	    this._flickIntensity = 1 / (1.1 * this.flickIntensity);
+	    this._flickMax = 1000;
+	    this._flickCounter = this.flickMax;
+    }
+
+    update() {
+        if (!this._status) return;
+        if (this._flickCounter > 0 && Math.randomInt(this._flickCounter / 5) !== 0) {
+            this._flickCounter -= this._flickSpeed;
+            this._sprite.alpha = this.oalpha;
+        } else {
+            this._flickCounter = this._flickMax;
+            this._sprite.alpha = this._flickIntensity;
+        }
+    }
+}
+
+class PulseAnimation extends Shora.Animation {
+    constructor(sprite, options, range) {
+        super(sprite, options.status);
+        this.pulsating = true;
+
+        this.range = range;
+        this.pulseFactor = 0;
+        this.pulseMax = this.range + this.pulseFactor;
+		this.pulseMin = this.range - this.pulseFactor;
+        this.pulseSpeed = options.pulsespeed / 1000;
+        
+        this.tick = this.space = 0;
+    }
+
+    set(range, time) {
+        this.tick = time;
+        this.space = (range - this.range) / time;
+    }
+
+    updating() {
+        return this.pulseFactor !== 0;
+    }
+
+    update() {
+        if (!this._status) {
+            if (this.tick) {
+                this.range += this.space;
+                this.pulseMax = this.range + this.pulseFactor;
+                this.pulseMin = this.range - this.pulseFactor;
+                this.tick--;
+            }
+            return;
+        }
+        let spd = Math.random() / 100 + this.pulseSpeed;
+        if (this.pulsating) {
+	        if (this._sprite.scale.x < this.pulseMax) {
+	            this._sprite.scale.x += spd;
+	            this._sprite.scale.y += spd;
+	        } else {
+	            this.pulsating = false;
+	        }
+	    } else {
+	        if (this._sprite.scale.x > this.pulseMin) {
+	            this._sprite.scale.x -= spd;
+	            this._sprite.scale.y -= spd;
+	        } else {
+	            this.pulsating = true;
+	        }
+	    }
+    }
+}
+
+class RotationAnimation extends Shora.Animation {
+    constructor(sprite, angle) {
+        super(sprite, 0);
+        this.r0 = this.r1 = angle; 
+        this.delta = this.tick = this.time = 0;
+        this._sprite.rotation = angle;
+    }
+
+    updating() {
+        return this._sprite.rotation || this.tick < this.time;
+    }
+
+    update() {
+        if (this.tick < this.time) {
+            this._sprite.rotation = this.r0 + Shora.Animation.transition[this.type](this.tick / this.time) * this.delta;
+            this.tick++;
+        }
+    }
+
+    set(angle, time, type) {
+        this.r0 = this._sprite.rotation; this.r1 = angle;
+        this.delta = this.r1 - this.r0;
+        this.time = time; this.tick = 0;
+        if (type) this.type = type - 1;
+    }
+    
+}
+
+class DirectionManager {
+    constructor(sprite) {
+        this._sprite = sprite; 
+        this.direction = this._sprite.character.direction();
+        this.rotate = new RotationAnimation(sprite, this.angle());
+    }
+
+    destroy() {
+        this.rotate.destroy();
+        this.rotate = null;
+        this._sprite = null;
+    }
+
+    static dest = [3.125, 4.6875, 1.5625, 0]; //[ [3.125, 4.6875, 1.5625, 0], [-3.125, -1.5625, -4.6825, 6.25] ];
+    angle() {
+        let x = DirectionManager.dest[this.direction / 2 - 1];
+        if (Math.abs(this._sprite.rotation - 6.25 - x) < Math.abs(this._sprite.rotation - x)) 
+            this._sprite.rotation -= 6.25;
+        else if (Math.abs(this._sprite.rotation + 6.25 - x) < Math.abs(this._sprite.rotation - x)) 
+            this._sprite.rotation += 6.25;
+        return x;
+    }
+
+    update() {
+        if (this.direction != this._sprite.character.direction()) {
+            this.direction = this._sprite.character.direction();
+            this.rotate.set(this.angle(), 20, 2);
+         }
+        this.rotate.update();
+    }
+
+    /*
+    2 = down, 4 = left, 6 = right, 8 = up
+    0 = orignal
+    3.125 = 180o
+    1.5625 = 90o
+    4.65 = 240o = -90o
+    6.25 = 0o
+    */
+    static mat = [
+        /*  2           4           6           8   */
+/*2*/   [   0       ,  1.5625   ,  4.685    ,  3.125   ],
+/*4*/   [   4.685   ,  0        ,  3.125    ,  1.5625   ],
+/*6*/   [   1.5625  ,  3.125    ,  0        ,  4.685   ],
+/*8*/   [   3.125   ,  1.5625   ,  4.685    ,  0   ]];
+
+}
+
+class OffsetAnimation {
+    constructor(x, y) {
+        this.x = this.ox = x;
+        this.y = this.oy = y;
+        this.tick_x = 2; this.time_x = this.delta_x = 1;
+        this.tick_y = 2; this.time_y = this.delta_y = 1;
+        this.type_x = this.type_y = 0;
+    }
+
+    updating() {
+        return this.tick_x <= this.time_x || this.tick_y <= this.time_y;
+    }
+
+    setX(x, time, type) {
+        this.ox = this.x;
+        this.delta_x = x - this.ox;
+        this.time_x = time; this.tick_x = 1;
+        if (type) this.type_x = type - 1;
+    }
+
+    setY(y, time, type) {
+        this.oy = this.y;
+        this.delta_y = y - this.oy;
+        this.time_y = time; this.tick_y = 1;
+        if (type) this.type_y = type - 1;
+    }
+
+    update() {
+        if (this.tick_x <= this.time_x) {
+            this.x = this.ox + Shora.Animation.transition[this.type_x](this.tick_x / this.time_x) * this.delta_x;
+            this.tick_x++;
+        }
+        if (this.tick_y <= this.time_y) {
+            this.y = this.oy + Shora.Animation.transition[this.type_y](this.tick_y / this.time_y) * this.delta_y;
+            this.tick_y++;
+        }
+    }
+}
+
+class ColorAnimation extends Shora.Animation {
+    constructor(sprite, color) {
+        super(sprite);
+        this._sprite.tint = color;
+
+        this.ocolor = Shora.ColorManager.hexToRGB(color);
+        this.dcolor = this.ocolor;
+        this.tick = this.len = 0;
+    }
+
+    set(color, time) {
+        this.tick = 0; this.len = time;
+        this.ocolor = this.dcolor;
+        this.dcolor = Shora.ColorManager.hexToRGB(color);
+    }
+    update() {
+        if (this.tick < this.len) {
+            let p = this.tick / this.len;
+            this._sprite.tint = Shora.ColorManager.transition(p, this.ocolor, this.dcolor);
+            this.tick++;
+        }
+    }
 }
 
 
@@ -1164,6 +1989,8 @@ class GameLighting {
         }
         console.log('Lighting ' + name + ' has been registered');
         parameters.range = Number(parameters.range);
+
+        parameters.rotation = Number(parameters.rotation);
         parameters.direction = parameters.direction === 'true';
 
         parameters.tint = parameters.tint.toHexValue();
@@ -1186,7 +2013,7 @@ class GameLighting {
 
         parameters.animation = JSON.parse(parameters.animation);
         for (const p in parameters.animation) {
-            if (p[0] === '>') continue;
+            if (p[0] === '.') continue;
             parameters.animation[p] = JSON.parse(parameters.animation[p]);
             for (let a in parameters.animation[p]) {
                 parameters.animation[p][a] = JSON.parse(parameters.animation[p][a]);
@@ -1307,7 +2134,7 @@ class GameShadow {
         for (var i = 0; i < $gameMap.height(); ++i) {
             this.topWalls.push([]);
             for (var j = 0; j < $gameMap.width(); ++j) {
-                if ($gameMap.regionId(j, i) - regionStart > 0) {
+                if ($gameMap.regionId(j, i) >= regionStart) {
                     this.map[i][j] = $gameMap.regionId(j, i) - regionStart;
                 }
                 if (this.map[i][j]) {
@@ -1467,818 +2294,5 @@ class GameShadow {
             }
         }
         return 0;
-    }
-}
-
-
-
-class Layer {
-    constructor() {
-        this.baseTextureCache = {};
-        this.lightingCache = {};
-        this.mapId = 0;
-        this.preload();
-    }
-    
-    preload() {
-        const fs = require('fs');
-        const path = require('path');
-        let cache = this.baseTextureCache;
-        let dirPath = path.join(Shora.DIR_PATH, 'img', 'lights');
-		fs.readdir(dirPath, function (err, files) {
-		    if (err) return Shora.warn('Unable to scan directory: ' + err);
-		    files.forEach(function(file) {
-                cache[file] = ImageManager.loadLight(file);
-            });
-		});
-    }
-
-    /**
-     * Load a base texture from cache.
-     * @param {String} name 
-     */
-    load(name) {
-        return this.baseTextureCache[name + '.png']._baseTexture;
-    }
-
-    /**
-     * Return the texture of cached lighting.
-     * @param {String} name 
-     */
-    textureCache(name) {
-        return this.lightingCache[name];
-    }
-
-    /**
-     * Create a layer instance.
-     * @param {Spriteset_Base} spriteset 
-     */
-    createLayer(spriteset) {  
-        this._spriteset = spriteset;
-    }
-
-    loadScene() {
-        Shora.MessageY = 0;
-
-        if ($gameMap.mapId() === this.mapId && this.lighting) {
-            this._spriteset.addChild(this.lighting.lightSprite); return;
-        }
-
-        this.mapId = $gameMap.mapId();
-        if (this.lighting) this.lighting.destroy();
-		switch (this._spriteset.type()) {
-			case 'map':
-				this.lighting = new LightingLayer();
-		}
-        this._spriteset.addChild(this.lighting.lightSprite);
-    }
-
-    update() {
-        this.updateLight();
-    }
-
-    updateLight() {
-        this.lighting.update();
-    }
-    
-}
-
-class LightingLayer {
-    constructor() {
-        this.layer = new PIXI.Container();
-        this.layer.filters = [new PIXI.filters.BlurFilter(1e-4, 2e-4)];
-
-        this.lightTexture = PIXI.RenderTexture.create(Graphics.width, Graphics.height);
-		this.lightSprite = new PIXI.Sprite(this.lightTexture);
-        this.lightSprite.blendMode = PIXI.BLEND_MODES.MULTIPLY;
-        
-        this._displayX = this._displayY = -1;
-
-        $gameShadow.refresh();
-        this.createDarkenLayer();
-        this.createLightingSprite();
-    }
-
-    destroy() {
-        this.layer.destroy(true);
-        this.layer.filters = null;
-        this.layer = null;
-        this.lightTexture.destroy(true);
-        this.lightSprite = null;
-        this.lightTexture = null;
-        $gameLighting._lighting = [];
-    }
-
-    createDarkenLayer() {
-        this._surface = new LightingSurface();
-	    this.layer.addChild(this._surface);
-    }
-
-    createLightingSprite() {
-        for (const light of $gameLighting.lighting()) this.addLight(light);
-    }
-
-    /**
-     * Add a light sprite to layer.
-     * @param {Object} options 
-     */
-    addLight(options) {
-        const lighting = new LightingSprite(options);
-        this.layer.addChild(lighting);
-        if (lighting.shadow) this.layer.addChild(lighting.shadow.mask);
-        return lighting;
-    }
-
-    /**
-     * Remove a light sprite to layer.
-     * @param {Number} id 
-     */
-    removeLight(id) {
-		let index = this.layer.children.findIndex(light => light.id === id);
-        if (index === -1) { Shora.warn('cant remove light' + id); return; }
-        const light = this.layer.removeChildAt(index);
-        light.destroy(light.static);
-	}
-
-    update() {
-        if (this._displayX !== $gameMap.displayX() || this._displayY !== $gameMap.displayY()) {
-            this._displayX = $gameMap.displayX(); this._displayY = $gameMap.displayY();
-            this.updateDisplay();
-        }
-        for (const child of this.layer.children) {
-            if (child.update) child.update();
-        }
-        Graphics.app.renderer.render(this.layer, this.lightTexture, false);
-    }
-
-    updateDisplay() {
-        $gameLighting.updateDisplay();
-        $gameShadow.update();
-        for (const child of this.layer.children) {
-            if (child.updateDisplay) child.updateDisplay();
-        }
-    }
-
-    // command
-    /**
-     * 
-     * @param {Number} color 
-     * @param {Number} time 
-     */
-    setMapColor(color, time) {
-        this._surface.setMapColor(color, time);
-    }
-}
-
-Shora.Animation = class {
-    constructor(sprite, status) {
-        this._sprite = sprite;
-        this._status = status;
-    }
-    static get transition() {
-        return [
-            function(time) { // linear
-                return time;
-            },
-            function(time) { // easeInOut
-                let sqt = time * time;
-                return sqt / (2.0 * (sqt - time) + 1.0);
-            }
-        ]
-    }
-    destroy() {
-        this._sprite = null;
-    }
-}
-
-class FlickerAnimation extends Shora.Animation {
-    constructor(sprite, options) {
-        super(sprite, options.status);
-
-        this.oalpha = 1;
-	    this.flickIntensity = options.flickintensity || 1;
-        this.flickSpeed = options.flickspeed || 1;
-        
-	    this._flickSpeed = 20 * this.flickSpeed;
-	    this._flickIntensity = 1 / (1.1 * this.flickIntensity);
-	    this._flickMax = 1000;
-	    this._flickCounter = this.flickMax;
-    }
-
-    update() {
-        if (!this._status) return;
-        if (this._flickCounter > 0 && Math.randomInt(this._flickCounter / 5) !== 0) {
-            this._flickCounter -= this._flickSpeed;
-            this._sprite.alpha = this.oalpha;
-        } else {
-            this._flickCounter = this._flickMax;
-            this._sprite.alpha = this._flickIntensity;
-        }
-    }
-}
-
-class PulseAnimation extends Shora.Animation {
-    constructor(sprite, options, range) {
-        super(sprite, options.status);
-        this.pulsating = true;
-
-        this.range = range;
-        this.pulseFactor = 0;
-        this.pulseMax = this.range + this.pulseFactor;
-		this.pulseMin = this.range - this.pulseFactor;
-        this.pulseSpeed = options.pulsespeed / 1000;
-        
-        this.tick = this.space = 0;
-    }
-
-    set(range, time) {
-        this.tick = time;
-        this.space = (range - this.range) / time;
-    }
-
-    updating() {
-        return this.pulseFactor !== 0;
-    }
-
-    update() {
-        if (!this._status) {
-            if (this.tick) {
-                this.range += this.space;
-                this.pulseMax = this.range + this.pulseFactor;
-                this.pulseMin = this.range - this.pulseFactor;
-                this.tick--;
-            }
-            return;
-        }
-        let spd = Math.random() / 100 + this.pulseSpeed;
-        if (this.pulsating) {
-	        if (this._sprite.scale.x < this.pulseMax) {
-	            this._sprite.scale.x += spd;
-	            this._sprite.scale.y += spd;
-	        } else {
-	            this.pulsating = false;
-	        }
-	    } else {
-	        if (this._sprite.scale.x > this.pulseMin) {
-	            this._sprite.scale.x -= spd;
-	            this._sprite.scale.y -= spd;
-	        } else {
-	            this.pulsating = true;
-	        }
-	    }
-    }
-}
-
-class RotationAnimation extends Shora.Animation {
-    constructor(sprite, angle) {
-        super(sprite, 0);
-        this.r0 = this.r1 = angle; 
-        this.delta = this.tick = this.time = 0;
-        this._sprite.rotation = angle;
-    }
-
-    updating() {
-        return this._sprite.rotation || this.tick < this.time;
-    }
-
-    update() {
-        if (this.tick < this.time) {
-            this._sprite.rotation = this.r0 + Shora.Animation.transition[this.type](this.tick / this.time) * this.delta;
-            this.tick++;
-        }
-    }
-
-    set(angle, time, type) {
-        this.r0 = this._sprite.rotation; this.r1 = angle;
-        this.delta = this.r1 - this.r0;
-        this.time = time; this.tick = 0;
-        if (type) this.type = type - 1;
-    }
-    
-}
-
-class DirectionManager {
-    constructor(sprite) {
-        this._sprite = sprite; 
-        this.direction = this._sprite.character.direction();
-        this.rotate = new RotationAnimation(sprite, this.angle());
-    }
-
-    destroy() {
-        this.rotate.destroy();
-        this.rotate = null;
-        this._sprite = null;
-    }
-
-    static dest = [ [3.125, 4.6875, 1.5625, 0],
-                    [-3.125, -1.5625, -4.6825, 6.25] ];
-    angle() {
-        let x = DirectionManager.dest[0][this.direction / 2 - 1], 
-            y = DirectionManager.dest[1][this.direction / 2 - 1];
-        return (Math.abs(this._sprite.rotation - x) < Math.abs(this._sprite.rotation - y) ? x : y);
-    }
-
-    update() {
-        if (this.direction != this._sprite.character.direction()) {
-            this.direction = this._sprite.character.direction();
-            this.rotate.set(this.angle(), 30, 2);
-         }
-        this.rotate.update();
-    }
-
-    /*
-    2 = down, 4 = left, 6 = right, 8 = up
-    0 = orignal
-    3.125 = 180o
-    1.5625 = 90o
-    4.65 = 240o = -90o
-    6.25 = 0o
-    */
-    static mat = [
-        /*  2           4           6           8   */
-/*2*/   [   0       ,  1.5625   ,  4.685    ,  3.125   ],
-/*4*/   [   4.685   ,  0        ,  3.125    ,  1.5625   ],
-/*6*/   [   1.5625  ,  3.125    ,  0        ,  4.685   ],
-/*8*/   [   3.125   ,  1.5625   ,  4.685    ,  0   ]];
-
-}
-
-class OffsetAnimation {
-    constructor(x, y) {
-        this.x = this.ox = x;
-        this.y = this.oy = y;
-        this.tick_x = 2; this.time_x = this.delta_x = 1;
-        this.tick_y = 2; this.time_y = this.delta_y = 1;
-        this.type_x = this.type_y = 0;
-    }
-
-    updating() {
-        return this.tick_x <= this.time_x || this.tick_y <= this.time_y;
-    }
-
-    setX(x, time, type) {
-        this.ox = this.x;
-        this.delta_x = x - this.ox;
-        this.time_x = time; this.tick_x = 1;
-        if (type) this.type_x = type - 1;
-    }
-
-    setY(y, time, type) {
-        this.oy = this.y;
-        this.delta_y = y - this.oy;
-        this.time_y = time; this.tick_y = 1;
-        if (type) this.type_y = type - 1;
-    }
-
-    update() {
-        if (this.tick_x <= this.time_x) {
-            this.x = this.ox + Shora.Animation.transition[this.type_x](this.tick_x / this.time_x) * this.delta_x;
-            this.tick_x++;
-        }
-        if (this.tick_y <= this.time_y) {
-            this.y = this.oy + Shora.Animation.transition[this.type_y](this.tick_y / this.time_y) * this.delta_y;
-            this.tick_y++;
-        }
-    }
-}
-
-class ColorAnimation extends Shora.Animation {
-    constructor(sprite, color) {
-        super(sprite);
-        this._sprite.tint = color;
-
-        this.ocolor = Shora.ColorManager.hexToRGB(color);
-        this.dcolor = this.ocolor;
-        this.tick = this.len = 0;
-    }
-
-    set(color, time) {
-        this.tick = 0; this.len = time;
-        this.ocolor = this.dcolor;
-        this.dcolor = Shora.ColorManager.hexToRGB(color);
-    }
-    update() {
-        if (this.tick < this.len) {
-            let p = this.tick / this.len;
-            this._sprite.tint = Shora.ColorManager.transition(p, this.ocolor, this.dcolor);
-            this.tick++;
-        }
-    }
-}
-
-
-
-class LightingSurface extends PIXI.Graphics {
-    constructor() {
-        super();
-        this.id = -1;
-        this.beginFill(0xffffff);
-	    this.drawRect(0, 0, Graphics.width, Graphics.height);
-        this.endFill();
-        this.tint = 0xffffff;
-        this.color = new ColorAnimation(this, $gameLighting.shadowColor());
-    }
-
-    destroy() {
-        this.color.destroy();
-        this.color = null;
-        super.destroy();
-    }
-
-    setMapColor(color, time) {
-        $gameLighting.PARAMETERS.ambient = color;
-        this.color.set(color, time || 1);
-    }
-
-    update() {
-        this.color.update();
-        $gameLighting.PARAMETERS.ambient = this.tint;
-    }
-    updateDisplay() {
-        //
-    }
-
-}
-
-class LightingSprite extends PIXI.Sprite {
-    constructor(options) {
-        super();
-
-        this.renderable = false;
-        this.id = options.id;
-        this.static = options.static;
-
-        this.fileName = options.filename;
-        this.lightName = options.name;
-        this.colorFilter = options.colorfilter;
-
-        this.updateTexture();
-
-        this.offset = new OffsetAnimation(options.offset.x, options.offset.y);
-        this.setPostion(options);
-        this.anchor = new PIXI.Point(0.5, 0.5);
-        this.scale.x = this.scale.y = options.range;
-
-        // direction
-        if (options.rotation != "") {
-            // this.rotate = new RotationAnimation(this, options.rotation, options.animation.rotation);
-            this.rotation = options.rotation / 360 * 6.25;
-        } else if (options.direction) {
-            this.direction = new DirectionManager(this);
-        }
-
-        // animation
-        this.pulse = new PulseAnimation(this, options.animation.pulse, this.scale.x);
-        this.flicker = new FlickerAnimation(this, options.animation.flicker);
-        this.color = new ColorAnimation(this, Number(options.tint));
-
-        this._shadow = options.shadow;
-        if (this._shadow) {
-            this._static = options.static;
-            this.shadowOffsetX = options.shadowOffsetX || 0;
-            this.shadowOffsetY = options.shadowOffsetY || 0; // 54.00001; tw * h + 6 + eps
-            this.shadowOffsetY += $gameShadow.getWallHeight(this.globalX(), this.globalY());
-            this.renderTexture = PIXI.RenderTexture.create({ width: this.width, height: this.height }); // texture to cache
-            this.shadow = new Shadow(this.globalX() + this.shadowOffsetX, this.globalY() + this.shadowOffsetY, this.globalBounds());
-            this.setMask(this.shadow.mask);
-            if (this._static) {
-                this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
-                this.snapshot();
-                this.setMask(null);
-                this.shadow.destroy();
-                this.shadow = null;
-            }
-        } else {
-            this.blendMode = PIXI.BLEND_MODES.ADD;
-        }
-
-        this.updateDisplay();
-    }
-
-    setMask(sprite) {
-        if (!sprite) {
-            this.mask = null;
-            this.filters = null;
-            this.blendMode = PIXI.BLEND_MODES.ADD;
-            return;
-        }
-        if (sprite instanceof PIXI.Graphics) {
-            this.filters = null;
-            this.mask = sprite;
-            this.blendMode = PIXI.BLEND_MODES.ADD;
-        } else {
-            this.mask = null;
-            this.blendMode = 0;
-            if (!this.shadowFilter) {
-                this.shadowFilter = [new PIXI.SpriteMaskFilter(sprite)];
-                this.shadowFilter[0].blendMode = PIXI.BLEND_MODES.ADD;
-            }
-            this.filters = this.shadowFilter;
-        }
-    }
-
-    destroy() {
-        this.character.lighting = null;
-        this.character = null;
-        this.pulse.destroy();
-        this.flicker.destroy();
-        this.color.destroy();
-        this.direction.destroy();
-        if (this._shadow) {
-            this.renderTexture.destroy(true);
-            this.renderTexture = null;
-            if (this.shadow) this.shadow.destroy();
-            this.shadow = null;
-            this.shadowFilter[0].destroy();
-            this.shadowFilter = null;
-        }
-        this.pulse = null;
-        this.flicker = null;
-        this.color = null;
-        this.offset = null;
-        this.rotate = null;
-        this.filters = null;
-        super.destroy();
-    }
-
-    snapshot() {
-        TextureManager.snapshot(this)
-    }
-
-    update() {
-        this.updatePostion();
-        this.updateShadow();
-        this.updateAnimation();
-    }
-
-    needUpdateShadowMask() {
-        return this.character.isMoving() || this.pulse.updating()
-        || (this.direction && this.direction.rotate.updating());// || !this.rotate;
-    }
-
-    needRecalculateShadow() {
-        return this.character.isMoving() || this.offset.updating() || !this.id;
-    }
-
-    updateShadow() {
-        if (!this._shadow || this._static || !this.renderable) return;
-
-        // if shadow stopped -> take a snap
-        if (this.needUpdateShadowMask()) {
-            // update shadow
-            //this.shadow.mask.renderable = true;
-            if (this.needRecalculateShadow()) 
-                this.shadow.update(this.x + this.shadowOffsetX, this.y + this.shadowOffsetY, this.localBounds());
-            else {
-                // pulse and rotation need only the mask to update global postion
-                this.shadow.mask.x = -$gameMap.displayX() * $gameMap.tileWidth(); 
-                this.shadow.mask.y = -$gameMap.displayY() * $gameMap.tileHeight();
-                //console.log(this.shadow.mask.x, this.shadow.mask.y);
-            }
-            // update mask 
-            if (!this.filters) {
-                this.updateTexture(); 
-                this.setMask(this.shadow.mask);
-            }
-        } else if (this.filters) {
-            // snap
-            //console.log('snapped');
-            this.rotation = 0;
-            this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
-            this.snapshot();
-            this.setMask(null);
-            this.shadow.mask.renderable = false;
-        }
-    }
-
-    updatePostion() {
-        this.x = this.character.screenX() + this.offset.x;
-        this.y = this.character.screenY() + this.offset.y;
-    }
-
-    updateAnimation() {
-        if (!this.renderable) return;
-        this.flicker.update();
-        this.offset.update();
-        this.color.update();
-        this.pulse.update();
-        if (this.direction) this.direction.update();
-    }
-
-    updateDisplay() {
-        let [x, y] = [this.character.screenX(), this.character.screenY()];
-        let minX = x - (this.width / 2),
-            minY = y - (this.height / 2),
-            maxX = x + (this.width / 2),
-            maxY = y + (this.height / 2);
-        this.renderable = $gameLighting.inDisplay(minX, minY, maxX, maxY);
-    }
-
-    globalX() {
-        return this.x + $gameMap.displayX() * $gameMap.tileWidth() + this.shadowOffsetX;
-    }
-
-    globalY() {
-        return this.y + $gameMap.displayY() * $gameMap.tileHeight() + this.shadowOffsetY;
-    }
-
-    globalBounds() {
-        let bounds = this.getBounds();
-        bounds.x += $gameMap.displayX() * $gameMap.tileWidth() + this.shadowOffsetX;
-        bounds.y += $gameMap.displayY() * $gameMap.tileHeight() + this.shadowOffsetY;
-        return bounds;
-    }
-
-    localBounds() {
-        const bounds = this.getBounds();
-        bounds.x += this.shadowOffsetX;
-        bounds.y += this.shadowOffsetY;
-        return bounds;
-    }
-
-    setPostion(options) {
-        this.character = options.character;
-        this.x = this.character.screenX();
-        this.y = this.character.screenY();
-    }
-
-    updateTexture() {
-        this.texture = TextureManager.filter($shoraLayer.load(this.fileName), this.colorFilter, this.lightName);
-    }
-
-    // command
-    /**
-     * Set light to color in time tick(s).
-     * @param {Number} color 
-     * @param {Number} time 
-     */
-    setColor(color, time) {
-        this.color.set(color, time || 1);
-    }
-
-    setRange(range, time) {
-        this.pulse.set(range, time || 1);
-    }
-
-    setOffsetX(x, time, type) {
-        this.offset.setX(x, time || 1, type);
-    }
-
-    setOffsetY(y, time, type) {
-        this.offset.setY(y, time || 1);
-    }
-
-    setRotation(angle, time, type) {
-        this.rotate.setAuto(false);
-        this.rotate.set((angle / 360) * 6.25, time || 1, type);
-    }
-
-    setAutoDirection(auto) {
-        this.rotate.setAuto(auto);
-    }
-
-    setShadow(shadow) {
-        this._shadow = shadow;
-    }
-
-    setStatic(_static) {
-        this.static = _static;
-    }
-}
-
-class Shadow {
-    get mask() {
-        return this.shadowMask;
-    }
-    constructor(ox, oy, bounds) {
-        // TODO: Calculate Transform.
-        this._shadowMask = new PIXI.Graphics();
-        this._shadowTexture = PIXI.RenderTexture.create($gameLighting.width(), $gameLighting.height());
-        this.shadowMask = new PIXI.Sprite(this._shadowTexture);
-
-        this.updateGlobal(ox, oy, bounds);
-    }
-
-    destroy() {
-        this.polygon = null; this.bounds = null; this._parallelSegments = null;
-        this._shadowMask.destroy(true); this._shadowMask = null;
-        this._shadowTexture.destroy(true); this._shadowTexture = null;
-        this.shadowMask.destroy(true); this.shadowMask = null;
-        this.bounds = null;
-    }
-
-    update(x, y, bounds) {
-        //console.log("update x =" + x + " y = " + y);
-        this.polygon = ShadowManager.computeViewport([x, y], $gameShadow.segments, [this.bounds.left, this.bounds.top], [this.bounds.right, this.bounds.bottom]);
-        this.bounds = bounds;
-        this._parallelSegments = {};
-        this._shadowMask.clear();
-        this.draw(y, $gameShadow.lowerWalls);
-        Graphics.app.renderer.render(this._shadowMask, this._shadowTexture);
-        // top-wall
-        Graphics.app.renderer.render($gameShadow.upperWalls, this._shadowTexture, false);
-    }
-
-    updateGlobal(ox, oy, bounds) {
-        //console.log("update global x =" + ox + " y = " + oy);
-        this.bounds = bounds;
-        this.polygon = ShadowManager.computeViewport([ox, oy], $gameShadow.globalSegments, [this.bounds.left, this.bounds.top], [this.bounds.right, this.bounds.bottom]);
-        this._parallelSegments = {};
-        this._shadowMask.clear();
-        this.draw(oy, $gameShadow.globalLowerWalls);
-        Graphics.app.renderer.render(this._shadowMask, this._shadowTexture);
-        // top-wall
-        let {x, y} = $gameShadow.upperWalls;
-        $gameShadow.upperWalls.x = $gameShadow.upperWalls.y = 0;
-        Graphics.app.renderer.render($gameShadow.upperWalls, this._shadowTexture, false);
-        $gameShadow.upperWalls.x = x; $gameShadow.upperWalls.y = y;
-    }
-
-    drawWall(index, oy, lowerWalls) {
-		let [x, y] = this.polygon[index], last = (index == 0 ? this.polygon.length - 1 : index - 1);
-		let [nx, ny] = this.polygon[last];
-
-		let tw = $gameMap.tileWidth();
-		if (y == ny) {
-			if (!this._parallelSegments[y]) this._parallelSegments[y] = [];
-			this._parallelSegments[y].push([nx, x]);
-		}
-		for (let i = 0; i < lowerWalls.length; ++i) {
-			let [x2, y2, x1, y1, height] = lowerWalls[i];
-			if (y == ny && y == y1 && x >= x1 && x <= x2 && nx >= x1 && nx <= x2 && oy >= y1) {
-				this._shadowMask.lineTo(nx, ny - tw * height)
-							   .lineTo(x, y - tw * height)
-			}
-		}
-	};
-
-    containParallelSegment(y, u, v) {
-		if (!this._parallelSegments[y]) return false;
-		let lo = 0, hi = this._parallelSegments[y].length - 1, result = -1;
-		while (lo <= hi) {
-			let mid = (lo + hi) >> 1;
-			if (this._parallelSegments[y][mid][0] >= u) {
-				result = mid;
-				hi = mid - 1;
-			} else lo = mid + 1;
-		}
-		if (result == -1) return false;
-		let [x1, x2] = this._parallelSegments[y][result];
-		if (v >= x1) return true;
-		if (result === 0) return false; [x1, x2] = this._parallelSegments[y][result - 1];
-		if (v >= x1) return true;
-	}
-
-    draw(oy, lowerWalls) {
-        this._shadowMask.beginFill(0x333333);
-		this._shadowMask.drawRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height);
-		this._shadowMask.endFill();
-
-		this._shadowMask.beginFill(0xffffff);
-		this._shadowMask.moveTo(this.polygon[0][0], this.polygon[0][1]);
-		for (let i = 1; i < this.polygon.length; ++i) {
-			this.drawWall(i, oy, lowerWalls);
-            this._shadowMask.lineTo(this.polygon[i][0], this.polygon[i][1]);
-        }
-        this._shadowMask.lineTo(this.polygon[0][0], this.polygon[0][1]);
-		this.drawWall(0, oy, lowerWalls);
-		if (this.polygon[0][1] == this.polygon[this.polygon.length - 1][1]) {
-			if (!this._parallelSegments[this.polygon[0][1]]) this._parallelSegments[this.polygon[0][1]] = [];
-			this._parallelSegments[this.polygon[0][1]].push([this.polygon[0][0], this.polygon[this.polygon.length - 1][0]]);
-		}
-		this._shadowMask.endFill(); 
-
-		for (let y in this._parallelSegments) {
-			for (let i in this._parallelSegments[y]) {
-				if (this._parallelSegments[y][i][0] > this._parallelSegments[y][i][1])
-				[this._parallelSegments[y][i][0], this._parallelSegments[y][i][1]] = [this._parallelSegments[y][i][1], this._parallelSegments[y][i][0]];
-			}
-			this._parallelSegments[y].sort((a, b) => a[0] - b[0]);
-		}
-
-		//drawing lower-walls
-        this._shadowMask.beginFill(0x333333); 
-        let tw = $gameMap.tileWidth();
-		for (let i = 0; i < lowerWalls.length; ++i) {
-			let [x2, y2, x1, y1, height] = lowerWalls[i];
-            if (this.containParallelSegment(y1, x1, x2)) continue;
-			this._shadowMask.moveTo(x1, y1);
-			this._shadowMask.lineTo(x1, y1-tw*height);
-			this._shadowMask.lineTo(x2, y2-tw*height);
-			this._shadowMask.lineTo(x2, y2);
-		}
-        this._shadowMask.endFill();
-        
-        // drawing top-walls
-        // this._shadowMask.beginFill(0x333333);
-        // for (let i = Math.max(0, Math.floor(this.bounds.top / 48));
-        //     i <= Math.min($gameShadow.topWalls.length - 1, Math.ceil(this.bounds.bottom / 48)); ++i) {
-        //     let j = $gameShadow.topWalls[i].pair_floor_search(this.bounds.left, 1) + 1;
-        //     for (; j < $gameShadow.topWalls[i].length && $gameShadow.topWalls[i][j][0] < this.bounds.right; ++j) {
-        //         let [begin, end] = $gameShadow.topWalls[i][j];
-        //         this._shadowMask.drawRect(begin, i*48, end-begin, 48);
-        //     }
-        // }
-        // this._shadowMask.endFill();
     }
 }
