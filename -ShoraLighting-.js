@@ -11,7 +11,7 @@
  * @text [Game: Settings]
  * @type struct<GameSettings>
  * @desc Settings for game.
- * @default {"region_start":"1"}
+ * @default {"regionStart":"1"}
  * 
  * @param sep0
  * @text ==================================
