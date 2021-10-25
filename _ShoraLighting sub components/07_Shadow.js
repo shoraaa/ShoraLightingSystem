@@ -25,7 +25,7 @@ class Shadow {
     update(x, y, bounds) {
         //console.log("update x =" + x + " y = " + y);
         this.bounds = bounds;
-        this.polygon = ShadowManager.computeViewport([x, y], $gameShadow.segments, [this.bounds.left, this.bounds.top], [this.bounds.right, this.bounds.bottom]);
+        this.polygon = ShadowSystem.computeViewport([x, y], $gameShadow.segments, [this.bounds.left, this.bounds.top], [this.bounds.right, this.bounds.bottom]);
         //this.bounds = bounds;
         this._parallelSegments = {};
         this._shadowMask.clear();
@@ -38,7 +38,7 @@ class Shadow {
     updateGlobal(ox, oy, bounds) {
         //console.log("update global x =" + ox + " y = " + oy);
         this.bounds = bounds;
-        this.polygon = ShadowManager.computeViewport([ox, oy], $gameShadow.globalSegments, [this.bounds.left, this.bounds.top], [this.bounds.right, this.bounds.bottom]);
+        this.polygon = ShadowSystem.computeViewport([ox, oy], $gameShadow.globalSegments, [this.bounds.left, this.bounds.top], [this.bounds.right, this.bounds.bottom]);
         this._parallelSegments = {};
         this._shadowMask.clear();
         this.draw(oy, $gameShadow.globalLowerWalls);
