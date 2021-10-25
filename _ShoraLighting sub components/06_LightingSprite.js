@@ -1,4 +1,10 @@
 class LightingSprite extends PIXI.Sprite {
+
+    get character() {
+        if (!this.id) return $gamePlayer;
+        return $gameMap.event(this.id);
+    }
+
     constructor(options) {
         super();
 
@@ -75,8 +81,8 @@ class LightingSprite extends PIXI.Sprite {
     }
 
     destroy() {
-        this.character.lighting = null;
-        this.character = null;
+        // this.character.lighting = null;
+        // this.character = null; // ref -> get
         this.pulse.destroy();
         this.flicker.destroy();
         this.color.destroy();
@@ -198,7 +204,7 @@ class LightingSprite extends PIXI.Sprite {
     }
 
     setPostion(options) {
-        this.character = options.character;
+        // this.character = options.character; // ref -> set
         this.x = this.character.screenX();
         this.y = this.character.screenY();
     }

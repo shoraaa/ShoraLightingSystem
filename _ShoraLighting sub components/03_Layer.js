@@ -57,7 +57,8 @@ class Layer {
         }
 
         this.mapId = $gameMap.mapId();
-        if (this.lighting) this.lighting.destroy();
+        if (this.lighting) 
+            this.lighting.destroy();
         switch (this._spriteset.type()) {
             case 'map':
                 this.lighting = new LightingLayer();

@@ -30,7 +30,8 @@ class LightingLayer {
     }
 
     createLightingSprite() {
-        for (const light of $gameLighting.lighting()) this.addLight(light);
+        for (const light of $gameLighting.lighting) 
+            this.addLight(light);
     }
 
     /**
@@ -40,7 +41,8 @@ class LightingLayer {
     addLight(options) {
         const lighting = new LightingSprite(options);
         this.layer.addChild(lighting);
-        if (lighting.shadow) this.layer.addChild(lighting.shadow.mask);
+        if (lighting.shadow) 
+            this.layer.addChild(lighting.shadow.mask);
         return lighting;
     }
 

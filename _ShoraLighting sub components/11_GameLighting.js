@@ -1,6 +1,5 @@
 class GameLighting {
     constructor() {
-        this._lighting = [];
         this.LIGHTING = {};
         this.loadParameters();
         this.loadLighting();
@@ -81,8 +80,8 @@ class GameLighting {
     /**
      * A list of lights of map.
      */
-    lighting() {
-        return this._lighting;
+    get lighting() {
+        return $gameMap._lighting;
     }
 
     /**
@@ -91,15 +90,14 @@ class GameLighting {
      * @param {Game_Character} character 
      * @param {Object} options 
      */
-    add(character, options) {
+    add(options) {
         if (!this.LIGHTING[options.name]) {
             Shora.warn('Cannot find light named [' + options.name + '].\nPlease register lighting before use.\nDefault Lighting used instead');
             options.name = 'default';
         }
         const params = {...this.LIGHTING[options.name], ...options};
-        params.character = character;
         this.remove(params.id);
-        this._lighting.push(params);
+        this.lighting.push(params);
         return $shoraLayer.lighting.addLight(params);
     }
 
@@ -109,8 +107,8 @@ class GameLighting {
      */
     remove(id) {
         let i;
-        if ((i = this._lighting.findIndex(light => light.id === id)) !== -1) {
-            this._lighting.splice(i, 1);
+        if ((i = this.lighting.findIndex(light => light.id === id)) !== -1) {
+            this.lighting.splice(i, 1);
             $shoraLayer.lighting.removeLight(id);
         }
     }

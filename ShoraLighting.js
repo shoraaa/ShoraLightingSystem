@@ -761,7 +761,7 @@ String.prototype.shoraDoubleCommands = function() {
     _.updateLighing = function() {
         if (this.hasLight && !this.lighting) {
             // this._light_offsetx = this.lightingParams.offsetx;
-            $gameLighting.add(this, this.lightingParams)
+            $gameLighting.add(this.lightingParams)
             this.lighting = 1;
         }
         if (!this.hasLight && this.lighting) {
@@ -1049,6 +1049,12 @@ class LightingSurface extends PIXI.Graphics {
 }
 
 class LightingSprite extends PIXI.Sprite {
+
+    get character() {
+        if (!this.id) return $gamePlayer;
+        return $gameMap.event(this.id);
+    }
+
     constructor(options) {
         super();
 
@@ -1126,7 +1132,7 @@ class LightingSprite extends PIXI.Sprite {
 
     destroy() {
         this.character.lighting = null;
-        this.character = null;
+        // this.character = null; // ref -> get
         this.pulse.destroy();
         this.flicker.destroy();
         this.color.destroy();
@@ -1248,7 +1254,7 @@ class LightingSprite extends PIXI.Sprite {
     }
 
     setPostion(options) {
-        this.character = options.character;
+        // this.character = options.character; // ref -> set
         this.x = this.character.screenX();
         this.y = this.character.screenY();
     }
@@ -2175,13 +2181,12 @@ class GameLighting {
      * @param {Game_Character} character 
      * @param {Object} options 
      */
-    add(character, options) {
+    add(options) {
         if (!this.LIGHTING[options.name]) {
             Shora.warn('Cannot find light named [' + options.name + '].\nPlease register lighting before use.\nDefault Lighting used instead');
             options.name = 'default';
         }
         const params = {...this.LIGHTING[options.name], ...options};
-        params.character = character;
         this.remove(params.id);
         this._lighting.push(params);
         return $shoraLayer.lighting.addLight(params);

@@ -35,6 +35,7 @@
     const setup = _.setup;
     _.setup = function(mapId) {
         setup.call(this, mapId);
+        this._lighting = [];
         if ($dataMap) {
             this.scanNoteTags($dataMap.note.split('\n'));
             this.scanTileNoteTag(this.tileset().note.split('\n'));
@@ -88,7 +89,7 @@
     _.updateLighing = function() {
         if (this.hasLight && !this.lighting) {
             // this._light_offsetx = this.lightingParams.offsetx;
-            $gameLighting.add(this, this.lightingParams)
+            $gameLighting.add(this.lightingParams)
             this.lighting = 1;
         }
         if (!this.hasLight && this.lighting) {

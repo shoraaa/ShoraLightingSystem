@@ -3,7 +3,7 @@
 
 var Shora = Shora || {};
 Shora.Lighting = {};
-Shora.Lighting.pluginName = 'ShoraLighting';
+Shora.Lighting.pluginName = '-ShoraLighting-';
 Shora.Lighting.VERSION = 1.2;
 Shora.Lighting.PARAMETERS = PluginManager.parameters(Shora.Lighting.pluginName);
 
@@ -256,10 +256,10 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
             let parameters = JSON.parse(args.parameters);
             if (parameters.offset !== "") {
                 parameters.offset = JSON.parse(parameters.offset);
-                if (parameters.offset.x !== "") character.setOffsetX(Number(parameters.offset.x), time, type);
-                if (parameters.offset.y !== "") character.setOffsetY(Number(parameters.offset.y), time, type);
+                //if (parameters.offset.x !== "") character.setOffsetX(Number(parameters.offset.x), time, type);
+                //if (parameters.offset.y !== "") character.setOffsetY(Number(parameters.offset.y), time, type);
             }
-            if (parameters.tint !== "") character.setColor(Number(parameters.tint), time);
+            //if (parameters.tint !== "") character.setColor(Number(parameters.tint), time);
         } else {
             Shora.warn('Event ' + id + " doesn't have a light to change parameter.");
         }
