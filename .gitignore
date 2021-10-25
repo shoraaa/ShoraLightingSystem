@@ -2,8 +2,5 @@
 *
 
 !.gitignore
-!mzsl_core.js
-!mzsl_manager.js
-!mzsl_objects.js
-!mzsl_sprites.js
-!-ShoraLighting-.js
+!_ShoraLighting sub components/
+!ShoraLighting.js
