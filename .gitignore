@@ -1,5 +1,3 @@
-# Ignore everything
-*
-
-!.gitignore
-!ShoraLighting.js
+EventLabel.js
+MZPlusQuickStart.js
+PluginCommonBase.js
