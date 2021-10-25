@@ -2,5 +2,4 @@
 *
 
 !.gitignore
-!_ShoraLighting sub components/
 !ShoraLighting.js
