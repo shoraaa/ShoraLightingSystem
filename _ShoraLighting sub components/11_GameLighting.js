@@ -155,6 +155,18 @@ class GameLighting {
     height() {
         return Math.max($gameMap.height() * $gameMap.tileHeight(), Graphics.height);
     }
+
+    setOffsetX(id, value, time, type) {
+        $shoraLayer.lighting.lights[id].setOffsetX(value, time, type);
+    }
+
+    setOffsetY(id, value, time, type) {
+        $shoraLayer.lighting.lights[id].setOffsetY(value, time, type);
+    }
+
+    setColor(id, value, time) {
+        $shoraLayer.lighting.lights[id].setColor(value, time);
+    }
 }
 
 $gameLighting = new GameLighting();

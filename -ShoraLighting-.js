@@ -563,10 +563,10 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
             let parameters = JSON.parse(args.parameters);
             if (parameters.offset !== "") {
                 parameters.offset = JSON.parse(parameters.offset);
-                //if (parameters.offset.x !== "") character.setOffsetX(Number(parameters.offset.x), time, type);
-                //if (parameters.offset.y !== "") character.setOffsetY(Number(parameters.offset.y), time, type);
+                if (parameters.offset.x !== "") $gameLighting.setOffsetX(id, Number(parameters.offset.x), time, type);
+                if (parameters.offset.y !== "") $gameLighting.setOffsetY(id, Number(parameters.offset.y), time, type);
             }
-            //if (parameters.tint !== "") character.setColor(Number(parameters.tint), time);
+            if (parameters.tint !== "") $gameLighting.setColor(id, Number(parameters.tint), time);
         } else {
             Shora.warn('Event ' + id + " doesn't have a light to change parameter.");
         }
@@ -2251,6 +2251,18 @@ class GameLighting {
 
     height() {
         return Math.max($gameMap.height() * $gameMap.tileHeight(), Graphics.height);
+    }
+
+    setOffsetX(id, value, time, type) {
+        $shoraLayer.lighting.lights[id].setOffsetX(value, time, type);
+    }
+
+    setOffsetY(id, value, time, type) {
+        $shoraLayer.lighting.lights[id].setOffsetY(value, time, type);
+    }
+
+    setColor(id, value, time) {
+        $shoraLayer.lighting.lights[id].setColor(value, time);
     }
 }
 
