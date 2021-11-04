@@ -4,7 +4,7 @@
 var Shora = Shora || {};
 Shora.Lighting = {};
 Shora.Lighting.pluginName = '-ShoraLighting-';
-Shora.Lighting.VERSION = 1.2;
+Shora.Lighting.VERSION = 1.3;
 Shora.Lighting.PARAMETERS = PluginManager.parameters(Shora.Lighting.pluginName);
 
 Shora.tempMatrix = new PIXI.Matrix();
@@ -205,12 +205,11 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
                 if (!character) {
                     Shora.warn(id + ' is not a valid event id.'); return;
                 }
-                const lighting = character.lighting;
                 for (let i = 1; i <= 4; ++i) args[i] = Number(args[i]);
                 if (command === 'offset') {
-                    lighting.setOffset(args[1], args[2], args[3], args[4] || 1);
+                    $gameLighting.setOffset(id, args[1], args[2], args[3], args[4] || 1);
                 } else if (command === 'tint') {
-                    lighting.setColor(args[1], args[2]);
+                    $gameLighting.setColor(id, args[1], args[2]);
                 }
             }
         }

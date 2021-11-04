@@ -1,5 +1,5 @@
 /*:
- * @plugindesc 1.2b
+ * @plugindesc 1.3b
  * <Shora Lighting System>
  * @author Shora
  * @desc Shora Lighting System for MV/MZ. 
@@ -311,7 +311,7 @@
 var Shora = Shora || {};
 Shora.Lighting = {};
 Shora.Lighting.pluginName = '-ShoraLighting-';
-Shora.Lighting.VERSION = 1.2;
+Shora.Lighting.VERSION = 1.3;
 Shora.Lighting.PARAMETERS = PluginManager.parameters(Shora.Lighting.pluginName);
 
 Shora.tempMatrix = new PIXI.Matrix();
@@ -512,12 +512,11 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
                 if (!character) {
                     Shora.warn(id + ' is not a valid event id.'); return;
                 }
-                const lighting = character.lighting;
                 for (let i = 1; i <= 4; ++i) args[i] = Number(args[i]);
                 if (command === 'offset') {
-                    lighting.setOffset(args[1], args[2], args[3], args[4] || 1);
+                    $gameLighting.setOffset(id, args[1], args[2], args[3], args[4] || 1);
                 } else if (command === 'tint') {
-                    lighting.setColor(args[1], args[2]);
+                    $gameLighting.setColor(id, args[1], args[2]);
                 }
             }
         }
@@ -854,6 +853,15 @@ String.prototype.shoraDoubleCommands = function() {
 
 })(Game_Event.prototype);
 
+// DataManager
+((_) => {
+    const createGameObjects = _.createGameObjects;
+    _.createGameObjects = function() {
+        createGameObjects.call(this);
+        $shoraLayer = new Layer();
+    }
+})(DataManager);
+
 class Layer {
     constructor() {
         /* MV ONLY */
@@ -932,7 +940,7 @@ class Layer {
     
 }
 
-$shoraLayer = new Layer();
+// $shoraLayer = new Layer();
 
 class LightingLayer {
     constructor() {
@@ -1177,7 +1185,7 @@ class LightingSprite extends PIXI.Sprite {
 
     needUpdateShadowMask() {
         return this.needRecalculateShadow() || 
-        (this.direction && this.direction.rotate.updating());
+        (this.direction && this.direction.rotate.updating()) || !this.id;
     }
 
     updateShadow() {
@@ -2253,16 +2261,20 @@ class GameLighting {
         return Math.max($gameMap.height() * $gameMap.tileHeight(), Graphics.height);
     }
 
-    setOffsetX(id, value, time, type) {
-        $shoraLayer.lighting.lights[id].setOffsetX(value, time, type);
+    setOffset(id, x, y, time, type) {
+        $shoraLayer.lighting.lights[id].setOffset(x, y, time, type);
     }
 
-    setOffsetY(id, value, time, type) {
-        $shoraLayer.lighting.lights[id].setOffsetY(value, time, type);
+    setOffsetX(id, x, time, type) {
+        $shoraLayer.lighting.lights[id].setOffsetX(x, time, type);
     }
 
-    setColor(id, value, time) {
-        $shoraLayer.lighting.lights[id].setColor(value, time);
+    setOffsetY(id, y, time, type) {
+        $shoraLayer.lighting.lights[id].setOffsetY(y, time, type);
+    }
+
+    setColor(id, color, time) {
+        $shoraLayer.lighting.lights[id].setColor(color, time);
     }
 }
 

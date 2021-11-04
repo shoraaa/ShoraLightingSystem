@@ -1,5 +1,5 @@
 /*:
- * @plugindesc 1.2b
+ * @plugindesc 1.3b
  * <Shora Lighting System>
  * @author Shora
  * @desc Shora Lighting System for MV/MZ. 

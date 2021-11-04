@@ -156,16 +156,20 @@ class GameLighting {
         return Math.max($gameMap.height() * $gameMap.tileHeight(), Graphics.height);
     }
 
-    setOffsetX(id, value, time, type) {
-        $shoraLayer.lighting.lights[id].setOffsetX(value, time, type);
+    setOffset(id, x, y, time, type) {
+        $shoraLayer.lighting.lights[id].setOffset(x, y, time, type);
     }
 
-    setOffsetY(id, value, time, type) {
-        $shoraLayer.lighting.lights[id].setOffsetY(value, time, type);
+    setOffsetX(id, x, time, type) {
+        $shoraLayer.lighting.lights[id].setOffsetX(x, time, type);
     }
 
-    setColor(id, value, time) {
-        $shoraLayer.lighting.lights[id].setColor(value, time);
+    setOffsetY(id, y, time, type) {
+        $shoraLayer.lighting.lights[id].setOffsetY(y, time, type);
+    }
+
+    setColor(id, color, time) {
+        $shoraLayer.lighting.lights[id].setColor(color, time);
     }
 }
 

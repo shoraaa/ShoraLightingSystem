@@ -180,3 +180,12 @@
 
 })(Game_Event.prototype);
 
+// DataManager
+((_) => {
+    const createGameObjects = _.createGameObjects;
+    _.createGameObjects = function() {
+        createGameObjects.call(this);
+        $shoraLayer = new Layer();
+    }
+})(DataManager);
+

@@ -121,7 +121,7 @@ class LightingSprite extends PIXI.Sprite {
 
     needUpdateShadowMask() {
         return this.needRecalculateShadow() || 
-        (this.direction && this.direction.rotate.updating());
+        (this.direction && this.direction.rotate.updating()) || !this.id;
     }
 
     updateShadow() {

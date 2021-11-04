@@ -76,5 +76,5 @@ class Layer {
     
 }
 
-$shoraLayer = new Layer();
+// $shoraLayer = new Layer();
 
