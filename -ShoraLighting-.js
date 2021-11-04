@@ -120,6 +120,7 @@
  * @param name
  * @text Ref
  * @desc The registered name for this light. Use [light <name>] to use it. Ex: [light flashlight]; [light] is equivalent as [light default]
+ * @default <-- CHANGE_THIS -->
  * 
  * @param filename
  * @text Image
@@ -671,6 +672,8 @@ String.prototype.shoraDoubleCommands = function() {
     return this.match(Shora.REGEX.DOUBLE_COMMAND);
 };
 
+// RPGM Override
+
 // Spriteset_Map
 ((_) => {
     _.type = () => 'map';
@@ -681,9 +684,9 @@ String.prototype.shoraDoubleCommands = function() {
         destroy.call(this, options);
     }
 
-    const createLowerLayer = _.createLowerLayer;
-    _.createLowerLayer = function() {
-        createLowerLayer.call(this);
+    const createUpperLayer = _.createUpperLayer;
+    _.createUpperLayer = function() {
+        createUpperLayer.call(this);
         this.createShoraLayer();
     }
 
@@ -715,16 +718,6 @@ String.prototype.shoraDoubleCommands = function() {
         }
     }
 
-    const refresh = _.refresh;
-    _.refresh = function() {
-        refresh.call(this);
-        this.refreshItemLighting();
-    }
-
-    _.refreshItemLighting = function() {
-        $gamePlayer.scanLighting();
-    }
-
     _.scanNoteTags = function(lines) {
         for (command of lines) {
             
@@ -748,20 +741,16 @@ String.prototype.shoraDoubleCommands = function() {
     _.initLighting = function() {
         this.hasLight = false;
         this.lighting = null;
-        this._light_offsetx = null;
-        this._light_offsety = null;
-        this._light_color = null;
     }
 
     const update = _.update;
     _.update = function() {
         update.call(this);
-        this.updateLighing();
+        this.updateLighting();
     }
 
-    _.updateLighing = function() {
+    _.updateLighting = function() {
         if (this.hasLight && !this.lighting) {
-            // this._light_offsetx = this.lightingParams.offsetx;
             $gameLighting.add(this.lightingParams)
             this.lighting = 1;
         }
@@ -773,6 +762,16 @@ String.prototype.shoraDoubleCommands = function() {
     }
 
 })(Game_Character.prototype);
+
+// Game_Party
+((_) => {
+    const gainItem = _.gainItem;
+    _.gainItem = function(item, amount, includeEquip) {
+        gainItem.call(this, item, amount, includeEquip);
+        $gamePlayer.scanLighting();
+    }
+
+})(Game_Party.prototype);
 
 // Game_Player
 ((_) => {
@@ -806,7 +805,7 @@ String.prototype.shoraDoubleCommands = function() {
         params.static = false;
         if (this.hasLight) {
             this.hasLight = false;
-            this.updateLighing();
+            this.updateLighting();
         }
         this.hasLight = true;
         this.lightingParams = params;
@@ -937,6 +936,7 @@ $shoraLayer = new Layer();
 
 class LightingLayer {
     constructor() {
+        this.lights = [];
         this.layer = new PIXI.Container();
         this.layer.filters = [new PIXI.filters.BlurFilter(1e-4, 2e-4)];
 
@@ -952,6 +952,7 @@ class LightingLayer {
     }
 
     destroy() {
+        this.lights = null;
         this.layer.destroy(true);
         this.layer.filters = null;
         this.layer = null;
@@ -977,10 +978,10 @@ class LightingLayer {
      */
     addLight(options) {
         const lighting = new LightingSprite(options);
+        this.lights[options.id] = lighting;
         this.layer.addChild(lighting);
         if (lighting.shadow) 
             this.layer.addChild(lighting.shadow.mask);
-        return lighting;
     }
 
     /**
@@ -991,6 +992,7 @@ class LightingLayer {
 		let index = this.layer.children.findIndex(light => light.id === id);
         if (index === -1) { Shora.warn('cant remove light' + id); return; }
         const light = this.layer.removeChildAt(index);
+        this.lights[light.id] = null;
         light.destroy(light.static);
 	}
 
@@ -1056,7 +1058,7 @@ class LightingSprite extends PIXI.Sprite {
 
     get character() {
         if (!this.id) return $gamePlayer;
-        return $gameMap.event(this.id);
+        return $gameMap._events[this.id];
     }
 
     constructor(options) {
@@ -1175,7 +1177,7 @@ class LightingSprite extends PIXI.Sprite {
 
     needUpdateShadowMask() {
         return this.needRecalculateShadow() || 
-        (this.direction && this.direction.rotate.updating()) || !this.id;
+        (this.direction && this.direction.rotate.updating());
     }
 
     updateShadow() {
@@ -1200,6 +1202,7 @@ class LightingSprite extends PIXI.Sprite {
             
         } else if (this.filters) {
             // snap
+            console.log('snap')
             this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
             this.shadow.mask.renderable = true;
             this.shadowOffsetX += $gameMap.displayX() * $gameMap.tileWidth();

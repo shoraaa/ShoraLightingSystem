@@ -1,3 +1,5 @@
+// RPGM Override
+
 // Spriteset_Map
 ((_) => {
     _.type = () => 'map';
@@ -8,9 +10,9 @@
         destroy.call(this, options);
     }
 
-    const createLowerLayer = _.createLowerLayer;
-    _.createLowerLayer = function() {
-        createLowerLayer.call(this);
+    const createUpperLayer = _.createUpperLayer;
+    _.createUpperLayer = function() {
+        createUpperLayer.call(this);
         this.createShoraLayer();
     }
 
@@ -42,16 +44,6 @@
         }
     }
 
-    const refresh = _.refresh;
-    _.refresh = function() {
-        refresh.call(this);
-        this.refreshItemLighting();
-    }
-
-    _.refreshItemLighting = function() {
-        $gamePlayer.scanLighting();
-    }
-
     _.scanNoteTags = function(lines) {
         for (command of lines) {
             
@@ -75,20 +67,16 @@
     _.initLighting = function() {
         this.hasLight = false;
         this.lighting = null;
-        this._light_offsetx = null;
-        this._light_offsety = null;
-        this._light_color = null;
     }
 
     const update = _.update;
     _.update = function() {
         update.call(this);
-        this.updateLighing();
+        this.updateLighting();
     }
 
-    _.updateLighing = function() {
+    _.updateLighting = function() {
         if (this.hasLight && !this.lighting) {
-            // this._light_offsetx = this.lightingParams.offsetx;
             $gameLighting.add(this.lightingParams)
             this.lighting = 1;
         }
@@ -100,6 +88,16 @@
     }
 
 })(Game_Character.prototype);
+
+// Game_Party
+((_) => {
+    const gainItem = _.gainItem;
+    _.gainItem = function(item, amount, includeEquip) {
+        gainItem.call(this, item, amount, includeEquip);
+        $gamePlayer.scanLighting();
+    }
+
+})(Game_Party.prototype);
 
 // Game_Player
 ((_) => {
@@ -133,7 +131,7 @@
         params.static = false;
         if (this.hasLight) {
             this.hasLight = false;
-            this.updateLighing();
+            this.updateLighting();
         }
         this.hasLight = true;
         this.lightingParams = params;

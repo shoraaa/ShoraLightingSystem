@@ -120,6 +120,7 @@
  * @param name
  * @text Ref
  * @desc The registered name for this light. Use [light <name>] to use it. Ex: [light flashlight]; [light] is equivalent as [light default]
+ * @default <-- CHANGE_THIS -->
  * 
  * @param filename
  * @text Image
@@ -309,7 +310,7 @@
 
 var Shora = Shora || {};
 Shora.Lighting = {};
-Shora.Lighting.pluginName = 'ShoraLighting';
+Shora.Lighting.pluginName = '-ShoraLighting-';
 Shora.Lighting.VERSION = 1.2;
 Shora.Lighting.PARAMETERS = PluginManager.parameters(Shora.Lighting.pluginName);
 
@@ -562,10 +563,10 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
             let parameters = JSON.parse(args.parameters);
             if (parameters.offset !== "") {
                 parameters.offset = JSON.parse(parameters.offset);
-                if (parameters.offset.x !== "") character.setOffsetX(Number(parameters.offset.x), time, type);
-                if (parameters.offset.y !== "") character.setOffsetY(Number(parameters.offset.y), time, type);
+                //if (parameters.offset.x !== "") character.setOffsetX(Number(parameters.offset.x), time, type);
+                //if (parameters.offset.y !== "") character.setOffsetY(Number(parameters.offset.y), time, type);
             }
-            if (parameters.tint !== "") character.setColor(Number(parameters.tint), time);
+            //if (parameters.tint !== "") character.setColor(Number(parameters.tint), time);
         } else {
             Shora.warn('Event ' + id + " doesn't have a light to change parameter.");
         }
@@ -671,6 +672,8 @@ String.prototype.shoraDoubleCommands = function() {
     return this.match(Shora.REGEX.DOUBLE_COMMAND);
 };
 
+// RPGM Override
+
 // Spriteset_Map
 ((_) => {
     _.type = () => 'map';
@@ -681,9 +684,9 @@ String.prototype.shoraDoubleCommands = function() {
         destroy.call(this, options);
     }
 
-    const createLowerLayer = _.createLowerLayer;
-    _.createLowerLayer = function() {
-        createLowerLayer.call(this);
+    const createUpperLayer = _.createUpperLayer;
+    _.createUpperLayer = function() {
+        createUpperLayer.call(this);
         this.createShoraLayer();
     }
 
@@ -708,6 +711,7 @@ String.prototype.shoraDoubleCommands = function() {
     const setup = _.setup;
     _.setup = function(mapId) {
         setup.call(this, mapId);
+        this._lighting = [];
         if ($dataMap) {
             this.scanNoteTags($dataMap.note.split('\n'));
             this.scanTileNoteTag(this.tileset().note.split('\n'));
@@ -747,20 +751,16 @@ String.prototype.shoraDoubleCommands = function() {
     _.initLighting = function() {
         this.hasLight = false;
         this.lighting = null;
-        this._light_offsetx = null;
-        this._light_offsety = null;
-        this._light_color = null;
     }
 
     const update = _.update;
     _.update = function() {
         update.call(this);
-        this.updateLighing();
+        this.updateLighting();
     }
 
-    _.updateLighing = function() {
+    _.updateLighting = function() {
         if (this.hasLight && !this.lighting) {
-            // this._light_offsetx = this.lightingParams.offsetx;
             $gameLighting.add(this.lightingParams)
             this.lighting = 1;
         }
@@ -805,7 +805,7 @@ String.prototype.shoraDoubleCommands = function() {
         params.static = false;
         if (this.hasLight) {
             this.hasLight = false;
-            this.updateLighing();
+            //this.updateLighting();
         }
         this.hasLight = true;
         this.lightingParams = params;
@@ -913,7 +913,8 @@ class Layer {
         }
 
         this.mapId = $gameMap.mapId();
-        if (this.lighting) this.lighting.destroy();
+        if (this.lighting) 
+            this.lighting.destroy();
         switch (this._spriteset.type()) {
             case 'map':
                 this.lighting = new LightingLayer();
@@ -935,6 +936,7 @@ $shoraLayer = new Layer();
 
 class LightingLayer {
     constructor() {
+        this.lights = [];
         this.layer = new PIXI.Container();
         this.layer.filters = [new PIXI.filters.BlurFilter(1e-4, 2e-4)];
 
@@ -950,6 +952,7 @@ class LightingLayer {
     }
 
     destroy() {
+        this.lights = null;
         this.layer.destroy(true);
         this.layer.filters = null;
         this.layer = null;
@@ -965,7 +968,8 @@ class LightingLayer {
     }
 
     createLightingSprite() {
-        for (const light of $gameLighting.lighting()) this.addLight(light);
+        for (const light of $gameLighting.lighting) 
+            this.addLight(light);
     }
 
     /**
@@ -974,9 +978,10 @@ class LightingLayer {
      */
     addLight(options) {
         const lighting = new LightingSprite(options);
+        this.lights[options.id] = lighting;
         this.layer.addChild(lighting);
-        if (lighting.shadow) this.layer.addChild(lighting.shadow.mask);
-        return lighting;
+        if (lighting.shadow) 
+            this.layer.addChild(lighting.shadow.mask);
     }
 
     /**
@@ -987,6 +992,7 @@ class LightingLayer {
 		let index = this.layer.children.findIndex(light => light.id === id);
         if (index === -1) { Shora.warn('cant remove light' + id); return; }
         const light = this.layer.removeChildAt(index);
+        this.lights[light.id] = null;
         light.destroy(light.static);
 	}
 
@@ -1052,7 +1058,7 @@ class LightingSprite extends PIXI.Sprite {
 
     get character() {
         if (!this.id) return $gamePlayer;
-        return $gameMap.event(this.id);
+        return $gameMap._events[this.id];
     }
 
     constructor(options) {
@@ -1131,7 +1137,7 @@ class LightingSprite extends PIXI.Sprite {
     }
 
     destroy() {
-        this.character.lighting = null;
+        // this.character.lighting = null;
         // this.character = null; // ref -> get
         this.pulse.destroy();
         this.flicker.destroy();
@@ -1171,7 +1177,7 @@ class LightingSprite extends PIXI.Sprite {
 
     needUpdateShadowMask() {
         return this.needRecalculateShadow() || 
-        (this.direction && this.direction.rotate.updating()) || !this.id;
+        (this.direction && this.direction.rotate.updating());
     }
 
     updateShadow() {
@@ -1196,6 +1202,7 @@ class LightingSprite extends PIXI.Sprite {
             
         } else if (this.filters) {
             // snap
+            console.log('snap')
             this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
             this.shadow.mask.renderable = true;
             this.shadowOffsetX += $gameMap.displayX() * $gameMap.tileWidth();
@@ -2090,7 +2097,6 @@ const TextureManager = {
 
 class GameLighting {
     constructor() {
-        this._lighting = [];
         this.LIGHTING = {};
         this.loadParameters();
         this.loadLighting();
@@ -2171,8 +2177,8 @@ class GameLighting {
     /**
      * A list of lights of map.
      */
-    lighting() {
-        return this._lighting;
+    get lighting() {
+        return $gameMap._lighting;
     }
 
     /**
@@ -2188,7 +2194,7 @@ class GameLighting {
         }
         const params = {...this.LIGHTING[options.name], ...options};
         this.remove(params.id);
-        this._lighting.push(params);
+        this.lighting.push(params);
         return $shoraLayer.lighting.addLight(params);
     }
 
@@ -2198,8 +2204,8 @@ class GameLighting {
      */
     remove(id) {
         let i;
-        if ((i = this._lighting.findIndex(light => light.id === id)) !== -1) {
-            this._lighting.splice(i, 1);
+        if ((i = this.lighting.findIndex(light => light.id === id)) !== -1) {
+            this.lighting.splice(i, 1);
             $shoraLayer.lighting.removeLight(id);
         }
     }

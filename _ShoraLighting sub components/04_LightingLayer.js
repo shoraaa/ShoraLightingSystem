@@ -1,5 +1,6 @@
 class LightingLayer {
     constructor() {
+        this.lights = [];
         this.layer = new PIXI.Container();
         this.layer.filters = [new PIXI.filters.BlurFilter(1e-4, 2e-4)];
 
@@ -15,6 +16,7 @@ class LightingLayer {
     }
 
     destroy() {
+        this.lights = null;
         this.layer.destroy(true);
         this.layer.filters = null;
         this.layer = null;
@@ -40,10 +42,10 @@ class LightingLayer {
      */
     addLight(options) {
         const lighting = new LightingSprite(options);
+        this.lights[options.id] = lighting;
         this.layer.addChild(lighting);
         if (lighting.shadow) 
             this.layer.addChild(lighting.shadow.mask);
-        return lighting;
     }
 
     /**
@@ -54,6 +56,7 @@ class LightingLayer {
 		let index = this.layer.children.findIndex(light => light.id === id);
         if (index === -1) { Shora.warn('cant remove light' + id); return; }
         const light = this.layer.removeChildAt(index);
+        this.lights[light.id] = null;
         light.destroy(light.static);
 	}
 

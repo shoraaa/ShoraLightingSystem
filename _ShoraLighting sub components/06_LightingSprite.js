@@ -2,7 +2,7 @@ class LightingSprite extends PIXI.Sprite {
 
     get character() {
         if (!this.id) return $gamePlayer;
-        return $gameMap.event(this.id);
+        return $gameMap._events[this.id];
     }
 
     constructor(options) {
@@ -121,7 +121,7 @@ class LightingSprite extends PIXI.Sprite {
 
     needUpdateShadowMask() {
         return this.needRecalculateShadow() || 
-        (this.direction && this.direction.rotate.updating()) || !this.id;
+        (this.direction && this.direction.rotate.updating());
     }
 
     updateShadow() {
@@ -146,6 +146,7 @@ class LightingSprite extends PIXI.Sprite {
             
         } else if (this.filters) {
             // snap
+            console.log('snap')
             this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
             this.shadow.mask.renderable = true;
             this.shadowOffsetX += $gameMap.displayX() * $gameMap.tileWidth();

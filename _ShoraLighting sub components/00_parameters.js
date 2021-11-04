@@ -120,6 +120,7 @@
  * @param name
  * @text Ref
  * @desc The registered name for this light. Use [light <name>] to use it. Ex: [light flashlight]; [light] is equivalent as [light default]
+ * @default <-- CHANGE_THIS -->
  * 
  * @param filename
  * @text Image
