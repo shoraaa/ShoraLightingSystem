@@ -68,6 +68,7 @@ class GameShadow {
     addLowerSegment(x, y, height) {
 		let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
 		this.horizontalSegments.push([(x + 1) * tw, (y + height + 1) * th, x * tw, (y + height + 1) * th]);
+        //[x2, y2, x1, y1, height]
 		this.lowerWalls.push([(x + 1) * tw, (y + height + 1) * th, x * tw, (y + height + 1) * th, height]);
     }
     
@@ -115,12 +116,14 @@ class GameShadow {
 			}
 		}
     }
-    
+
     // TODO: binary search
+    //[x2, y2, x1, y1, height]
+
     optimizeSegments(s) {
-		for (var i = 0; i < s.length; ++i) {
+		for (let i = 0; i < s.length; ++i) {
 			let [x1, y1] = [s[i][2], s[i][3]];
-			for (var j = 0; j < s.length; ++j) {
+			for (let j = 0; j < s.length; ++j) {
 				let [x2, y2] = [s[j][0], s[j][1]];
 				if (x1 === x2 && y1 === y2) {
 					s[i][2] = s[j][2];
@@ -134,8 +137,8 @@ class GameShadow {
     }
     
     createSegments() {
-		for (var y = 0; y < this.map.length; y++) {
-			for (var x = 0; x < this.map[y].length; x++) {
+		for (let y = 0; y < this.map.length; y++) {
+			for (let x = 0; x < this.map[y].length; x++) {
 				if (this.map[y][x]) {
 					this.addCaster(x, y, this.map[y][x]);
 				}
