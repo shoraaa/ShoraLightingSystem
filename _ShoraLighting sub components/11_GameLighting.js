@@ -13,6 +13,7 @@ class GameLighting {
         
         this.GAME_PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Game']);
         this.GAME_PARAMETERS.regionStart = Number(this.GAME_PARAMETERS.regionStart);
+        this.GAME_PARAMETERS.regionEnd = Number(this.GAME_PARAMETERS.regionEnd);
     }
 
     loadLighting() {
@@ -146,6 +147,10 @@ class GameLighting {
 
     regionStart() {
         return this.GAME_PARAMETERS.regionStart;
+    }
+
+    regionEnd() {
+        return this.GAME_PARAMETERS.regionEnd;
     }
 
     width() {

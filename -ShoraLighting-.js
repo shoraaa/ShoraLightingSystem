@@ -67,7 +67,7 @@
  * @text [Game: Settings]
  * @type struct<GameSettings>
  * @desc Settings for game.
- * @default {"regionStart":"1"}
+ * @default {"regionStart":"1","regionEnd":"4"}
  * 
  * @param sep0
  * @text ==================================
@@ -101,6 +101,11 @@
  * @text Region Id Start Index
  * @desc Starting index of the shadow region id.
  * @default 1
+ * 
+ * @param regionEnd
+ * @text Region Id End Index
+ * @desc Ending index of the shadow region id.
+ * @default 3
  */
 /*~struct~MapSettings:
  * @param ambient
@@ -2121,6 +2126,7 @@ class GameLighting {
         
         this.GAME_PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Game']);
         this.GAME_PARAMETERS.regionStart = Number(this.GAME_PARAMETERS.regionStart);
+        this.GAME_PARAMETERS.regionEnd = Number(this.GAME_PARAMETERS.regionEnd);
     }
 
     loadLighting() {
@@ -2256,6 +2262,10 @@ class GameLighting {
         return this.GAME_PARAMETERS.regionStart;
     }
 
+    regionEnd() {
+        return this.GAME_PARAMETERS.regionEnd;
+    }
+
     width() {
         return Math.max($gameMap.width() * $gameMap.tileWidth(), Graphics.width);
     }
@@ -2315,14 +2325,15 @@ class GameShadow {
             .map(() => new Array($gameMap.width()).fill(0));
 
         let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
-        let regionStart = $gameLighting.regionStart() - 1;
+        let regionStart = $gameLighting.regionStart();
+        let regionEnd = $gameLighting.regionEnd();
         this.upperWalls.beginFill($gameLighting.PARAMETERS.topBlockAmbient);
         let flag = false, begin = 0, width = 0;
         for (var i = 0; i < $gameMap.height(); ++i) {
             this.topWalls.push([]);
             for (var j = 0; j < $gameMap.width(); ++j) {
-                if ($gameMap.regionId(j, i) >= regionStart) {
-                    this.map[i][j] = $gameMap.regionId(j, i) - regionStart;
+                if (($gameMap.regionId(j, i) >= regionStart) && ($gameMap.regionId(j, i) <= regionEnd)) {
+                    this.map[i][j] = $gameMap.regionId(j, i) - regionStart + 1; 
                 }
                 if (this.map[i][j]) {
                     this.upperWalls.drawRect(j * tw, i * th, tw, th);

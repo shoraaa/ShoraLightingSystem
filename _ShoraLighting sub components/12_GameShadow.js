@@ -30,14 +30,15 @@ class GameShadow {
             .map(() => new Array($gameMap.width()).fill(0));
 
         let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
-        let regionStart = $gameLighting.regionStart() - 1;
+        let regionStart = $gameLighting.regionStart();
+        let regionEnd = $gameLighting.regionEnd();
         this.upperWalls.beginFill($gameLighting.PARAMETERS.topBlockAmbient);
         let flag = false, begin = 0, width = 0;
         for (var i = 0; i < $gameMap.height(); ++i) {
             this.topWalls.push([]);
             for (var j = 0; j < $gameMap.width(); ++j) {
-                if ($gameMap.regionId(j, i) >= regionStart) {
-                    this.map[i][j] = $gameMap.regionId(j, i) - regionStart;
+                if (($gameMap.regionId(j, i) >= regionStart) && ($gameMap.regionId(j, i) <= regionEnd)) {
+                    this.map[i][j] = $gameMap.regionId(j, i) - regionStart + 1; 
                 }
                 if (this.map[i][j]) {
                     this.upperWalls.drawRect(j * tw, i * th, tw, th);
