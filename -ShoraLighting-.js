@@ -780,7 +780,10 @@ String.prototype.shoraDoubleCommands = function() {
         this.scanLighting();
     }
     _.scanLighting = function() {
-        const note = $gameParty.leader().actor().note.split('\n');
+        let note = '';
+        if ($gameParty.leader()){
+            note = $gameParty.leader().actor().note.split('\n');
+        }
         let lightingParams = { id: 0, auto: true };
         for (let line of note) {
             Shora.CallCommand(lightingParams, line);
