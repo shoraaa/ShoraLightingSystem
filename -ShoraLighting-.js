@@ -2330,7 +2330,7 @@ class GameShadow {
             this.topWalls.push([]);
             for (var j = 0; j < $gameMap.width(); ++j) {
                 if (($gameMap.regionId(j, i) >= regionStart) && ($gameMap.regionId(j, i) <= regionEnd)) {
-                    this.map[i][j] = $gameMap.regionId(j, i); 
+                    this.map[i][j] = $gameMap.regionId(j, i) - regionStart + 1; 
                 }
                 if (this.map[i][j]) {
                     this.upperWalls.drawRect(j * tw, i * th, tw, th);
