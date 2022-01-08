@@ -106,6 +106,11 @@
  * @text Region Id End Index
  * @desc Ending index of the shadow region id.
  * @default 10
+ * 
+ * @param topRegionId
+ * @text Top-roof region id
+ * @desc Region id specified for top roof without any wall. Shouldn't in the range of wall's id.
+ * @default 50
  */
 /*~struct~MapSettings:
  * @param ambient

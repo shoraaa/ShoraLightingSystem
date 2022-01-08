@@ -106,6 +106,11 @@
  * @text Region Id End Index
  * @desc Ending index of the shadow region id.
  * @default 10
+ * 
+ * @param topRegionId
+ * @text Top-roof region id
+ * @desc Region id specified for top roof without any wall. Shouldn't in the range of wall's id.
+ * @default 50
  */
 /*~struct~MapSettings:
  * @param ambient
@@ -1413,7 +1418,7 @@ class Shadow {
 		this._shadowMask.endFill();
 
 		this._shadowMask.beginFill(0xffffff);
-		this._shadowMask.moveTo(this.polygon[0][0], this.polygon[0][1]);
+		this._shadowMask.(this.polygon[0][0], this.polygon[0][1]);
 		for (let i = 1; i < this.polygon.length; ++i) {
 			this.drawWall(i, oy, lowerWalls);
             this._shadowMask.lineTo(this.polygon[i][0], this.polygon[i][1]);
@@ -2126,6 +2131,7 @@ class GameLighting {
         this.GAME_PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Game']);
         this.GAME_PARAMETERS.regionStart = Number(this.GAME_PARAMETERS.regionStart);
         this.GAME_PARAMETERS.regionEnd = Number(this.GAME_PARAMETERS.regionEnd);
+        this.GAME_PARAMETERS.topRegionId = Number(this.GAME_PARAMETERS.topRegionId);
     }
 
     loadLighting() {
@@ -2265,6 +2271,10 @@ class GameLighting {
         return this.GAME_PARAMETERS.regionEnd;
     }
 
+    topRegionId() {
+        return this.GAME_PARAMETERS.topRegionId;
+    }
+
     width() {
         return Math.max($gameMap.width() * $gameMap.tileWidth(), Graphics.width);
     }
@@ -2324,16 +2334,18 @@ class GameShadow {
         let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
         let regionStart = $gameLighting.regionStart();
         let regionEnd = $gameLighting.regionEnd();
+        let topRegionId = $gameLighting.topRegionId();
         this.upperWalls.beginFill($gameLighting.PARAMETERS.topBlockAmbient);
         let flag = false, begin = 0, width = 0;
         for (var i = 0; i < $gameMap.height(); ++i) {
             this.topWalls.push([]);
             for (var j = 0; j < $gameMap.width(); ++j) {
-                if (($gameMap.regionId(j, i) >= regionStart) && ($gameMap.regionId(j, i) <= regionEnd)) {
+                if (regionStart <= $gameMap.regionId(j, i) && $gameMap.regionId(j, i) <= regionEnd) {
                     this.map[i][j] = $gameMap.regionId(j, i) - regionStart + 1; 
                 }
-                if (this.map[i][j]) {
+                if ((regionStart <= $gameMap.regionId(j, i) && $gameMap.regionId(j, i) <= regionEnd) || $gameMap.regionId(j, i) == topRegionId) {
                     this.upperWalls.drawRect(j * tw, i * th, tw, th);
+                    /*
                     if (!flag) {
                         flag = true;
                         begin = j * 48;
@@ -2343,6 +2355,7 @@ class GameShadow {
                     flag = false;
                     this.topWalls[i].push([begin, begin+width]);
                     width = 0;
+                    */
                 }
             }
         }
@@ -2494,7 +2507,7 @@ class GameShadow {
 		for (var y = 0; y < this.map.length; y++) {
 			for (var x = 0; x < this.map[y].length; x++) {
 				if (this.map[y][x]) {
-					this.addCaster(x, y, this.map[y][x]);
+					this.addCaster(x, y, this.map[y][x] - 1);
 				}
 			}
 		}
@@ -2514,7 +2527,7 @@ class GameShadow {
 		// Lower walls
 
         // DEPRECATED
-        // this.optimizeSegments(this.lowerWalls);
+        //this.optimizeSegments(this.lowerWalls);
 
         this.lowerWalls = this.mergeLowerWalls(this.lowerWalls);
         this.lowerWalls.sort((a, b) => b[0] - a[0]);

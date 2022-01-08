@@ -93,7 +93,7 @@ class Shadow {
 		this._shadowMask.endFill();
 
 		this._shadowMask.beginFill(0xffffff);
-		this._shadowMask.moveTo(this.polygon[0][0], this.polygon[0][1]);
+		this._shadowMask.(this.polygon[0][0], this.polygon[0][1]);
 		for (let i = 1; i < this.polygon.length; ++i) {
 			this.drawWall(i, oy, lowerWalls);
             this._shadowMask.lineTo(this.polygon[i][0], this.polygon[i][1]);
