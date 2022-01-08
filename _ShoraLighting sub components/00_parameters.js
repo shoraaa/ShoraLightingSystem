@@ -67,7 +67,7 @@
  * @text [Game: Settings]
  * @type struct<GameSettings>
  * @desc Settings for game.
- * @default {"regionStart":"1","regionEnd":"4"}
+ * @default {"regionStart":"1","regionEnd":"10"}
  * 
  * @param sep0
  * @text ==================================
@@ -105,7 +105,7 @@
  * @param regionEnd
  * @text Region Id End Index
  * @desc Ending index of the shadow region id.
- * @default 3
+ * @default 10
  */
 /*~struct~MapSettings:
  * @param ambient

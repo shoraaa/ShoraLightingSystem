@@ -1,5 +1,5 @@
 /*:
- * @plugindesc 1.2b
+ * @plugindesc 1.3b
  * <Shora Lighting System>
  * @author Shora
  * @desc Shora Lighting System for MV/MZ. 
@@ -67,7 +67,7 @@
  * @text [Game: Settings]
  * @type struct<GameSettings>
  * @desc Settings for game.
- * @default {"regionStart":"1"}
+ * @default {"regionStart":"1","regionEnd":"4"}
  * 
  * @param sep0
  * @text ==================================
@@ -101,6 +101,11 @@
  * @text Region Id Start Index
  * @desc Starting index of the shadow region id.
  * @default 1
+ * 
+ * @param regionEnd
+ * @text Region Id End Index
+ * @desc Ending index of the shadow region id.
+ * @default 3
  */
 /*~struct~MapSettings:
  * @param ambient
@@ -311,7 +316,7 @@
 var Shora = Shora || {};
 Shora.Lighting = {};
 Shora.Lighting.pluginName = '-ShoraLighting-';
-Shora.Lighting.VERSION = 1.2;
+Shora.Lighting.VERSION = 1.3;
 Shora.Lighting.PARAMETERS = PluginManager.parameters(Shora.Lighting.pluginName);
 
 Shora.tempMatrix = new PIXI.Matrix();
@@ -512,12 +517,11 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
                 if (!character) {
                     Shora.warn(id + ' is not a valid event id.'); return;
                 }
-                const lighting = character.lighting;
                 for (let i = 1; i <= 4; ++i) args[i] = Number(args[i]);
                 if (command === 'offset') {
-                    lighting.setOffset(args[1], args[2], args[3], args[4] || 1);
+                    $gameLighting.setOffset(id, args[1], args[2], args[3], args[4] || 1);
                 } else if (command === 'tint') {
-                    lighting.setColor(args[1], args[2]);
+                    $gameLighting.setColor(id, args[1], args[2]);
                 }
             }
         }
@@ -563,10 +567,10 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
             let parameters = JSON.parse(args.parameters);
             if (parameters.offset !== "") {
                 parameters.offset = JSON.parse(parameters.offset);
-                //if (parameters.offset.x !== "") character.setOffsetX(Number(parameters.offset.x), time, type);
-                //if (parameters.offset.y !== "") character.setOffsetY(Number(parameters.offset.y), time, type);
+                if (parameters.offset.x !== "") $gameLighting.setOffsetX(id, Number(parameters.offset.x), time, type);
+                if (parameters.offset.y !== "") $gameLighting.setOffsetY(id, Number(parameters.offset.y), time, type);
             }
-            //if (parameters.tint !== "") character.setColor(Number(parameters.tint), time);
+            if (parameters.tint !== "") $gameLighting.setColor(id, Number(parameters.tint), time);
         } else {
             Shora.warn('Event ' + id + " doesn't have a light to change parameter.");
         }
@@ -718,16 +722,6 @@ String.prototype.shoraDoubleCommands = function() {
         }
     }
 
-    const refresh = _.refresh;
-    _.refresh = function() {
-        refresh.call(this);
-        this.refreshItemLighting();
-    }
-
-    _.refreshItemLighting = function() {
-        $gamePlayer.scanLighting();
-    }
-
     _.scanNoteTags = function(lines) {
         for (command of lines) {
             
@@ -773,6 +767,16 @@ String.prototype.shoraDoubleCommands = function() {
 
 })(Game_Character.prototype);
 
+// Game_Party
+((_) => {
+    const gainItem = _.gainItem;
+    _.gainItem = function(item, amount, includeEquip) {
+        gainItem.call(this, item, amount, includeEquip);
+        $gamePlayer.scanLighting();
+    }
+
+})(Game_Party.prototype);
+
 // Game_Player
 ((_) => {
     const refresh = _.refresh;
@@ -781,7 +785,10 @@ String.prototype.shoraDoubleCommands = function() {
         this.scanLighting();
     }
     _.scanLighting = function() {
-        const note = $gameParty.leader().actor().note.split('\n');
+        let note = '';
+        if ($gameParty.leader()){
+            note = $gameParty.leader().actor().note.split('\n');
+        }
         let lightingParams = { id: 0, auto: true };
         for (let line of note) {
             Shora.CallCommand(lightingParams, line);
@@ -805,7 +812,7 @@ String.prototype.shoraDoubleCommands = function() {
         params.static = false;
         if (this.hasLight) {
             this.hasLight = false;
-            //this.updateLighting();
+            this.updateLighting();
         }
         this.hasLight = true;
         this.lightingParams = params;
@@ -853,6 +860,15 @@ String.prototype.shoraDoubleCommands = function() {
     }
 
 })(Game_Event.prototype);
+
+// DataManager
+((_) => {
+    const createGameObjects = _.createGameObjects;
+    _.createGameObjects = function() {
+        createGameObjects.call(this);
+        $shoraLayer = new Layer();
+    }
+})(DataManager);
 
 class Layer {
     constructor() {
@@ -932,7 +948,7 @@ class Layer {
     
 }
 
-$shoraLayer = new Layer();
+// $shoraLayer = new Layer();
 
 class LightingLayer {
     constructor() {
@@ -1177,7 +1193,7 @@ class LightingSprite extends PIXI.Sprite {
 
     needUpdateShadowMask() {
         return this.needRecalculateShadow() || 
-        (this.direction && this.direction.rotate.updating());
+        (this.direction && this.direction.rotate.updating()) || !this.id;
     }
 
     updateShadow() {
@@ -2110,6 +2126,7 @@ class GameLighting {
         
         this.GAME_PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Game']);
         this.GAME_PARAMETERS.regionStart = Number(this.GAME_PARAMETERS.regionStart);
+        this.GAME_PARAMETERS.regionEnd = Number(this.GAME_PARAMETERS.regionEnd);
     }
 
     loadLighting() {
@@ -2245,12 +2262,32 @@ class GameLighting {
         return this.GAME_PARAMETERS.regionStart;
     }
 
+    regionEnd() {
+        return this.GAME_PARAMETERS.regionEnd;
+    }
+
     width() {
         return Math.max($gameMap.width() * $gameMap.tileWidth(), Graphics.width);
     }
 
     height() {
         return Math.max($gameMap.height() * $gameMap.tileHeight(), Graphics.height);
+    }
+
+    setOffset(id, x, y, time, type) {
+        $shoraLayer.lighting.lights[id].setOffset(x, y, time, type);
+    }
+
+    setOffsetX(id, x, time, type) {
+        $shoraLayer.lighting.lights[id].setOffsetX(x, time, type);
+    }
+
+    setOffsetY(id, y, time, type) {
+        $shoraLayer.lighting.lights[id].setOffsetY(y, time, type);
+    }
+
+    setColor(id, color, time) {
+        $shoraLayer.lighting.lights[id].setColor(color, time);
     }
 }
 
@@ -2288,14 +2325,15 @@ class GameShadow {
             .map(() => new Array($gameMap.width()).fill(0));
 
         let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
-        let regionStart = $gameLighting.regionStart() - 1;
+        let regionStart = $gameLighting.regionStart();
+        let regionEnd = $gameLighting.regionEnd();
         this.upperWalls.beginFill($gameLighting.PARAMETERS.topBlockAmbient);
         let flag = false, begin = 0, width = 0;
         for (var i = 0; i < $gameMap.height(); ++i) {
             this.topWalls.push([]);
             for (var j = 0; j < $gameMap.width(); ++j) {
-                if ($gameMap.regionId(j, i) >= regionStart) {
-                    this.map[i][j] = $gameMap.regionId(j, i) - regionStart;
+                if (($gameMap.regionId(j, i) >= regionStart) && ($gameMap.regionId(j, i) <= regionEnd)) {
+                    this.map[i][j] = $gameMap.regionId(j, i) - regionStart + 1; 
                 }
                 if (this.map[i][j]) {
                     this.upperWalls.drawRect(j * tw, i * th, tw, th);

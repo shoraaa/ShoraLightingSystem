@@ -146,7 +146,6 @@ class LightingSprite extends PIXI.Sprite {
             
         } else if (this.filters) {
             // snap
-            console.log('snap')
             this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
             this.shadow.mask.renderable = true;
             this.shadowOffsetX += $gameMap.displayX() * $gameMap.tileWidth();

@@ -1,6 +1,5 @@
 class GameShadow {
     constructor() {
-        this._segments = [];
         this.segments = [];
         this.originalSegments = [];
         this.horizontalSegments = [];
@@ -12,7 +11,6 @@ class GameShadow {
     }
 
     refresh() {
-        this._segments = [];
         this.segments = [];
         this.originalSegments = [];
         this.horizontalSegments = [];
@@ -117,7 +115,71 @@ class GameShadow {
 		}
     }
     
-    // TODO: binary search
+    mergeHorizontalSegments(a) {
+        // y = s[1] = s[3], quan ly doan [s[0], s[2]]
+        for (let i = 0; i < a.length; ++i)
+            if (a[i][0] > a[i][2]) [a[i][0], a[i][2]] = [a[i][2], a[i][0]];
+        let cmp = function(u, v) {
+            if (u[1] == v[1])
+                return u[0] < v[0] ? -1 : 1;
+            return u[1] < v[1] ? -1 : 1;
+        }
+        a.sort(cmp);
+        let res = [];
+        for (let i = 0; i < a.length;) {
+            let j = i + 1, cur = a[i][2];
+            while (j < a.length && a[j][1] == a[i][1] && a[j][0] <= cur) 
+                cur = Math.max(cur, a[j][2]), j++;
+            j--;
+            res.push([a[i][0], a[i][1], cur, a[i][3]]);
+            i = j + 1;
+        }
+        return res;
+    }
+
+    mergeVerticalSegments(a) {
+        // x = s[0] = s[2], quan ly doan [s[1], s[3]]
+        for (let i = 0; i < a.length; ++i)
+            if (a[i][1] > a[i][3]) [a[i][1], a[i][3]] = [a[i][3], a[i][1]];
+        let cmp = function(u, v) {
+            if (u[0] == v[0])
+                return u[1] < v[1] ? -1 : 1;
+            return u[0] < v[0] ? -1 : 1;
+        }
+        a.sort(cmp);
+        let res = [];
+        for (let i = 0; i < a.length;) {
+            let j = i + 1, cur = a[i][3];
+            while (j < a.length && a[j][0] == a[i][0] && a[j][1] <= cur) 
+                cur = Math.max(cur, a[j][3]), j++;
+            j--;
+            res.push([a[i][0], a[i][1], a[i][2], cur]);
+            i = j + 1;
+        }
+        return res;
+    }
+
+    mergeLowerWalls(a) {
+        // y = s[1] = s[3], quan ly doan [s[2], s[0]]
+        let cmp = function(u, v) {
+            if (u[1] == v[1])
+                return u[0] > v[0] ? -1 : 1;
+            return u[1] < v[1] ? -1 : 1;
+        }
+        a.sort(cmp);
+        let res = [];
+        for (let i = 0; i < a.length;) {
+            let j = i + 1, cur = a[i][2];
+            while (j < a.length && a[j][1] == a[i][1] && a[j][4] == a[i][4] && a[j][0] >= cur) 
+                cur = Math.min(cur, a[j][2]), j++;
+            j--;
+            res.push([a[i][0], a[i][1], cur, a[i][3], a[i][4]]);
+            i = j + 1;
+        }
+        return res;
+    }
+
+    // DEPRECATED
     optimizeSegments(s) {
 		for (var i = 0; i < s.length; ++i) {
 			let [x1, y1] = [s[i][2], s[i][3]];
@@ -142,16 +204,25 @@ class GameShadow {
 				}
 			}
 		}
-		// Shadow Casters
-		this.optimizeSegments(this.verticalSegments);
-		this.optimizeSegments(this.horizontalSegments);
-		this._segments = this.horizontalSegments.concat(this.verticalSegments);
 
-		this.segments = ShadowSystem.getSegments(this._segments);
+		// Shadow Casters
+
+        // DEPREACTED
+		//this.optimizeSegments(this.verticalSegments);
+		//this.optimizeSegments(this.horizontalSegments);
+
+        this.verticalSegments = this.mergeVerticalSegments(this.verticalSegments);
+        this.horizontalSegments = this.mergeHorizontalSegments(this.horizontalSegments);
+        
+		this.segments = ShadowSystem.getSegments(this.horizontalSegments.concat(this.verticalSegments));
         this.originalSegments = this.segments.map(s => s.map(p => p.map(x => x / 48)));
 
 		// Lower walls
-        this.optimizeSegments(this.lowerWalls);
+
+        // DEPRECATED
+        // this.optimizeSegments(this.lowerWalls);
+
+        this.lowerWalls = this.mergeLowerWalls(this.lowerWalls);
         this.lowerWalls.sort((a, b) => b[0] - a[0]);
         this.originalLowerWalls = this.lowerWalls.map(s => s.map(p => p >= $gameMap.tileWidth() ? p / $gameMap.tileWidth() : p));
 
