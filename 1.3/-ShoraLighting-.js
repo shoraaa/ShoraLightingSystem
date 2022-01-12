@@ -1,5 +1,5 @@
 /*:
- * @plugindesc 1.4b
+ * @plugindesc 1.3b
  * <Shora Lighting System>
  * @author Shora
  * @desc Shora Lighting System for MV/MZ. 
@@ -899,11 +899,11 @@ class Layer {
         Shora.DIR_PATH = path.join(path.dirname(process.mainModule.filename));
         let cache = this.baseTextureCache;
         let dirPath = path.join(Shora.DIR_PATH, 'img', 'lights');
-        if (!fs.existsSync(dirPath)) 
-            fs.mkdirSync(dirPath)
         fs.readdir(dirPath, function (err, files) {
             if (err) return Shora.warn('Unable to scan directory: ' + err);
-            files.forEach(file => cache[file] = ImageManager.loadLight(file))
+            files.forEach(function(file) {
+                cache[file] = ImageManager.loadLight(file);
+            });
         });
     }
 
@@ -912,8 +912,6 @@ class Layer {
      * @param {String} name 
      */
     load(name) {
-        if (!this.baseTextureCache[name + '.png'])
-            throw new Error('Please add + ' + name + '.png light image to /img/lights/.');
         return this.baseTextureCache[name + '.png']._baseTexture;
     }
 
@@ -1124,7 +1122,7 @@ class LightingSprite extends PIXI.Sprite {
             if (!this.bwall) // 54.00001; tw * h + 6 + eps
             	this.shadowOffsetY += $gameShadow.getWallHeight(this.globalX(), this.globalY());
             this.renderTexture = PIXI.RenderTexture.create(this.width, this.height); // texture to cache
-            this.shadow = new Shadow(this.globalX(), this.globalY(), this.globalBounds(), options.shadowambient);
+            this.shadow = new Shadow(this.globalX() + this.shadowOffsetX, this.globalY() + this.shadowOffsetY, this.globalBounds(), options.shadowambient);
             this.setMask(this.shadow.mask);
             this.shadow.mask.renderable = true;
             this.snapshot();

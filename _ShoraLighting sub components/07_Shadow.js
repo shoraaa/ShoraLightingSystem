@@ -63,7 +63,7 @@ class Shadow {
 			let [x2, y2, x1, y1, height] = lowerWalls[i];
 			if (y == ny && y == y1 && x >= x1 && x <= x2 && nx >= x1 && nx <= x2 && oy >= y1) {
 				this._shadowMask.lineTo(nx, ny - tw * height)
-							   .lineTo(x, y - tw * height)
+							    .lineTo(x, y - tw * height);
 			}
 		}
 	};
@@ -93,7 +93,7 @@ class Shadow {
 		this._shadowMask.endFill();
 
 		this._shadowMask.beginFill(0xffffff);
-		this._shadowMask.(this.polygon[0][0], this.polygon[0][1]);
+		this._shadowMask.moveTo(this.polygon[0][0], this.polygon[0][1]);
 		for (let i = 1; i < this.polygon.length; ++i) {
 			this.drawWall(i, oy, lowerWalls);
             this._shadowMask.lineTo(this.polygon[i][0], this.polygon[i][1]);
@@ -119,12 +119,24 @@ class Shadow {
         let tw = $gameMap.tileWidth();
 		for (let i = 0; i < lowerWalls.length; ++i) {
 			let [x2, y2, x1, y1, height] = lowerWalls[i];
-            if (this.containParallelSegment(y1, x1, x2)) continue;
-			this._shadowMask.moveTo(x1, y1);
-			this._shadowMask.lineTo(x1, y1-tw*height);
-			this._shadowMask.lineTo(x2, y2-tw*height);
-			this._shadowMask.lineTo(x2, y2);
+            if (y1 >= oy || !this.containParallelSegment(y1, x1, x2)) {
+                this._shadowMask.moveTo(x1, y1);
+                this._shadowMask.lineTo(x1, y1-tw*height);
+                this._shadowMask.lineTo(x2, y2-tw*height);
+                this._shadowMask.lineTo(x2, y2);
+            }
 		}
+        this._shadowMask.endFill();
+        
+        // ignore shadows 
+        this._shadowMask.beginFill(0xffffff); 
+        for (let i = 0; i < $gameShadow.ignoreShadows.length; ++i) {
+            let [x, y] = $gameShadow.ignoreShadows[i];
+            this._shadowMask.moveTo(x, y);
+            this._shadowMask.lineTo(x, y+tw);
+            this._shadowMask.lineTo(x+tw, y+tw);
+            this._shadowMask.lineTo(x+tw, y);
+        }
         this._shadowMask.endFill();
         
         /* drawing top-walls
@@ -142,3 +154,4 @@ class Shadow {
     }
 }
 
+let _shadowMask = new PIXI.Graphics();

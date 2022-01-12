@@ -6,7 +6,7 @@ class LightingSurface extends PIXI.Graphics {
 	    this.drawRect(0, 0, Graphics.width, Graphics.height);
         this.endFill();
         this.tint = 0xffffff;
-        this.ambient = new ColorAnimation(this, $gameLighting.PARAMETERS.ambient);
+        this.ambient = new ColorAnimation(this, $gameLighting.ambient);
     }
 
     destroy() {
@@ -16,13 +16,13 @@ class LightingSurface extends PIXI.Graphics {
     }
 
     setMapAmbient(color, time) {
-        $gameLighting.PARAMETERS.ambient = color;
+        $gameLighting.ambient = color;
         this.ambient.set(color, time || 1);
     }
 
     update() {
         this.ambient.update();
-        $gameLighting.PARAMETERS.ambient = this.tint;
+        $gameLighting.ambient = this.tint;
     }
     updateDisplay() {
         //

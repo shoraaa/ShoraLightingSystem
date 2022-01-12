@@ -17,11 +17,11 @@ class Layer {
         Shora.DIR_PATH = path.join(path.dirname(process.mainModule.filename));
         let cache = this.baseTextureCache;
         let dirPath = path.join(Shora.DIR_PATH, 'img', 'lights');
+        if (!fs.existsSync(dirPath)) 
+            fs.mkdirSync(dirPath)
         fs.readdir(dirPath, function (err, files) {
             if (err) return Shora.warn('Unable to scan directory: ' + err);
-            files.forEach(function(file) {
-                cache[file] = ImageManager.loadLight(file);
-            });
+            files.forEach(file => cache[file] = ImageManager.loadLight(file))
         });
     }
 
@@ -30,6 +30,8 @@ class Layer {
      * @param {String} name 
      */
     load(name) {
+        if (!this.baseTextureCache[name + '.png'])
+            throw new Error('Please add + ' + name + '.png light image to /img/lights/.');
         return this.baseTextureCache[name + '.png']._baseTexture;
     }
 

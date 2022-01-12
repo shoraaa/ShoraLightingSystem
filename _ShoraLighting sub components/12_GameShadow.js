@@ -6,6 +6,7 @@ class GameShadow {
         this.verticalSegments = [];
         this.lowerWalls = [];
         this.originalLowerWalls = [];
+        this.ignoreShadows = [];
 
         this.topWalls = []; // todo
     }
@@ -28,10 +29,12 @@ class GameShadow {
             .map(() => new Array($gameMap.width()).fill(0));
 
         let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
-        let regionStart = $gameLighting.regionStart();
-        let regionEnd = $gameLighting.regionEnd();
-        let topRegionId = $gameLighting.topRegionId();
-        this.upperWalls.beginFill($gameLighting.PARAMETERS.topBlockAmbient);
+        let regionStart = $gameLighting.regionStart;
+        let regionEnd = $gameLighting.regionEnd;
+        let topRegionId = $gameLighting.topRegionId;
+        let ignoreShadowsId = $gameLighting.ignoreShadowsId;
+        
+        this.upperWalls.beginFill($gameLighting.topBlockAmbient);
         let flag = false, begin = 0, width = 0;
         for (var i = 0; i < $gameMap.height(); ++i) {
             this.topWalls.push([]);
@@ -53,6 +56,8 @@ class GameShadow {
                     width = 0;
                     */
                 }
+                if ($gameMap.regionId(j, i) == ignoreShadowsId) 
+                    this.ignoreShadows.push([j * tw, i * tw]);
             }
         }
         this.upperWalls.endFill();

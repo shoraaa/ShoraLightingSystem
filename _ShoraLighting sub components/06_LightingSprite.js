@@ -40,7 +40,7 @@ class LightingSprite extends PIXI.Sprite {
             if (!this.bwall) // 54.00001; tw * h + 6 + eps
             	this.shadowOffsetY += $gameShadow.getWallHeight(this.globalX(), this.globalY());
             this.renderTexture = PIXI.RenderTexture.create(this.width, this.height); // texture to cache
-            this.shadow = new Shadow(this.globalX() + this.shadowOffsetX, this.globalY() + this.shadowOffsetY, this.globalBounds(), options.shadowambient);
+            this.shadow = new Shadow(this.globalX(), this.globalY(), this.globalBounds(), options.shadowambient);
             this.setMask(this.shadow.mask);
             this.shadow.mask.renderable = true;
             this.snapshot();

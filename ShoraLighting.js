@@ -1,5 +1,5 @@
 /*:
- * @plugindesc 1.3b
+ * @plugindesc 1.4b
  * <Shora Lighting System>
  * @author Shora
  * @desc Shora Lighting System for MV/MZ. 
@@ -67,7 +67,7 @@
  * @text [Game: Settings]
  * @type struct<GameSettings>
  * @desc Settings for game.
- * @default {"regionStart":"1","regionEnd":"4"}
+ * @default {"regionStart":"1","regionEnd":"10","topRegionId":"50","ignoreShadowsId":"51"}
  * 
  * @param sep0
  * @text ==================================
@@ -105,7 +105,17 @@
  * @param regionEnd
  * @text Region Id End Index
  * @desc Ending index of the shadow region id.
- * @default 3
+ * @default 10
+ * 
+ * @param topRegionId
+ * @text Top-roof region id
+ * @desc Region id specified for top roof without any wall. Shouldn't in the range of wall's id.
+ * @default 50
+ * 
+ * @param ignoreShadowsId
+ * @text Ignore Shadows Region Id
+ * @desc Region id specified for tile that shadow cannot be cast to, mean that it will always be light here.
+ * @default 51
  */
 /*~struct~MapSettings:
  * @param ambient
@@ -888,7 +898,10 @@ class Layer {
         const path = require('path');
         Shora.DIR_PATH = path.join(path.dirname(process.mainModule.filename));
         let cache = this.baseTextureCache;
-        let dirPath = path.join(Shora.DIR_PATH, 'img', 'lights');
+        let dirPath = path.join(Shora.DIR_PATH, 'img', 'light');
+        if (!fs.existsSync(dir)){
+            fs.mkdirSync(dir);
+        }
         fs.readdir(dirPath, function (err, files) {
             if (err) return Shora.warn('Unable to scan directory: ' + err);
             files.forEach(function(file) {
@@ -1046,7 +1059,7 @@ class LightingSurface extends PIXI.Graphics {
 	    this.drawRect(0, 0, Graphics.width, Graphics.height);
         this.endFill();
         this.tint = 0xffffff;
-        this.ambient = new ColorAnimation(this, $gameLighting.PARAMETERS.ambient);
+        this.ambient = new ColorAnimation(this, $gameLighting.ambient);
     }
 
     destroy() {
@@ -1056,13 +1069,13 @@ class LightingSurface extends PIXI.Graphics {
     }
 
     setMapAmbient(color, time) {
-        $gameLighting.PARAMETERS.ambient = color;
+        $gameLighting.ambient = color;
         this.ambient.set(color, time || 1);
     }
 
     update() {
         this.ambient.update();
-        $gameLighting.PARAMETERS.ambient = this.tint;
+        $gameLighting.ambient = this.tint;
     }
     updateDisplay() {
         //
@@ -1112,7 +1125,7 @@ class LightingSprite extends PIXI.Sprite {
             if (!this.bwall) // 54.00001; tw * h + 6 + eps
             	this.shadowOffsetY += $gameShadow.getWallHeight(this.globalX(), this.globalY());
             this.renderTexture = PIXI.RenderTexture.create(this.width, this.height); // texture to cache
-            this.shadow = new Shadow(this.globalX() + this.shadowOffsetX, this.globalY() + this.shadowOffsetY, this.globalBounds(), options.shadowambient);
+            this.shadow = new Shadow(this.globalX(), this.globalY(), this.globalBounds(), options.shadowambient);
             this.setMask(this.shadow.mask);
             this.shadow.mask.renderable = true;
             this.snapshot();
@@ -1218,7 +1231,6 @@ class LightingSprite extends PIXI.Sprite {
             
         } else if (this.filters) {
             // snap
-            console.log('snap')
             this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
             this.shadow.mask.renderable = true;
             this.shadowOffsetX += $gameMap.displayX() * $gameMap.tileWidth();
@@ -1384,7 +1396,7 @@ class Shadow {
 			let [x2, y2, x1, y1, height] = lowerWalls[i];
 			if (y == ny && y == y1 && x >= x1 && x <= x2 && nx >= x1 && nx <= x2 && oy >= y1) {
 				this._shadowMask.lineTo(nx, ny - tw * height)
-							   .lineTo(x, y - tw * height)
+							    .lineTo(x, y - tw * height);
 			}
 		}
 	};
@@ -1440,12 +1452,24 @@ class Shadow {
         let tw = $gameMap.tileWidth();
 		for (let i = 0; i < lowerWalls.length; ++i) {
 			let [x2, y2, x1, y1, height] = lowerWalls[i];
-            if (this.containParallelSegment(y1, x1, x2)) continue;
-			this._shadowMask.moveTo(x1, y1);
-			this._shadowMask.lineTo(x1, y1-tw*height);
-			this._shadowMask.lineTo(x2, y2-tw*height);
-			this._shadowMask.lineTo(x2, y2);
+            if (y1 >= oy || !this.containParallelSegment(y1, x1, x2)) {
+                this._shadowMask.moveTo(x1, y1);
+                this._shadowMask.lineTo(x1, y1-tw*height);
+                this._shadowMask.lineTo(x2, y2-tw*height);
+                this._shadowMask.lineTo(x2, y2);
+            }
 		}
+        this._shadowMask.endFill();
+        
+        // ignore shadows 
+        this._shadowMask.beginFill(0xffffff); 
+        for (let i = 0; i < $gameShadow.ignoreShadows.length; ++i) {
+            let [x, y] = $gameShadow.ignoreShadows[i];
+            this._shadowMask.moveTo(x, y);
+            this._shadowMask.lineTo(x, y+tw);
+            this._shadowMask.lineTo(x+tw, y+tw);
+            this._shadowMask.lineTo(x+tw, y);
+        }
         this._shadowMask.endFill();
         
         /* drawing top-walls
@@ -1463,7 +1487,7 @@ class Shadow {
     }
 }
 
-var ShadowSystem = (function() {
+let _shadowMask = new PIXI.Graphics();var ShadowSystem = (function() {
 
     const epsilon = () => 0.0000001;
 
@@ -2119,14 +2143,16 @@ class GameLighting {
     }
 
     loadParameters() {
-        this.PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Map']);
-        this.PARAMETERS.ambient = this.PARAMETERS.ambient.toHexValue();
-        this.PARAMETERS.shadowAmbient = this.PARAMETERS.shadowAmbient.toHexValue();
-        this.PARAMETERS.topBlockAmbient = this.PARAMETERS.topBlockAmbient.toHexValue();
+        let PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Map']);
+        this.ambient = PARAMETERS.ambient.toHexValue();
+        this.shadowAmbient = PARAMETERS.shadowAmbient.toHexValue();
+        this.topBlockAmbient = PARAMETERS.topBlockAmbient.toHexValue();
         
-        this.GAME_PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Game']);
-        this.GAME_PARAMETERS.regionStart = Number(this.GAME_PARAMETERS.regionStart);
-        this.GAME_PARAMETERS.regionEnd = Number(this.GAME_PARAMETERS.regionEnd);
+        let GAME_PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Game']);
+        this.regionStart = Number(GAME_PARAMETERS.regionStart);
+        this.regionEnd = Number(GAME_PARAMETERS.regionEnd);
+        this.topRegionId = Number(GAME_PARAMETERS.topRegionId);
+        this.ignoreShadowsId = Number(GAME_PARAMETERS.ignoreShadowsId);
     }
 
     loadLighting() {
@@ -2164,7 +2190,7 @@ class GameLighting {
         
         parameters.shadowambient = 
         	parameters.shadowambient == "" ?  
-        	this.PARAMETERS.shadowAmbient :
+        	this.shadowAmbient :
         	parameters.shadowambient.toHexValue();
 
         parameters.offset = JSON.parse(parameters.offset);
@@ -2245,25 +2271,11 @@ class GameLighting {
     }
 
     setShadowAmbient(color, time) {
-    	this.PARAMETERS.shadowAmbient = color.toHexValue();
+    	this.shadowAmbient = color.toHexValue();
     }
 
     setTopBlockAmbient(color, time) {
-    	this.PARAMETERS.topBlockAmbient = color.toHexValue();
-    }
-
-
-    // params
-    shadowColor() {
-        return this.PARAMETERS.ambient;
-    }
-
-    regionStart() {
-        return this.GAME_PARAMETERS.regionStart;
-    }
-
-    regionEnd() {
-        return this.GAME_PARAMETERS.regionEnd;
+    	this.topBlockAmbient = color.toHexValue();
     }
 
     width() {
@@ -2295,19 +2307,18 @@ $gameLighting = new GameLighting();
 
 class GameShadow {
     constructor() {
-        this._segments = [];
         this.segments = [];
         this.originalSegments = [];
         this.horizontalSegments = [];
         this.verticalSegments = [];
         this.lowerWalls = [];
         this.originalLowerWalls = [];
+        this.ignoreShadows = [];
 
         this.topWalls = []; // todo
     }
 
     refresh() {
-        this._segments = [];
         this.segments = [];
         this.originalSegments = [];
         this.horizontalSegments = [];
@@ -2325,18 +2336,22 @@ class GameShadow {
             .map(() => new Array($gameMap.width()).fill(0));
 
         let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
-        let regionStart = $gameLighting.regionStart();
-        let regionEnd = $gameLighting.regionEnd();
-        this.upperWalls.beginFill($gameLighting.PARAMETERS.topBlockAmbient);
+        let regionStart = $gameLighting.regionStart;
+        let regionEnd = $gameLighting.regionEnd;
+        let topRegionId = $gameLighting.topRegionId;
+        let ignoreShadowsId = $gameLighting.ignoreShadowsId;
+        
+        this.upperWalls.beginFill($gameLighting.topBlockAmbient);
         let flag = false, begin = 0, width = 0;
         for (var i = 0; i < $gameMap.height(); ++i) {
             this.topWalls.push([]);
             for (var j = 0; j < $gameMap.width(); ++j) {
-                if (($gameMap.regionId(j, i) >= regionStart) && ($gameMap.regionId(j, i) <= regionEnd)) {
+                if (regionStart <= $gameMap.regionId(j, i) && $gameMap.regionId(j, i) <= regionEnd) {
                     this.map[i][j] = $gameMap.regionId(j, i) - regionStart + 1; 
                 }
-                if (this.map[i][j]) {
+                if ((regionStart <= $gameMap.regionId(j, i) && $gameMap.regionId(j, i) <= regionEnd) || $gameMap.regionId(j, i) == topRegionId) {
                     this.upperWalls.drawRect(j * tw, i * th, tw, th);
+                    /*
                     if (!flag) {
                         flag = true;
                         begin = j * 48;
@@ -2346,7 +2361,10 @@ class GameShadow {
                     flag = false;
                     this.topWalls[i].push([begin, begin+width]);
                     width = 0;
+                    */
                 }
+                if ($gameMap.regionId(j, i) == ignoreShadowsId) 
+                    this.ignoreShadows.push([j * tw, i * tw]);
             }
         }
         this.upperWalls.endFill();
@@ -2412,7 +2430,71 @@ class GameShadow {
 		}
     }
     
-    // TODO: binary search
+    mergeHorizontalSegments(a) {
+        // y = s[1] = s[3], quan ly doan [s[0], s[2]]
+        for (let i = 0; i < a.length; ++i)
+            if (a[i][0] > a[i][2]) [a[i][0], a[i][2]] = [a[i][2], a[i][0]];
+        let cmp = function(u, v) {
+            if (u[1] == v[1])
+                return u[0] < v[0] ? -1 : 1;
+            return u[1] < v[1] ? -1 : 1;
+        }
+        a.sort(cmp);
+        let res = [];
+        for (let i = 0; i < a.length;) {
+            let j = i + 1, cur = a[i][2];
+            while (j < a.length && a[j][1] == a[i][1] && a[j][0] <= cur) 
+                cur = Math.max(cur, a[j][2]), j++;
+            j--;
+            res.push([a[i][0], a[i][1], cur, a[i][3]]);
+            i = j + 1;
+        }
+        return res;
+    }
+
+    mergeVerticalSegments(a) {
+        // x = s[0] = s[2], quan ly doan [s[1], s[3]]
+        for (let i = 0; i < a.length; ++i)
+            if (a[i][1] > a[i][3]) [a[i][1], a[i][3]] = [a[i][3], a[i][1]];
+        let cmp = function(u, v) {
+            if (u[0] == v[0])
+                return u[1] < v[1] ? -1 : 1;
+            return u[0] < v[0] ? -1 : 1;
+        }
+        a.sort(cmp);
+        let res = [];
+        for (let i = 0; i < a.length;) {
+            let j = i + 1, cur = a[i][3];
+            while (j < a.length && a[j][0] == a[i][0] && a[j][1] <= cur) 
+                cur = Math.max(cur, a[j][3]), j++;
+            j--;
+            res.push([a[i][0], a[i][1], a[i][2], cur]);
+            i = j + 1;
+        }
+        return res;
+    }
+
+    mergeLowerWalls(a) {
+        // y = s[1] = s[3], quan ly doan [s[2], s[0]]
+        let cmp = function(u, v) {
+            if (u[1] == v[1])
+                return u[0] > v[0] ? -1 : 1;
+            return u[1] < v[1] ? -1 : 1;
+        }
+        a.sort(cmp);
+        let res = [];
+        for (let i = 0; i < a.length;) {
+            let j = i + 1, cur = a[i][2];
+            while (j < a.length && a[j][1] == a[i][1] && a[j][4] == a[i][4] && a[j][0] >= cur) 
+                cur = Math.min(cur, a[j][2]), j++;
+            j--;
+            res.push([a[i][0], a[i][1], cur, a[i][3], a[i][4]]);
+            i = j + 1;
+        }
+        return res;
+    }
+
+    // DEPRECATED
     optimizeSegments(s) {
 		for (var i = 0; i < s.length; ++i) {
 			let [x1, y1] = [s[i][2], s[i][3]];
@@ -2433,20 +2515,29 @@ class GameShadow {
 		for (var y = 0; y < this.map.length; y++) {
 			for (var x = 0; x < this.map[y].length; x++) {
 				if (this.map[y][x]) {
-					this.addCaster(x, y, this.map[y][x]);
+					this.addCaster(x, y, this.map[y][x] - 1);
 				}
 			}
 		}
-		// Shadow Casters
-		this.optimizeSegments(this.verticalSegments);
-		this.optimizeSegments(this.horizontalSegments);
-		this._segments = this.horizontalSegments.concat(this.verticalSegments);
 
-		this.segments = ShadowSystem.getSegments(this._segments);
+		// Shadow Casters
+
+        // DEPREACTED
+		//this.optimizeSegments(this.verticalSegments);
+		//this.optimizeSegments(this.horizontalSegments);
+
+        this.verticalSegments = this.mergeVerticalSegments(this.verticalSegments);
+        this.horizontalSegments = this.mergeHorizontalSegments(this.horizontalSegments);
+        
+		this.segments = ShadowSystem.getSegments(this.horizontalSegments.concat(this.verticalSegments));
         this.originalSegments = this.segments.map(s => s.map(p => p.map(x => x / 48)));
 
 		// Lower walls
-        this.optimizeSegments(this.lowerWalls);
+
+        // DEPRECATED
+        //this.optimizeSegments(this.lowerWalls);
+
+        this.lowerWalls = this.mergeLowerWalls(this.lowerWalls);
         this.lowerWalls.sort((a, b) => b[0] - a[0]);
         this.originalLowerWalls = this.lowerWalls.map(s => s.map(p => p >= $gameMap.tileWidth() ? p / $gameMap.tileWidth() : p));
 

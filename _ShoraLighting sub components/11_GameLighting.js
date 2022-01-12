@@ -6,15 +6,16 @@ class GameLighting {
     }
 
     loadParameters() {
-        this.PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Map']);
-        this.PARAMETERS.ambient = this.PARAMETERS.ambient.toHexValue();
-        this.PARAMETERS.shadowAmbient = this.PARAMETERS.shadowAmbient.toHexValue();
-        this.PARAMETERS.topBlockAmbient = this.PARAMETERS.topBlockAmbient.toHexValue();
+        let PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Map']);
+        this.ambient = PARAMETERS.ambient.toHexValue();
+        this.shadowAmbient = PARAMETERS.shadowAmbient.toHexValue();
+        this.topBlockAmbient = PARAMETERS.topBlockAmbient.toHexValue();
         
-        this.GAME_PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Game']);
-        this.GAME_PARAMETERS.regionStart = Number(this.GAME_PARAMETERS.regionStart);
-        this.GAME_PARAMETERS.regionEnd = Number(this.GAME_PARAMETERS.regionEnd);
-        this.GAME_PARAMETERS.topRegionId = Number(this.GAME_PARAMETERS.topRegionId);
+        let GAME_PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Game']);
+        this.regionStart = Number(GAME_PARAMETERS.regionStart);
+        this.regionEnd = Number(GAME_PARAMETERS.regionEnd);
+        this.topRegionId = Number(GAME_PARAMETERS.topRegionId);
+        this.ignoreShadowsId = Number(GAME_PARAMETERS.ignoreShadowsId);
     }
 
     loadLighting() {
@@ -52,7 +53,7 @@ class GameLighting {
         
         parameters.shadowambient = 
         	parameters.shadowambient == "" ?  
-        	this.PARAMETERS.shadowAmbient :
+        	this.shadowAmbient :
         	parameters.shadowambient.toHexValue();
 
         parameters.offset = JSON.parse(parameters.offset);
@@ -133,29 +134,11 @@ class GameLighting {
     }
 
     setShadowAmbient(color, time) {
-    	this.PARAMETERS.shadowAmbient = color.toHexValue();
+    	this.shadowAmbient = color.toHexValue();
     }
 
     setTopBlockAmbient(color, time) {
-    	this.PARAMETERS.topBlockAmbient = color.toHexValue();
-    }
-
-
-    // params
-    shadowColor() {
-        return this.PARAMETERS.ambient;
-    }
-
-    regionStart() {
-        return this.GAME_PARAMETERS.regionStart;
-    }
-
-    regionEnd() {
-        return this.GAME_PARAMETERS.regionEnd;
-    }
-
-    topRegionId() {
-        return this.GAME_PARAMETERS.topRegionId;
+    	this.topBlockAmbient = color.toHexValue();
     }
 
     width() {

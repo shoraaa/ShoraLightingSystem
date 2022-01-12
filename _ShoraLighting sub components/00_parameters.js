@@ -1,5 +1,5 @@
 /*:
- * @plugindesc 1.3b
+ * @plugindesc 1.4b
  * <Shora Lighting System>
  * @author Shora
  * @desc Shora Lighting System for MV/MZ. 
@@ -67,7 +67,7 @@
  * @text [Game: Settings]
  * @type struct<GameSettings>
  * @desc Settings for game.
- * @default {"regionStart":"1","regionEnd":"10"}
+ * @default {"regionStart":"1","regionEnd":"10","topRegionId":"50","ignoreShadowsId":"51"}
  * 
  * @param sep0
  * @text ==================================
@@ -111,6 +111,11 @@
  * @text Top-roof region id
  * @desc Region id specified for top roof without any wall. Shouldn't in the range of wall's id.
  * @default 50
+ * 
+ * @param ignoreShadowsId
+ * @text Ignore Shadows Region Id
+ * @desc Region id specified for tile that shadow cannot be cast to, mean that it will always be light here.
+ * @default 51
  */
 /*~struct~MapSettings:
  * @param ambient
