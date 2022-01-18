@@ -549,6 +549,8 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
                     $gameLighting.setOffset(id, args[1], args[2], args[3], args[4] || 1);
                 } else if (command === 'tint') {
                     $gameLighting.setColor(id, args[1], args[2]);
+                } else if (command === 'status') {
+                    $gameLighting.setStatus(id, args[1]);
                 }
             }
         }
