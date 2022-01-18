@@ -1,8 +1,7 @@
 class LightingSprite extends PIXI.Sprite {
 
     get character() {
-        if (!this.id) return $gamePlayer;
-        return $gameMap._events[this.id];
+        return this.id ? $gameMap._events[this.id] : $gamePlayer;
     }
 
     constructor(options) {
@@ -10,6 +9,8 @@ class LightingSprite extends PIXI.Sprite {
 
         this.renderable = false;
         this.id = options.id;
+        this.status = options.status;
+
         this.static = options.static;
 
         this.fileName = options.filename;
@@ -18,19 +19,18 @@ class LightingSprite extends PIXI.Sprite {
 
         this.updateTexture();
 
-        this.offset = new OffsetAnimation(options.offset.x, options.offset.y);
+        this.offset = new OffsetAnimation(options.offset);
         this.setPostion(options);
         this.anchor = new PIXI.Point(0.5, 0.5);
         this.bwall = options.bwall;
 
-         if (options.direction) {
+         if (options.direction) 
             this.direction = new DirectionManager(this);
-        }
 
         // animation
         this.pulse = new PulseAnimation(this, options.animation.pulse);
         this.flicker = new FlickerAnimation(this, options.animation.flicker);
-        this.color = new ColorAnimation(this, Number(options.tint));
+        this.color = new ColorAnimation(this, options);
 
         this._shadow = options.shadow;
         if (this._shadow) {
@@ -82,12 +82,12 @@ class LightingSprite extends PIXI.Sprite {
     }
 
     destroy() {
-        // this.character.lighting = null;
-        // this.character = null; // ref -> get
         this.pulse.destroy();
         this.flicker.destroy();
+        this.offset.destroy();
         this.color.destroy();
-        if (this.direction) this.direction.destroy();
+        if (this.direction) 
+            this.direction.destroy();
         if (this._shadow) {
             this.renderTexture.destroy(true);
             this.renderTexture = null;
@@ -110,6 +110,8 @@ class LightingSprite extends PIXI.Sprite {
     }
 
     update() {
+        if (!this.status) 
+        return this.renderable = false;
         this.updatePostion();
         this.updateShadow();
         this.updateAnimation();
@@ -206,8 +208,8 @@ class LightingSprite extends PIXI.Sprite {
 
     setPostion(options) {
         // this.character = options.character; // ref -> set
-        this.x = this.character.screenX();
-        this.y = this.character.screenY();
+        this.x = this.character.screenX() + this.offset.x;
+        this.y = this.character.screenY() + this.offset.y;
     }
 
     updateTexture() {

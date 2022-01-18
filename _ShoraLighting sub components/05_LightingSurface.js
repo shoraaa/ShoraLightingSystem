@@ -5,8 +5,8 @@ class LightingSurface extends PIXI.Graphics {
         this.beginFill(0xffffff);
 	    this.drawRect(0, 0, Graphics.width, Graphics.height);
         this.endFill();
-        this.tint = 0xffffff;
-        this.ambient = new ColorAnimation(this, $gameLighting.ambient);
+        this.tint = $gameLighting.ambient;
+        this.ambient = new ColorAnimation(this, this);
     }
 
     destroy() {

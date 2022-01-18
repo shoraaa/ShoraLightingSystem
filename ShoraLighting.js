@@ -696,13 +696,39 @@ String.prototype.shoraDoubleCommands = function() {
 
 // RPGM Override
 
+// DataManger
+
+((_) => {
+    const createGameObjects = _.createGameObjects;
+    _.createGameObjects = function() {
+        createGameObjects();
+        $shoraLayer.mapId = 0;
+        $gameLighting = new GameLighting();
+    }
+    const makeSaveContents = _.makeSaveContents;
+    _.makeSaveContents = function() {
+        const contents = makeSaveContents();
+        contents.lighting = $gameLighting;
+        return contents;
+    }
+
+    const extractSaveContents = _.extractSaveContents;
+    _.extractSaveContents = function(contents) {
+        extractSaveContents(contents);
+        $gameLighting = contents.lighting;
+    }
+
+})(DataManager); 
+
+
 // Spriteset_Map
 ((_) => {
     _.type = () => 'map';
 
     const destroy = _.destroy;
     _.destroy = function(options) {
-        if ($shoraLayer.lighting) this.removeChild($shoraLayer.lighting.lightSprite);
+        if ($shoraLayer.lighting) 
+            this.removeChild($shoraLayer.lighting.lightSprite);
         destroy.call(this, options);
     }
 
@@ -879,15 +905,6 @@ String.prototype.shoraDoubleCommands = function() {
 
 })(Game_Event.prototype);
 
-// DataManager
-((_) => {
-    const createGameObjects = _.createGameObjects;
-    _.createGameObjects = function() {
-        createGameObjects.call(this);
-        $shoraLayer = new Layer();
-    }
-})(DataManager);
-
 class Layer {
     constructor() {
         /* MV ONLY */
@@ -944,8 +961,12 @@ class Layer {
     loadScene() {
         Shora.MessageY = 0;
 
+        console.log($gameMap.mapId(), this.mapId, this.lighting);
         if ($gameMap.mapId() === this.mapId && this.lighting) {
-            this._spriteset.addChild(this.lighting.lightSprite); return;
+            this._spriteset.removeChild(this.lighting.lightSprite);
+            this.mapId = $gameMap.mapId();
+            this._spriteset.addChild(this.lighting.lightSprite); 
+            return;
         }
 
         this.mapId = $gameMap.mapId();
@@ -959,6 +980,9 @@ class Layer {
     }
 
     update() {
+        if ($gameMap.mapId() != this.mapId)
+            this.mapId = $gameMap.mapId(),
+            $gameMap._lighting = [];
         this.updateLight();
     }
 
@@ -968,7 +992,7 @@ class Layer {
     
 }
 
-// $shoraLayer = new Layer();
+$shoraLayer = new Layer();
 
 class LightingLayer {
     constructor() {
@@ -995,7 +1019,6 @@ class LightingLayer {
         this.lightTexture.destroy(true);
         this.lightSprite = null;
         this.lightTexture = null;
-        $gameLighting._lighting = [];
     }
 
     createDarkenLayer() {
@@ -1004,7 +1027,7 @@ class LightingLayer {
     }
 
     createLightingSprite() {
-        for (const light of $gameLighting.lighting) 
+        for (const light of $gameMap._lighting) if (light)
             this.addLight(light);
     }
 
@@ -1093,8 +1116,7 @@ class LightingSurface extends PIXI.Graphics {
 class LightingSprite extends PIXI.Sprite {
 
     get character() {
-        if (!this.id) return $gamePlayer;
-        return $gameMap._events[this.id];
+        return this.id ? $gameMap._events[this.id] : $gamePlayer;
     }
 
     constructor(options) {
@@ -1110,7 +1132,7 @@ class LightingSprite extends PIXI.Sprite {
 
         this.updateTexture();
 
-        this.offset = new OffsetAnimation(options.offset.x, options.offset.y);
+        this.offset = new OffsetAnimation(options.offset);
         this.setPostion(options);
         this.anchor = new PIXI.Point(0.5, 0.5);
         this.bwall = options.bwall;
@@ -2009,9 +2031,11 @@ class DirectionManager {
 }
 
 class OffsetAnimation {
-    constructor(x, y) {
-        this.x = this.ox = x;
-        this.y = this.oy = y;
+    constructor(offset) {
+        // ref
+        this.offset = offset;
+        this.ox = offset.x;
+        this.oy = offset.y;
         this.tick_x = 2; this.time_x = this.delta_x = 1;
         this.tick_y = 2; this.time_y = this.delta_y = 1;
         this.type_x = this.type_y = 0;
@@ -2022,14 +2046,14 @@ class OffsetAnimation {
     }
 
     setX(x, time, type) {
-        this.ox = this.x;
+        this.ox = this.offset.x;
         this.delta_x = x - this.ox;
         this.time_x = time; this.tick_x = 1;
         if (type) this.type_x = type - 1;
     }
 
     setY(y, time, type) {
-        this.oy = this.y;
+        this.oy = this.offset.y;
         this.delta_y = y - this.oy;
         this.time_y = time; this.tick_y = 1;
         if (type) this.type_y = type - 1;
@@ -2037,11 +2061,11 @@ class OffsetAnimation {
 
     update() {
         if (this.tick_x <= this.time_x) {
-            this.x = this.ox + Shora.Animation.transition[this.type_x](this.tick_x / this.time_x) * this.delta_x;
+            this.offset.x = this.ox + Shora.Animation.transition[this.type_x](this.tick_x / this.time_x) * this.delta_x;
             this.tick_x++;
         }
         if (this.tick_y <= this.time_y) {
-            this.y = this.oy + Shora.Animation.transition[this.type_y](this.tick_y / this.time_y) * this.delta_y;
+            this.offset.y = this.oy + Shora.Animation.transition[this.type_y](this.tick_y / this.time_y) * this.delta_y;
             this.tick_y++;
         }
     }
@@ -2143,178 +2167,179 @@ const TextureManager = {
     } 
 }
 
-class GameLighting {
-    constructor() {
-        this.LIGHTING = {};
-        this.loadParameters();
-        this.loadLighting();
-    }
+// ES5 class for save/load.
 
-    loadParameters() {
-        let PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Map']);
-        this.ambient = PARAMETERS.ambient.toHexValue();
-        this.shadowAmbient = PARAMETERS.shadowAmbient.toHexValue();
-        this.topBlockAmbient = PARAMETERS.topBlockAmbient.toHexValue();
-        
-        let GAME_PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Game']);
-        this.regionStart = Number(GAME_PARAMETERS.regionStart);
-        this.regionEnd = Number(GAME_PARAMETERS.regionEnd);
-        this.topRegionId = Number(GAME_PARAMETERS.topRegionId);
-        this.ignoreShadowsId = Number(GAME_PARAMETERS.ignoreShadowsId);
-    }
+function GameLighting() {
+    this.initialize(...arguments);
+}
 
-    loadLighting() {
-        // add default light
-        this.addLighting(Shora.Lighting.PARAMETERS['default']);
-        // add custom light
-        this.addCustomLighting(Shora.Lighting.PARAMETERS['LightList']);
-    }
+GameLighting.prototype.constructor = GameLighting;
 
-    addCustomLighting(list) {
-        list = JSON.parse(list);
-        for (let i = 0; i < list.length; ++i) {
-            this.addLighting(list[i]);
-        }
-    }
+GameLighting.prototype.initialize = function() {
+    this.LIGHTING = {};
+    this.loadParameters();
+    this.loadLighting();
+}
 
-    /**
-     * Register new lighting type.
-     * @param {String} name 
-     * @param {Object} settings 
-     */
-    addLighting(settings) {
-        const parameters = JSON.parse(settings);
-        let name = parameters.name;
-        if (name == "") {
-            console.warn('Lighting name field cannot be left empty. Cancelling register process.'); 
-            return;
-        }
-        console.log('Lighting ' + name + ' has been registered');
-        parameters.direction = parameters.direction === 'true';
-        parameters.tint = parameters.tint.toHexValue();
-        parameters.bwall = parameters.bwall === 'true';
-        parameters.shadow = parameters.shadow === 'true';
-        parameters.static = parameters.static === 'true';
-        
-        parameters.shadowambient = 
-        	parameters.shadowambient == "" ?  
-        	this.shadowAmbient :
-        	parameters.shadowambient.toHexValue();
+GameLighting.prototype.loadParameters = function() {
+    let PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Map']);
+    this.ambient = PARAMETERS.ambient.toHexValue();
+    this.shadowAmbient = PARAMETERS.shadowAmbient.toHexValue();
+    this.topBlockAmbient = PARAMETERS.topBlockAmbient.toHexValue();
+    
+    let GAME_PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Game']);
+    this.regionStart = Number(GAME_PARAMETERS.regionStart);
+    this.regionEnd = Number(GAME_PARAMETERS.regionEnd);
+    this.topRegionId = Number(GAME_PARAMETERS.topRegionId);
+    this.ignoreShadowsId = Number(GAME_PARAMETERS.ignoreShadowsId);
+}
 
-        parameters.offset = JSON.parse(parameters.offset);
-        for (const p in parameters.offset) {
-            parameters.offset[p] = Number(parameters.offset[p]);
-        }
+GameLighting.prototype.loadLighting = function() {
+    // add default light
+    this.addLighting(Shora.Lighting.PARAMETERS['default']);
+    // add custom light
+    this.addCustomLighting(Shora.Lighting.PARAMETERS['LightList']);
+}
 
-        parameters.shadowoffsetx = Number(parameters.shadowoffsetx);
-        parameters.shadowoffsety = Number(parameters.shadowoffsety);
-        
-        parameters.colorfilter = JSON.parse(parameters.colorfilter);
-        parameters.colorfilter.hue = Number(parameters.colorfilter.hue);
-        parameters.colorfilter.brightness = Number(parameters.colorfilter.brightness);
-        parameters.colorfilter.colortone = parameters.colorfilter.colortone.toRGBA();
-        parameters.colorfilter.blendcolor = parameters.colorfilter.blendcolor.toRGBA();
-
-        parameters.animation = JSON.parse(parameters.animation);
-        for (const p in parameters.animation) {
-            if (p[0] === '.') continue;
-            parameters.animation[p] = JSON.parse(parameters.animation[p]);
-            for (let a in parameters.animation[p]) {
-                parameters.animation[p][a] = JSON.parse(parameters.animation[p][a]);
-            }
-        }
-
-        parameters.name = name;
-        this.LIGHTING[name] = parameters;
-    }
-
-    /**
-     * A list of lights of map.
-     */
-    get lighting() {
-        return $gameMap._lighting;
-    }
-
-    /**
-     * Add a lighting instance to scene.
-     * 
-     * @param {Game_Character} character 
-     * @param {Object} options 
-     */
-    add(options) {
-        if (!this.LIGHTING[options.name]) {
-            Shora.warn('Cannot find light named [' + options.name + '].\nPlease register lighting before use.\nDefault Lighting used instead');
-            options.name = 'default';
-        }
-        const params = {...this.LIGHTING[options.name], ...options};
-        this.remove(params.id);
-        this.lighting.push(params);
-        return $shoraLayer.lighting.addLight(params);
-    }
-
-    /**
-     * Remove a lighting instance from scene.
-     * @param {Number} id 
-     */
-    remove(id) {
-        let i;
-        if ((i = this.lighting.findIndex(light => light.id === id)) !== -1) {
-            this.lighting.splice(i, 1);
-            $shoraLayer.lighting.removeLight(id);
-        }
-    }
-
-    inDisplay(minX, minY, maxX, maxY) {
-        return maxX >= this.minX && minX <= this.maxX && maxY >= this.minY && minY <= this.maxY;
-    } 
-
-    // update
-    updateDisplay() {
-        this.minX = 0; // todo
-        this.minY = 0;
-        this.maxX = Graphics._width;
-        this.maxY = Graphics._height;
-    }
-
-    // command
-    setMapAmbient(color, time) {
-        $shoraLayer.lighting.setMapAmbient(color.toHexValue(), Number(time) || 1);
-    }
-
-    setShadowAmbient(color, time) {
-    	this.shadowAmbient = color.toHexValue();
-    }
-
-    setTopBlockAmbient(color, time) {
-    	this.topBlockAmbient = color.toHexValue();
-    }
-
-    width() {
-        return Math.max($gameMap.width() * $gameMap.tileWidth(), Graphics.width);
-    }
-
-    height() {
-        return Math.max($gameMap.height() * $gameMap.tileHeight(), Graphics.height);
-    }
-
-    setOffset(id, x, y, time, type) {
-        $shoraLayer.lighting.lights[id].setOffset(x, y, time, type);
-    }
-
-    setOffsetX(id, x, time, type) {
-        $shoraLayer.lighting.lights[id].setOffsetX(x, time, type);
-    }
-
-    setOffsetY(id, y, time, type) {
-        $shoraLayer.lighting.lights[id].setOffsetY(y, time, type);
-    }
-
-    setColor(id, color, time) {
-        $shoraLayer.lighting.lights[id].setColor(color, time);
+GameLighting.prototype.addCustomLighting = function(list) {
+    list = JSON.parse(list);
+    for (let i = 0; i < list.length; ++i) {
+        this.addLighting(list[i]);
     }
 }
 
-$gameLighting = new GameLighting();
+/**
+ * Register new lighting type.
+ * @param {String} name 
+ * @param {Object} settings 
+ */
+GameLighting.prototype.addLighting = function(settings) {
+    const parameters = JSON.parse(settings);
+    let name = parameters.name;
+    if (name == "") {
+        console.warn('Lighting name field cannot be left empty. Cancelling register process.'); 
+        return;
+    }
+    console.log('Lighting ' + name + ' has been registered');
+    parameters.direction = parameters.direction === 'true';
+    parameters.tint = parameters.tint.toHexValue();
+    parameters.bwall = parameters.bwall === 'true';
+    parameters.shadow = parameters.shadow === 'true';
+    parameters.static = parameters.static === 'true';
+    
+    parameters.shadowambient = 
+        parameters.shadowambient == "" ?  
+        this.shadowAmbient :
+        parameters.shadowambient.toHexValue();
+
+    parameters.offset = JSON.parse(parameters.offset);
+    for (const p in parameters.offset) {
+        parameters.offset[p] = Number(parameters.offset[p]);
+    }
+
+    parameters.shadowoffsetx = Number(parameters.shadowoffsetx);
+    parameters.shadowoffsety = Number(parameters.shadowoffsety);
+    
+    parameters.colorfilter = JSON.parse(parameters.colorfilter);
+    parameters.colorfilter.hue = Number(parameters.colorfilter.hue);
+    parameters.colorfilter.brightness = Number(parameters.colorfilter.brightness);
+    parameters.colorfilter.colortone = parameters.colorfilter.colortone.toRGBA();
+    parameters.colorfilter.blendcolor = parameters.colorfilter.blendcolor.toRGBA();
+
+    parameters.animation = JSON.parse(parameters.animation);
+    for (const p in parameters.animation) {
+        if (p[0] === '.') continue;
+        parameters.animation[p] = JSON.parse(parameters.animation[p]);
+        for (let a in parameters.animation[p]) {
+            parameters.animation[p][a] = JSON.parse(parameters.animation[p][a]);
+        }
+    }
+
+    parameters.name = name;
+    this.LIGHTING[name] = parameters;
+}
+
+/**
+ * Add a lighting instance to scene.
+ * 
+ * @param {Game_Character} character 
+ * @param {Object} options 
+ */
+GameLighting.prototype.add = function(options) {
+    if (!this.LIGHTING[options.name]) {
+        Shora.warn('Cannot find light named [' + options.name + '].\nPlease register lighting before use.\nDefault Lighting used instead');
+        options.name = 'default';
+    }
+    const params = {...this.LIGHTING[options.name], ...options};
+    if ($gameMap._lighting[params.id])
+        $shoraLayer.lighting.removeLight(params.id);
+    $gameMap._lighting[params.id] = params;
+    return $shoraLayer.lighting.addLight(params);
+}
+
+/**
+ * Remove a lighting instance from scene.
+ * @param {Number} id 
+ */
+ GameLighting.prototype.remove = function(id) {
+
+    /*
+    let i;
+    if ((i = $gameMap._lighting.findIndex(light => light.id === id)) !== -1) {
+        $gameMap._lighting.lighting.splice(i, 1);
+        $shoraLayer.lighting.removeLight(id);
+    }
+    */
+}
+
+GameLighting.prototype.inDisplay = function(minX, minY, maxX, maxY) {
+    return maxX >= this.minX && minX <= this.maxX && maxY >= this.minY && minY <= this.maxY;
+} 
+
+// update
+GameLighting.prototype.updateDisplay = function() {
+    this.minX = 0; // todo
+    this.minY = 0;
+    this.maxX = Graphics._width;
+    this.maxY = Graphics._height;
+}
+
+// command
+GameLighting.prototype.setMapAmbient = function(color, time) {
+    $shoraLayer.lighting.setMapAmbient(color.toHexValue(), Number(time) || 1);
+}
+
+GameLighting.prototype.setShadowAmbient = function(color, time) {
+    this.shadowAmbient = color.toHexValue();
+}
+
+GameLighting.prototype.setTopBlockAmbient = function(color, time) {
+    this.topBlockAmbient = color.toHexValue();
+}
+
+GameLighting.prototype.width = function() {
+    return Math.max($gameMap.width() * $gameMap.tileWidth(), Graphics.width);
+}
+
+GameLighting.prototype.height = function() {
+    return Math.max($gameMap.height() * $gameMap.tileHeight(), Graphics.height);
+}
+
+GameLighting.prototype.setOffset = function(id, x, y, time, type) {
+    $shoraLayer.lighting.lights[id].setOffset(x, y, time, type);
+}
+
+GameLighting.prototype.setOffsetX = function(id, x, time, type) {
+    $shoraLayer.lighting.lights[id].setOffsetX(x, time, type);
+}
+
+GameLighting.prototype.setOffsetY = function(id, y, time, type) {
+    $shoraLayer.lighting.lights[id].setOffsetY(y, time, type);
+}
+
+GameLighting.prototype.setColor = function(id, color, time) {
+    $shoraLayer.lighting.lights[id].setColor(color, time);
+}
 
 class GameShadow {
     constructor() {

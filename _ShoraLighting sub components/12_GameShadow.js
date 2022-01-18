@@ -272,7 +272,8 @@ class GameShadow {
         let tw = $gameMap.tileWidth(), eps = 0.0001; // tw * h + 6 + eps
         for (const [x2, y2, x1, y1, h] of this.globalLowerWalls) {
             if (x >= x1 && x <= x2 && y <= y1 && y >= y2-tw*h) {
-                return (y1 - y) / 2 + eps;
+                console.log(y1, y);
+                return y1 - y + eps;
             }
         }
         return 0;

@@ -87,7 +87,7 @@
  * @text [Lights: Default]
  * @type struct<LightSettings>
  * @desc The default settings for all light. You can use [light] or [light default] in actor/item note or event comment to use this setting. * 
- * @default {"name":"default","filename":"lights","range":"1","sep0":"==================================","tint":"#ffffff","colorfilter":"{\"hue\":\"0\",\"colortone\":\"rgba(0,0,0,0)\",\"blendcolor\":\"rgba(0,0,0,0)\",\"brightness\":\"255\"}","sep1":"==================================","animation":"{\".Static\":\"=====================\",\"flicker\":\"{\\\"status\\\":\\\"false\\\",\\\"flickintensity\\\":\\\"1\\\",\\\"flickspeed\\\":\\\"1\\\"}\",\".Dynamic\":\"=====================\",\"pulse\":\"{\\\"status\\\":\\\"true\\\",\\\"pulsefactor\\\":\\\"1\\\",\\\"pulsespeed\\\":\\\"1\\\"}\",\"rotation\":\"{\\\"rotatespeed\\\":\\\"1\\\"}\"}","sep2":"==================================","offset":"{\"x\":\"0\",\"y\":\"0\"}","direction":"false","rotation":"0","sep4":"==================================","shadow":"true","static":"auto","bwall":"false"{"name":"default","filename":"lights","sep0":"==================================","tint":"#ffffff","colorfilter":"{\"hue\":\"0\",\"colortone\":\"rgba(8,243,242,194)\",\"blendcolor\":\"rgba(96,151,221,229)\",\"brightness\":\"255\"}","sep1":"==================================","offset":"{\"x\":\"0\",\"y\":\"0\"}","animation":"{\".Static\":\"=====================\",\"flicker\":\"{\\\"status\\\":\\\"false\\\",\\\"flickintensity\\\":\\\"1\\\",\\\"flickspeed\\\":\\\"1\\\"}\",\".Dynamic\":\"=====================\",\"pulse\":\"{\\\"status\\\":\\\"false\\\",\\\"pulsefactor\\\":\\\"1\\\",\\\"pulsespeed\\\":\\\"1\\\"}\",\"rotation\":\"{\\\"rotatespeed\\\":\\\"1\\\"}\"}","direction":"false","sep4":"==================================","shadow":"true","static":"auto","bwall":"false","shadowambient":""}
+ * @default {"name":"default","filename":"lights","status":"true","sep0":"","tint":"#ffffff","colorfilter":"{\"hue\":\"0\",\"colortone\":\"rgba(0,0,0,0)\",\"blendcolor\":\"rgba(0,0,0,0)\",\"brightness\":\"255\"}","sep1":"","offset":"{\"x\":\"0\",\"y\":\"0\"}","animation":"{\".Static\":\"=====================\",\"flicker\":\"{\\\"status\\\":\\\"true\\\",\\\"flickintensity\\\":\\\"1\\\",\\\"flickspeed\\\":\\\"1\\\"}\",\".Dynamic\":\"=====================\",\"pulse\":\"{\\\"status\\\":\\\"false\\\",\\\"pulsefactor\\\":\\\"1\\\",\\\"pulsespeed\\\":\\\"1\\\"}\",\"rotation\":\"{\\\"rotatespeed\\\":\\\"1\\\"}\"}","direction":"false","sep4":"","shadow":"true","static":"auto","bwall":"false","shadowambient":"","shadowoffsetx":"0","shadowoffsety":"0"}
  *  
  * @param LightList
  * @text [Lights: Custom]
@@ -131,6 +131,119 @@
  * @desc Black = top block completely block light. You can set it a little bright to make it feel more visually.
  * @default #333333
  */
+/*~struct~ColorFilterSettings:
+ * @param hue
+ * @text Hue
+ * @desc The hue of the default light. From 1 to 360 (intenger).
+ * @default 0
+ * 
+ * @param colortone
+ * @text Color Tone
+ * @desc The color tone of light' shader: rgba(r, g, b, a);
+ * @default rgba(0, 0, 0, 0)
+ * 
+ * @param blendcolor
+ * @text Blend Color
+ * @desc The blend color of light' shader: rgba(r, g, b, a);
+ * @default rgba(0, 0, 0, 0)
+ * 
+ * @param brightness
+ * @text Brightness
+ * @type Number
+ * @desc The brightness of light' shader. Default is 255.
+ * @default 255
+ */
+/*~struct~AnimationSettings:
+ * @param .Static
+ * @text [Effects: Static]
+ * @default 
+ * @param flicker
+ * @text - [Flicker]
+ * @parent Static
+ * @type struct<FlickerAnimation>
+ * @param .Dynamic
+ * @text [Effect: Dynamic]
+ * @default 
+ * @param pulse
+ * @text - [Pulse]
+ * @parent Dynamic
+ * @type struct<PulseAnimation>
+ * @param rotation
+ * @text - [Rotation]
+ * @parent Dynamic
+ * @type struct<RotationAnimation>
+*/
+/*~struct~OffsetSettings:
+ * @param x
+ * @text X
+ * @desc The offset in horizontical coordinate.
+ * @default 0
+ * 
+ * @param y
+ * @text Y
+ * @desc The offset in vertical coordinate.
+ * @default 0
+*/
+/*~struct~ConfigSettings:
+ * @param status
+ * @text Status [On/Off]
+ * @desc The status of the light.
+ * @type boolean
+ * 
+ * @param offset
+ * @text Offset [X/Y]
+ * @type struct<OffsetSettings>
+ * @desc The offset coordinate.
+ * 
+ * @param tint
+ * @text Color [Hex]
+ * @desc The tint of the light (Hexadecimal). #ffffff is unchanged.  -1 to generate random color.
+ * 
+*/
+/*~struct~FlickerAnimation:
+ * @param status
+ * @text Status
+ * @type boolean
+ * @default true
+ * 
+ * @param flickintensity
+ * @text Intensity
+ * @type number
+ * @desc The intensity for flick animation.
+ * @default 1
+ * 
+ * @param flickspeed
+ * @text Speed
+ * @type number
+ * @desc The speed for flick animation.
+ * @default 1
+*/
+/*~struct~PulseAnimation:
+ * @param status
+ * @text Status
+ * @type boolean
+ * @default false
+ * 
+ * @param pulsefactor
+ * @text Factor
+ * @type number
+ * @desc The intensity for flick animation.
+ * @default 1
+ * 
+ * @param pulsespeed
+ * @text Speed
+ * @type number
+ * @desc The speed for pulse animation.
+ * @default 1
+*/
+/*~struct~RotationAnimation:
+ * @param rotatespeed
+ * @text Speed
+ * @type number
+ * @desc The speed for rotate animation. (round per second)
+ * @default 1
+*/
+
 /*~struct~LightSettings:
  * @param name
  * @text Ref
@@ -143,6 +256,12 @@
  * @dir img/lights/
  * @desc The filename of the default light (string).
  * @default lights
+ * 
+ * @param status
+ * @text Default [On/Off]
+ * @type boolean
+ * @desc Initial State of the light. 
+ * @default true
  * 
  * @param sep0
  * @text ==================================
@@ -218,113 +337,3 @@
  * @default 0
  *
  */
-/*~struct~ColorFilterSettings:
- * @param hue
- * @text Hue
- * @desc The hue of the default light. From 1 to 360 (intenger).
- * @default 0
- * 
- * @param colortone
- * @text Color Tone
- * @desc The color tone of light' shader: rgba(r, g, b, a);
- * @default rgba(0, 0, 0, 0)
- * 
- * @param blendcolor
- * @text Blend Color
- * @desc The blend color of light' shader: rgba(r, g, b, a);
- * @default rgba(0, 0, 0, 0)
- * 
- * @param brightness
- * @text Brightness
- * @type Number
- * @desc The brightness of light' shader. Default is 255.
- * @default 255
- */
-/*~struct~AnimationSettings:
- * @param .Static
- * @text [Effects: Static]
- * @default 
- * @param flicker
- * @text - [Flicker]
- * @parent Static
- * @type struct<FlickerAnimation>
- * @param .Dynamic
- * @text [Effect: Dynamic]
- * @default 
- * @param pulse
- * @text - [Pulse]
- * @parent Dynamic
- * @type struct<PulseAnimation>
- * @param rotation
- * @text - [Rotation]
- * @parent Dynamic
- * @type struct<RotationAnimation>
-*/
-/*~struct~OffsetSettings:
- * @param x
- * @text X
- * @desc The offset in horizontical coordinate.
- * @default 0
- * 
- * @param y
- * @text Y
- * @desc The offset in vertical coordinate.
- * @default 0
-*/
-/*~struct~ConfigSettings:
- * 
- * @param offset
- * @text Offset
- * @type struct<OffsetSettings>
- * @desc The offset coordinate.
- * 
- * @param tint
- * @text Color
- * @desc The tint of the light (Hexadecimal). #ffffff is unchanged.  -1 to generate random color.
- * 
-*/
-
-/*~struct~FlickerAnimation:
- * @param status
- * @text Status
- * @type boolean
- * @default true
- * 
- * @param flickintensity
- * @text Intensity
- * @type number
- * @desc The intensity for flick animation.
- * @default 1
- * 
- * @param flickspeed
- * @text Speed
- * @type number
- * @desc The speed for flick animation.
- * @default 1
-*/
-/*~struct~PulseAnimation:
- * @param status
- * @text Status
- * @type boolean
- * @default false
- * 
- * @param pulsefactor
- * @text Factor
- * @type number
- * @desc The intensity for flick animation.
- * @default 1
- * 
- * @param pulsespeed
- * @text Speed
- * @type number
- * @desc The speed for pulse animation.
- * @default 1
-*/
-/*~struct~RotationAnimation:
- * @param rotatespeed
- * @text Speed
- * @type number
- * @desc The speed for rotate animation. (round per second)
- * @default 1
-*/
-

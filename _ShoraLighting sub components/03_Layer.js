@@ -30,8 +30,12 @@ class Layer {
      * @param {String} name 
      */
     load(name) {
-        if (!this.baseTextureCache[name + '.png'])
-            throw new Error('Please add + ' + name + '.png light image to /img/lights/.');
+        if (!this.baseTextureCache[name + '.png']) {
+            if (name == undefined)
+                throw new Error("Please don't change default lighting reference and set it back to 'default'");
+            else
+                throw new Error('Please add + ' + name + '.png light image to /img/lights/.');
+        }
         return this.baseTextureCache[name + '.png']._baseTexture;
     }
 
@@ -55,15 +59,15 @@ class Layer {
         Shora.MessageY = 0;
 
         if ($gameMap.mapId() === this.mapId && this.lighting) {
+            this._spriteset.removeChild(this.lighting.lightSprite);
+            this.mapId = $gameMap.mapId();
             this._spriteset.addChild(this.lighting.lightSprite); 
             return;
         }
 
         this.mapId = $gameMap.mapId();
-        console.log(this.lighting);
         if (this.lighting) 
             this.lighting.destroy();
-            
         switch (this._spriteset.type()) {
             case 'map':
                 this.lighting = new LightingLayer();
@@ -72,6 +76,9 @@ class Layer {
     }
 
     update() {
+        if ($gameMap.mapId() != this.mapId)
+            this.mapId = $gameMap.mapId(),
+            $gameMap._lighting = [];
         this.updateLight();
     }
 

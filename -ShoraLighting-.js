@@ -87,7 +87,7 @@
  * @text [Lights: Default]
  * @type struct<LightSettings>
  * @desc The default settings for all light. You can use [light] or [light default] in actor/item note or event comment to use this setting. * 
- * @default {"name":"default","filename":"lights","range":"1","sep0":"==================================","tint":"#ffffff","colorfilter":"{\"hue\":\"0\",\"colortone\":\"rgba(0,0,0,0)\",\"blendcolor\":\"rgba(0,0,0,0)\",\"brightness\":\"255\"}","sep1":"==================================","animation":"{\".Static\":\"=====================\",\"flicker\":\"{\\\"status\\\":\\\"false\\\",\\\"flickintensity\\\":\\\"1\\\",\\\"flickspeed\\\":\\\"1\\\"}\",\".Dynamic\":\"=====================\",\"pulse\":\"{\\\"status\\\":\\\"true\\\",\\\"pulsefactor\\\":\\\"1\\\",\\\"pulsespeed\\\":\\\"1\\\"}\",\"rotation\":\"{\\\"rotatespeed\\\":\\\"1\\\"}\"}","sep2":"==================================","offset":"{\"x\":\"0\",\"y\":\"0\"}","direction":"false","rotation":"0","sep4":"==================================","shadow":"true","static":"auto","bwall":"false"{"name":"default","filename":"lights","sep0":"==================================","tint":"#ffffff","colorfilter":"{\"hue\":\"0\",\"colortone\":\"rgba(8,243,242,194)\",\"blendcolor\":\"rgba(96,151,221,229)\",\"brightness\":\"255\"}","sep1":"==================================","offset":"{\"x\":\"0\",\"y\":\"0\"}","animation":"{\".Static\":\"=====================\",\"flicker\":\"{\\\"status\\\":\\\"false\\\",\\\"flickintensity\\\":\\\"1\\\",\\\"flickspeed\\\":\\\"1\\\"}\",\".Dynamic\":\"=====================\",\"pulse\":\"{\\\"status\\\":\\\"false\\\",\\\"pulsefactor\\\":\\\"1\\\",\\\"pulsespeed\\\":\\\"1\\\"}\",\"rotation\":\"{\\\"rotatespeed\\\":\\\"1\\\"}\"}","direction":"false","sep4":"==================================","shadow":"true","static":"auto","bwall":"false","shadowambient":""}
+ * @default {"name":"default","filename":"lights","status":"true","sep0":"","tint":"#ffffff","colorfilter":"{\"hue\":\"0\",\"colortone\":\"rgba(0,0,0,0)\",\"blendcolor\":\"rgba(0,0,0,0)\",\"brightness\":\"255\"}","sep1":"","offset":"{\"x\":\"0\",\"y\":\"0\"}","animation":"{\".Static\":\"=====================\",\"flicker\":\"{\\\"status\\\":\\\"true\\\",\\\"flickintensity\\\":\\\"1\\\",\\\"flickspeed\\\":\\\"1\\\"}\",\".Dynamic\":\"=====================\",\"pulse\":\"{\\\"status\\\":\\\"false\\\",\\\"pulsefactor\\\":\\\"1\\\",\\\"pulsespeed\\\":\\\"1\\\"}\",\"rotation\":\"{\\\"rotatespeed\\\":\\\"1\\\"}\"}","direction":"false","sep4":"","shadow":"true","static":"auto","bwall":"false","shadowambient":"","shadowoffsetx":"0","shadowoffsety":"0"}
  *  
  * @param LightList
  * @text [Lights: Custom]
@@ -131,6 +131,119 @@
  * @desc Black = top block completely block light. You can set it a little bright to make it feel more visually.
  * @default #333333
  */
+/*~struct~ColorFilterSettings:
+ * @param hue
+ * @text Hue
+ * @desc The hue of the default light. From 1 to 360 (intenger).
+ * @default 0
+ * 
+ * @param colortone
+ * @text Color Tone
+ * @desc The color tone of light' shader: rgba(r, g, b, a);
+ * @default rgba(0, 0, 0, 0)
+ * 
+ * @param blendcolor
+ * @text Blend Color
+ * @desc The blend color of light' shader: rgba(r, g, b, a);
+ * @default rgba(0, 0, 0, 0)
+ * 
+ * @param brightness
+ * @text Brightness
+ * @type Number
+ * @desc The brightness of light' shader. Default is 255.
+ * @default 255
+ */
+/*~struct~AnimationSettings:
+ * @param .Static
+ * @text [Effects: Static]
+ * @default 
+ * @param flicker
+ * @text - [Flicker]
+ * @parent Static
+ * @type struct<FlickerAnimation>
+ * @param .Dynamic
+ * @text [Effect: Dynamic]
+ * @default 
+ * @param pulse
+ * @text - [Pulse]
+ * @parent Dynamic
+ * @type struct<PulseAnimation>
+ * @param rotation
+ * @text - [Rotation]
+ * @parent Dynamic
+ * @type struct<RotationAnimation>
+*/
+/*~struct~OffsetSettings:
+ * @param x
+ * @text X
+ * @desc The offset in horizontical coordinate.
+ * @default 0
+ * 
+ * @param y
+ * @text Y
+ * @desc The offset in vertical coordinate.
+ * @default 0
+*/
+/*~struct~ConfigSettings:
+ * @param status
+ * @text Status [On/Off]
+ * @desc The status of the light.
+ * @type boolean
+ * 
+ * @param offset
+ * @text Offset [X/Y]
+ * @type struct<OffsetSettings>
+ * @desc The offset coordinate.
+ * 
+ * @param tint
+ * @text Color [Hex]
+ * @desc The tint of the light (Hexadecimal). #ffffff is unchanged.  -1 to generate random color.
+ * 
+*/
+/*~struct~FlickerAnimation:
+ * @param status
+ * @text Status
+ * @type boolean
+ * @default true
+ * 
+ * @param flickintensity
+ * @text Intensity
+ * @type number
+ * @desc The intensity for flick animation.
+ * @default 1
+ * 
+ * @param flickspeed
+ * @text Speed
+ * @type number
+ * @desc The speed for flick animation.
+ * @default 1
+*/
+/*~struct~PulseAnimation:
+ * @param status
+ * @text Status
+ * @type boolean
+ * @default false
+ * 
+ * @param pulsefactor
+ * @text Factor
+ * @type number
+ * @desc The intensity for flick animation.
+ * @default 1
+ * 
+ * @param pulsespeed
+ * @text Speed
+ * @type number
+ * @desc The speed for pulse animation.
+ * @default 1
+*/
+/*~struct~RotationAnimation:
+ * @param rotatespeed
+ * @text Speed
+ * @type number
+ * @desc The speed for rotate animation. (round per second)
+ * @default 1
+*/
+
 /*~struct~LightSettings:
  * @param name
  * @text Ref
@@ -143,6 +256,12 @@
  * @dir img/lights/
  * @desc The filename of the default light (string).
  * @default lights
+ * 
+ * @param status
+ * @text Default [On/Off]
+ * @type boolean
+ * @desc Initial State of the light. 
+ * @default true
  * 
  * @param sep0
  * @text ==================================
@@ -218,116 +337,6 @@
  * @default 0
  *
  */
-/*~struct~ColorFilterSettings:
- * @param hue
- * @text Hue
- * @desc The hue of the default light. From 1 to 360 (intenger).
- * @default 0
- * 
- * @param colortone
- * @text Color Tone
- * @desc The color tone of light' shader: rgba(r, g, b, a);
- * @default rgba(0, 0, 0, 0)
- * 
- * @param blendcolor
- * @text Blend Color
- * @desc The blend color of light' shader: rgba(r, g, b, a);
- * @default rgba(0, 0, 0, 0)
- * 
- * @param brightness
- * @text Brightness
- * @type Number
- * @desc The brightness of light' shader. Default is 255.
- * @default 255
- */
-/*~struct~AnimationSettings:
- * @param .Static
- * @text [Effects: Static]
- * @default 
- * @param flicker
- * @text - [Flicker]
- * @parent Static
- * @type struct<FlickerAnimation>
- * @param .Dynamic
- * @text [Effect: Dynamic]
- * @default 
- * @param pulse
- * @text - [Pulse]
- * @parent Dynamic
- * @type struct<PulseAnimation>
- * @param rotation
- * @text - [Rotation]
- * @parent Dynamic
- * @type struct<RotationAnimation>
-*/
-/*~struct~OffsetSettings:
- * @param x
- * @text X
- * @desc The offset in horizontical coordinate.
- * @default 0
- * 
- * @param y
- * @text Y
- * @desc The offset in vertical coordinate.
- * @default 0
-*/
-/*~struct~ConfigSettings:
- * 
- * @param offset
- * @text Offset
- * @type struct<OffsetSettings>
- * @desc The offset coordinate.
- * 
- * @param tint
- * @text Color
- * @desc The tint of the light (Hexadecimal). #ffffff is unchanged.  -1 to generate random color.
- * 
-*/
-
-/*~struct~FlickerAnimation:
- * @param status
- * @text Status
- * @type boolean
- * @default true
- * 
- * @param flickintensity
- * @text Intensity
- * @type number
- * @desc The intensity for flick animation.
- * @default 1
- * 
- * @param flickspeed
- * @text Speed
- * @type number
- * @desc The speed for flick animation.
- * @default 1
-*/
-/*~struct~PulseAnimation:
- * @param status
- * @text Status
- * @type boolean
- * @default false
- * 
- * @param pulsefactor
- * @text Factor
- * @type number
- * @desc The intensity for flick animation.
- * @default 1
- * 
- * @param pulsespeed
- * @text Speed
- * @type number
- * @desc The speed for pulse animation.
- * @default 1
-*/
-/*~struct~RotationAnimation:
- * @param rotatespeed
- * @text Speed
- * @type number
- * @desc The speed for rotate animation. (round per second)
- * @default 1
-*/
-
 
 // Contains initialize stuff & MV/MZ overload (plugin command iterface)
 
@@ -575,19 +584,20 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
     // Set light color
     PluginManager.registerCommand(pluginName, 'Set Light Parameters', function(args) {
         let id = args.id == "" ? this._eventId : Number(args.id);
-        let character = id == 0 ? $gamePlayer : $gameMap._events[id];
-        if (!character) {
-            Shora.warn(id + ' is not a valid event id.'); return;
-        }
-        if (character.hasLight) {
+        if ($gameMap._lighting[id]) {
             let time = Number(args.time);
             let type = Number(args.type);
             let parameters = JSON.parse(args.parameters);
+            console.log(parameters.status);
             if (parameters.offset !== "") {
                 parameters.offset = JSON.parse(parameters.offset);
-                if (parameters.offset.x !== "") $gameLighting.setOffsetX(id, Number(parameters.offset.x), time, type);
-                if (parameters.offset.y !== "") $gameLighting.setOffsetY(id, Number(parameters.offset.y), time, type);
+                if (parameters.offset.x !== "") 
+                    $gameLighting.setOffsetX(id, Number(parameters.offset.x), time, type);
+                if (parameters.offset.y !== "") 
+                    $gameLighting.setOffsetY(id, Number(parameters.offset.y), time, type);
             }
+            if (parameters.hasOwnProperty('status') && parameters.status !== "") 
+                $gameLighting.setStatus(id, parameters.status !== 'false');
             if (parameters.tint !== "") $gameLighting.setColor(id, Number(parameters.tint), time);
         } else {
             Shora.warn('Event ' + id + " doesn't have a light to change parameter.");
@@ -702,20 +712,20 @@ String.prototype.shoraDoubleCommands = function() {
     const createGameObjects = _.createGameObjects;
     _.createGameObjects = function() {
         createGameObjects();
-        //$gameLighting = new GameLighting();
-        //$shoraLayer = new Layer();
+        $shoraLayer.mapId = 0;
+        $gameLighting = new GameLighting();
     }
     const makeSaveContents = _.makeSaveContents;
     _.makeSaveContents = function() {
         const contents = makeSaveContents();
-        //contents.lighting = $gameLighting;
+        contents.lighting = $gameLighting;
         return contents;
     }
 
     const extractSaveContents = _.extractSaveContents;
     _.extractSaveContents = function(contents) {
         extractSaveContents(contents);
-        //$gameLighting = contents.lighting;
+        $gameLighting = contents.lighting;
     }
 
 })(DataManager); 
@@ -727,7 +737,6 @@ String.prototype.shoraDoubleCommands = function() {
 
     const destroy = _.destroy;
     _.destroy = function(options) {
-        console.log('destroy')
         if ($shoraLayer.lighting) 
             this.removeChild($shoraLayer.lighting.lightSprite);
         destroy.call(this, options);
@@ -740,7 +749,6 @@ String.prototype.shoraDoubleCommands = function() {
     }
 
     _.createShoraLayer = function() {
-        console.log('create')
         $shoraLayer.createLayer(this);
         $shoraLayer.loadScene();
     }
@@ -939,8 +947,12 @@ class Layer {
      * @param {String} name 
      */
     load(name) {
-        if (!this.baseTextureCache[name + '.png'])
-            throw new Error('Please add + ' + name + '.png light image to /img/lights/.');
+        if (!this.baseTextureCache[name + '.png']) {
+            if (name == undefined)
+                throw new Error("Please don't change default lighting reference and set it back to 'default'");
+            else
+                throw new Error('Please add + ' + name + '.png light image to /img/lights/.');
+        }
         return this.baseTextureCache[name + '.png']._baseTexture;
     }
 
@@ -964,15 +976,15 @@ class Layer {
         Shora.MessageY = 0;
 
         if ($gameMap.mapId() === this.mapId && this.lighting) {
+            this._spriteset.removeChild(this.lighting.lightSprite);
+            this.mapId = $gameMap.mapId();
             this._spriteset.addChild(this.lighting.lightSprite); 
             return;
         }
 
         this.mapId = $gameMap.mapId();
-        console.log(this.lighting);
         if (this.lighting) 
             this.lighting.destroy();
-            
         switch (this._spriteset.type()) {
             case 'map':
                 this.lighting = new LightingLayer();
@@ -981,6 +993,9 @@ class Layer {
     }
 
     update() {
+        if ($gameMap.mapId() != this.mapId)
+            this.mapId = $gameMap.mapId(),
+            $gameMap._lighting = [];
         this.updateLight();
     }
 
@@ -1010,7 +1025,6 @@ class LightingLayer {
     }
 
     destroy() {
-        console.log('destroy lighting layer')
         this.lights = null;
         this.layer.destroy(true);
         this.layer.filters = null;
@@ -1018,7 +1032,6 @@ class LightingLayer {
         this.lightTexture.destroy(true);
         this.lightSprite = null;
         this.lightTexture = null;
-        $gameMap._lighting = [];
     }
 
     createDarkenLayer() {
@@ -1027,7 +1040,7 @@ class LightingLayer {
     }
 
     createLightingSprite() {
-        for (const light of $gameMap._lighting) 
+        for (const light of $gameMap._lighting) if (light)
             this.addLight(light);
     }
 
@@ -1088,8 +1101,8 @@ class LightingSurface extends PIXI.Graphics {
         this.beginFill(0xffffff);
 	    this.drawRect(0, 0, Graphics.width, Graphics.height);
         this.endFill();
-        this.tint = 0xffffff;
-        this.ambient = new ColorAnimation(this, $gameLighting.ambient);
+        this.tint = $gameLighting.ambient;
+        this.ambient = new ColorAnimation(this, this);
     }
 
     destroy() {
@@ -1116,8 +1129,7 @@ class LightingSurface extends PIXI.Graphics {
 class LightingSprite extends PIXI.Sprite {
 
     get character() {
-        if (!this.id) return $gamePlayer;
-        return $gameMap._events[this.id];
+        return this.id ? $gameMap._events[this.id] : $gamePlayer;
     }
 
     constructor(options) {
@@ -1125,6 +1137,8 @@ class LightingSprite extends PIXI.Sprite {
 
         this.renderable = false;
         this.id = options.id;
+        this.status = options.status;
+
         this.static = options.static;
 
         this.fileName = options.filename;
@@ -1133,19 +1147,18 @@ class LightingSprite extends PIXI.Sprite {
 
         this.updateTexture();
 
-        this.offset = new OffsetAnimation(options.offset.x, options.offset.y);
+        this.offset = new OffsetAnimation(options.offset);
         this.setPostion(options);
         this.anchor = new PIXI.Point(0.5, 0.5);
         this.bwall = options.bwall;
 
-         if (options.direction) {
+         if (options.direction) 
             this.direction = new DirectionManager(this);
-        }
 
         // animation
         this.pulse = new PulseAnimation(this, options.animation.pulse);
         this.flicker = new FlickerAnimation(this, options.animation.flicker);
-        this.color = new ColorAnimation(this, Number(options.tint));
+        this.color = new ColorAnimation(this, options);
 
         this._shadow = options.shadow;
         if (this._shadow) {
@@ -1197,12 +1210,12 @@ class LightingSprite extends PIXI.Sprite {
     }
 
     destroy() {
-        // this.character.lighting = null;
-        // this.character = null; // ref -> get
         this.pulse.destroy();
         this.flicker.destroy();
+        this.offset.destroy();
         this.color.destroy();
-        if (this.direction) this.direction.destroy();
+        if (this.direction) 
+            this.direction.destroy();
         if (this._shadow) {
             this.renderTexture.destroy(true);
             this.renderTexture = null;
@@ -1225,6 +1238,8 @@ class LightingSprite extends PIXI.Sprite {
     }
 
     update() {
+        if (!this.status) 
+        return this.renderable = false;
         this.updatePostion();
         this.updateShadow();
         this.updateAnimation();
@@ -1321,8 +1336,8 @@ class LightingSprite extends PIXI.Sprite {
 
     setPostion(options) {
         // this.character = options.character; // ref -> set
-        this.x = this.character.screenX();
-        this.y = this.character.screenY();
+        this.x = this.character.screenX() + this.offset.x;
+        this.y = this.character.screenY() + this.offset.y;
     }
 
     updateTexture() {
@@ -1881,9 +1896,9 @@ let _shadowMask = new PIXI.Graphics();var ShadowSystem = (function() {
 })();
 
 Shora.Animation = class {
-    constructor(sprite, status) {
+    constructor(sprite, ref) {
         this._sprite = sprite;
-        this._status = status;
+        this._ref = ref;
     }
     static get transition() {
         return [
@@ -1897,17 +1912,17 @@ Shora.Animation = class {
         ]
     }
     destroy() {
-        this._sprite = null;
+        this._sprite = this._ref = null;
     }
 }
 
 class FlickerAnimation extends Shora.Animation {
-    constructor(sprite, options) {
-        super(sprite, options.status);
+    constructor(sprite, ref) {
+        super(sprite, ref);
 
         this.oalpha = 1;
-	    this.flickIntensity = options.flickintensity || 1;
-        this.flickSpeed = options.flickspeed || 1;
+	    this.flickIntensity = ref.flickintensity || 1;
+        this.flickSpeed = ref.flickspeed || 1;
         
 	    this._flickSpeed = 20 * this.flickSpeed;
 	    this._flickIntensity = 1 / (1.1 * this.flickIntensity);
@@ -1916,7 +1931,7 @@ class FlickerAnimation extends Shora.Animation {
     }
 
     update() {
-        if (!this._status) return;
+        if (!this._ref.status) return;
         if (this._flickCounter > 0 && Math.randomInt(this._flickCounter / 5) !== 0) {
             this._flickCounter -= this._flickSpeed;
             this._sprite.alpha = this.oalpha;
@@ -1928,14 +1943,14 @@ class FlickerAnimation extends Shora.Animation {
 }
 
 class PulseAnimation extends Shora.Animation {
-    constructor(sprite, options) {
-        super(sprite, options.status);
+    constructor(sprite, ref) {
+        super(sprite, ref);
         this.pulsating = true;
         this.range = 1;
-        this.pulseFactor = options.pulsefactor / 100;
+        this.pulseFactor = ref.pulsefactor / 100;
         this.pulseMax = this.range + this.pulseFactor;
 		this.pulseMin = this.range - this.pulseFactor;
-        this.pulseSpeed = options.pulsespeed / 1000;
+        this.pulseSpeed = ref.pulsespeed / 1000;
         
         this.tick = this.space = 0;
     }
@@ -1950,7 +1965,7 @@ class PulseAnimation extends Shora.Animation {
     }
 
     update() {
-    	if (!this._status) return;
+    	if (!this._ref.status) return;
         let spd = Math.random() / 500 + this.pulseSpeed;
         if (this.pulsating) {
 	        if (this._sprite.scale.x < this.pulseMax) {
@@ -2032,9 +2047,11 @@ class DirectionManager {
 }
 
 class OffsetAnimation {
-    constructor(x, y) {
-        this.x = this.ox = x;
-        this.y = this.oy = y;
+    constructor(offset) {
+        // ref
+        this.offset = offset;
+        this.ox = offset.x;
+        this.oy = offset.y;
         this.tick_x = 2; this.time_x = this.delta_x = 1;
         this.tick_y = 2; this.time_y = this.delta_y = 1;
         this.type_x = this.type_y = 0;
@@ -2045,14 +2062,14 @@ class OffsetAnimation {
     }
 
     setX(x, time, type) {
-        this.ox = this.x;
+        this.ox = this.offset.x;
         this.delta_x = x - this.ox;
         this.time_x = time; this.tick_x = 1;
         if (type) this.type_x = type - 1;
     }
 
     setY(y, time, type) {
-        this.oy = this.y;
+        this.oy = this.offset.y;
         this.delta_y = y - this.oy;
         this.time_y = time; this.tick_y = 1;
         if (type) this.type_y = type - 1;
@@ -2060,22 +2077,33 @@ class OffsetAnimation {
 
     update() {
         if (this.tick_x <= this.time_x) {
-            this.x = this.ox + Shora.Animation.transition[this.type_x](this.tick_x / this.time_x) * this.delta_x;
+            this.offset.x = this.ox + Shora.Animation.transition[this.type_x](this.tick_x / this.time_x) * this.delta_x;
             this.tick_x++;
         }
         if (this.tick_y <= this.time_y) {
-            this.y = this.oy + Shora.Animation.transition[this.type_y](this.tick_y / this.time_y) * this.delta_y;
+            this.offset.y = this.oy + Shora.Animation.transition[this.type_y](this.tick_y / this.time_y) * this.delta_y;
             this.tick_y++;
         }
+    }
+
+    destroy() {
+        this.offset = null;
+    }
+
+    get x() {
+        return this.offset.x;
+    }
+    get y() {
+        return this.offset.y;
     }
 }
 
 class ColorAnimation extends Shora.Animation {
-    constructor(sprite, color) {
-        super(sprite);
-        this._sprite.tint = color || Math.round(Math.random() * 0xfffff);
+    constructor(sprite, ref) {
+        super(sprite, ref);
+        this._sprite.tint = ref.tint || Math.round(Math.random() * 0xfffff);
 
-        this.ocolor = Shora.ColorManager.hexToRGB(color);
+        this.ocolor = Shora.ColorManager.hexToRGB(ref.tint);
         this.dcolor = this.ocolor;
         this.tick = this.len = 0;
     }
@@ -2087,7 +2115,7 @@ class ColorAnimation extends Shora.Animation {
     update() {
         if (this.tick < this.len) {
             let p = this.tick / this.len;
-            this._sprite.tint = Shora.ColorManager.transition(p, this.ocolor, this.dcolor);
+            this._ref.tint = this._sprite.tint = Shora.ColorManager.transition(p, this.ocolor, this.dcolor);
             this.tick++;
         }
     }
@@ -2166,171 +2194,182 @@ const TextureManager = {
     } 
 }
 
-class GameLighting {
-    constructor() {
-        this.LIGHTING = {};
-        this.loadParameters();
-        this.loadLighting();
-    }
+// ES5 class for save/load.
 
-    loadParameters() {
-        let PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Map']);
-        this.ambient = PARAMETERS.ambient.toHexValue();
-        this.shadowAmbient = PARAMETERS.shadowAmbient.toHexValue();
-        this.topBlockAmbient = PARAMETERS.topBlockAmbient.toHexValue();
-        
-        let GAME_PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Game']);
-        this.regionStart = Number(GAME_PARAMETERS.regionStart);
-        this.regionEnd = Number(GAME_PARAMETERS.regionEnd);
-        this.topRegionId = Number(GAME_PARAMETERS.topRegionId);
-        this.ignoreShadowsId = Number(GAME_PARAMETERS.ignoreShadowsId);
-    }
+function GameLighting() {
+    this.initialize(...arguments);
+}
 
-    loadLighting() {
-        // add default light
-        this.addLighting(Shora.Lighting.PARAMETERS['default']);
-        // add custom light
-        this.addCustomLighting(Shora.Lighting.PARAMETERS['LightList']);
-    }
+GameLighting.prototype.constructor = GameLighting;
 
-    addCustomLighting(list) {
-        list = JSON.parse(list);
-        for (let i = 0; i < list.length; ++i) {
-            this.addLighting(list[i]);
-        }
-    }
+GameLighting.prototype.initialize = function() {
+    this.LIGHTING = {};
+    this.loadParameters();
+    this.loadLighting();
+}
 
-    /**
-     * Register new lighting type.
-     * @param {String} name 
-     * @param {Object} settings 
-     */
-    addLighting(settings) {
-        const parameters = JSON.parse(settings);
-        let name = parameters.name;
-        if (name == "") {
-            console.warn('Lighting name field cannot be left empty. Cancelling register process.'); 
-            return;
-        }
-        console.log('Lighting ' + name + ' has been registered');
-        parameters.direction = parameters.direction === 'true';
-        parameters.tint = parameters.tint.toHexValue();
-        parameters.bwall = parameters.bwall === 'true';
-        parameters.shadow = parameters.shadow === 'true';
-        parameters.static = parameters.static === 'true';
-        
-        parameters.shadowambient = 
-        	parameters.shadowambient == "" ?  
-        	this.shadowAmbient :
-        	parameters.shadowambient.toHexValue();
+GameLighting.prototype.loadParameters = function() {
+    let PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Map']);
+    this.ambient = PARAMETERS.ambient.toHexValue();
+    this.shadowAmbient = PARAMETERS.shadowAmbient.toHexValue();
+    this.topBlockAmbient = PARAMETERS.topBlockAmbient.toHexValue();
+    
+    let GAME_PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Game']);
+    this.regionStart = Number(GAME_PARAMETERS.regionStart);
+    this.regionEnd = Number(GAME_PARAMETERS.regionEnd);
+    this.topRegionId = Number(GAME_PARAMETERS.topRegionId);
+    this.ignoreShadowsId = Number(GAME_PARAMETERS.ignoreShadowsId);
+}
 
-        parameters.offset = JSON.parse(parameters.offset);
-        for (const p in parameters.offset) {
-            parameters.offset[p] = Number(parameters.offset[p]);
-        }
+GameLighting.prototype.loadLighting = function() {
+    // add default light
+    this.addLighting(Shora.Lighting.PARAMETERS['default']);
+    // add custom light
+    this.addCustomLighting(Shora.Lighting.PARAMETERS['LightList']);
+}
 
-        parameters.shadowoffsetx = Number(parameters.shadowoffsetx);
-        parameters.shadowoffsety = Number(parameters.shadowoffsety);
-        
-        parameters.colorfilter = JSON.parse(parameters.colorfilter);
-        parameters.colorfilter.hue = Number(parameters.colorfilter.hue);
-        parameters.colorfilter.brightness = Number(parameters.colorfilter.brightness);
-        parameters.colorfilter.colortone = parameters.colorfilter.colortone.toRGBA();
-        parameters.colorfilter.blendcolor = parameters.colorfilter.blendcolor.toRGBA();
-
-        parameters.animation = JSON.parse(parameters.animation);
-        for (const p in parameters.animation) {
-            if (p[0] === '.') continue;
-            parameters.animation[p] = JSON.parse(parameters.animation[p]);
-            for (let a in parameters.animation[p]) {
-                parameters.animation[p][a] = JSON.parse(parameters.animation[p][a]);
-            }
-        }
-
-        parameters.name = name;
-        this.LIGHTING[name] = parameters;
-    }
-
-    /**
-     * Add a lighting instance to scene.
-     * 
-     * @param {Game_Character} character 
-     * @param {Object} options 
-     */
-    add(options) {
-        if (!this.LIGHTING[options.name]) {
-            Shora.warn('Cannot find light named [' + options.name + '].\nPlease register lighting before use.\nDefault Lighting used instead');
-            options.name = 'default';
-        }
-        const params = {...this.LIGHTING[options.name], ...options};
-        this.remove(params.id);
-        $gameMap._lighting.push(params);
-        return $shoraLayer.lighting.addLight(params);
-    }
-
-    /**
-     * Remove a lighting instance from scene.
-     * @param {Number} id 
-     */
-    remove(id) {
-        let i;
-        if ((i = $gameMap._lighting.findIndex(light => light.id === id)) !== -1) {
-            this.lighting.splice(i, 1);
-            $shoraLayer.lighting.removeLight(id);
-        }
-    }
-
-    inDisplay(minX, minY, maxX, maxY) {
-        return maxX >= this.minX && minX <= this.maxX && maxY >= this.minY && minY <= this.maxY;
-    } 
-
-    // update
-    updateDisplay() {
-        this.minX = 0; // todo
-        this.minY = 0;
-        this.maxX = Graphics._width;
-        this.maxY = Graphics._height;
-    }
-
-    // command
-    setMapAmbient(color, time) {
-        $shoraLayer.lighting.setMapAmbient(color.toHexValue(), Number(time) || 1);
-    }
-
-    setShadowAmbient(color, time) {
-    	this.shadowAmbient = color.toHexValue();
-    }
-
-    setTopBlockAmbient(color, time) {
-    	this.topBlockAmbient = color.toHexValue();
-    }
-
-    width() {
-        return Math.max($gameMap.width() * $gameMap.tileWidth(), Graphics.width);
-    }
-
-    height() {
-        return Math.max($gameMap.height() * $gameMap.tileHeight(), Graphics.height);
-    }
-
-    setOffset(id, x, y, time, type) {
-        $shoraLayer.lighting.lights[id].setOffset(x, y, time, type);
-    }
-
-    setOffsetX(id, x, time, type) {
-        $shoraLayer.lighting.lights[id].setOffsetX(x, time, type);
-    }
-
-    setOffsetY(id, y, time, type) {
-        $shoraLayer.lighting.lights[id].setOffsetY(y, time, type);
-    }
-
-    setColor(id, color, time) {
-        $shoraLayer.lighting.lights[id].setColor(color, time);
+GameLighting.prototype.addCustomLighting = function(list) {
+    list = JSON.parse(list);
+    for (let i = 0; i < list.length; ++i) {
+        this.addLighting(list[i]);
     }
 }
 
-$gameLighting = new GameLighting();
+/**
+ * Register new lighting type.
+ * @param {String} name 
+ * @param {Object} settings 
+ */
+GameLighting.prototype.addLighting = function(settings) {
+    const parameters = JSON.parse(settings);
+    let name = parameters.name;
+    if (name == "") {
+        console.warn('Lighting name field cannot be left empty. Cancelling register process.'); 
+        return;
+    }
+    console.log('Lighting ' + name + ' is having registered');
+
+    parameters.status = parameters.status !== 'false';
+
+    parameters.direction = parameters.direction === 'true';
+    parameters.tint = parameters.tint.toHexValue();
+    parameters.bwall = parameters.bwall === 'true';
+    parameters.shadow = parameters.shadow === 'true';
+    parameters.static = parameters.static === 'true';
+    
+    parameters.shadowambient = 
+        parameters.shadowambient == "" ?  
+        this.shadowAmbient :
+        parameters.shadowambient.toHexValue();
+
+    parameters.offset = JSON.parse(parameters.offset);
+    for (const p in parameters.offset) {
+        parameters.offset[p] = Number(parameters.offset[p]);
+    }
+
+    parameters.shadowoffsetx = Number(parameters.shadowoffsetx);
+    parameters.shadowoffsety = Number(parameters.shadowoffsety);
+    
+    parameters.colorfilter = JSON.parse(parameters.colorfilter);
+    parameters.colorfilter.hue = Number(parameters.colorfilter.hue);
+    parameters.colorfilter.brightness = Number(parameters.colorfilter.brightness);
+    parameters.colorfilter.colortone = parameters.colorfilter.colortone.toRGBA();
+    parameters.colorfilter.blendcolor = parameters.colorfilter.blendcolor.toRGBA();
+
+    parameters.animation = JSON.parse(parameters.animation);
+    for (const p in parameters.animation) {
+        if (p[0] === '.') continue;
+        parameters.animation[p] = JSON.parse(parameters.animation[p]);
+        for (let a in parameters.animation[p]) {
+            parameters.animation[p][a] = JSON.parse(parameters.animation[p][a]);
+        }
+    }
+
+    parameters.name = name;
+    this.LIGHTING[name] = parameters;
+}
+
+/**
+ * Add a lighting instance to scene.
+ * 
+ * @param {Game_Character} character 
+ * @param {Object} options 
+ */
+GameLighting.prototype.add = function(options) {
+    if (!this.LIGHTING[options.name]) {
+        Shora.warn('Cannot find light named [' + options.name + '].\nPlease register lighting before use.\nDefault Lighting used instead');
+        options.name = 'default';
+    }
+    const params = {...this.LIGHTING[options.name], ...options};
+    this.remove(params.id);
+    $gameMap._lighting[params.id] = params;
+    return $shoraLayer.lighting.addLight(params);
+}
+
+/**
+ * Remove a lighting instance from scene.
+ * @param {Number} id 
+ */
+ GameLighting.prototype.remove = function(id) {
+    if ($gameMap._lighting[id])
+        $shoraLayer.lighting.removeLight(id),
+        $gameMap._lighting[id] = null;
+}
+
+GameLighting.prototype.inDisplay = function(minX, minY, maxX, maxY) {
+    return maxX >= this.minX && minX <= this.maxX && maxY >= this.minY && minY <= this.maxY;
+} 
+
+// update
+GameLighting.prototype.updateDisplay = function() {
+    this.minX = 0; // todo
+    this.minY = 0;
+    this.maxX = Graphics._width;
+    this.maxY = Graphics._height;
+}
+
+// command
+GameLighting.prototype.setMapAmbient = function(color, time) {
+    $shoraLayer.lighting.setMapAmbient(color.toHexValue(), Number(time) || 1);
+}
+
+GameLighting.prototype.setShadowAmbient = function(color, time) {
+    this.shadowAmbient = color.toHexValue();
+}
+
+GameLighting.prototype.setTopBlockAmbient = function(color, time) {
+    this.topBlockAmbient = color.toHexValue();
+}
+
+GameLighting.prototype.width = function() {
+    return Math.max($gameMap.width() * $gameMap.tileWidth(), Graphics.width);
+}
+
+GameLighting.prototype.height = function() {
+    return Math.max($gameMap.height() * $gameMap.tileHeight(), Graphics.height);
+}
+
+GameLighting.prototype.setStatus = function(id, status) {
+    $gameMap._lighting[id].status = 
+    $shoraLayer.lighting.lights[id].status = status;
+    $shoraLayer.lighting.lights[id].renderable = true;
+}
+
+GameLighting.prototype.setOffset = function(id, x, y, time, type) {
+    $shoraLayer.lighting.lights[id].setOffset(x, y, time, type);
+}
+
+GameLighting.prototype.setOffsetX = function(id, x, time, type) {
+    $shoraLayer.lighting.lights[id].setOffsetX(x, time, type);
+}
+
+GameLighting.prototype.setOffsetY = function(id, y, time, type) {
+    $shoraLayer.lighting.lights[id].setOffsetY(y, time, type);
+}
+
+GameLighting.prototype.setColor = function(id, color, time) {
+    $shoraLayer.lighting.lights[id].setColor(color, time);
+}
 
 class GameShadow {
     constructor() {
@@ -2606,7 +2645,8 @@ class GameShadow {
         let tw = $gameMap.tileWidth(), eps = 0.0001; // tw * h + 6 + eps
         for (const [x2, y2, x1, y1, h] of this.globalLowerWalls) {
             if (x >= x1 && x <= x2 && y <= y1 && y >= y2-tw*h) {
-                return (y1 - y) / 2 + eps;
+                console.log(y1, y);
+                return y1 - y + eps;
             }
         }
         return 0;

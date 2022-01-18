@@ -6,20 +6,20 @@
     const createGameObjects = _.createGameObjects;
     _.createGameObjects = function() {
         createGameObjects();
-        //$gameLighting = new GameLighting();
-        //$shoraLayer = new Layer();
+        $shoraLayer.mapId = 0;
+        $gameLighting = new GameLighting();
     }
     const makeSaveContents = _.makeSaveContents;
     _.makeSaveContents = function() {
         const contents = makeSaveContents();
-        //contents.lighting = $gameLighting;
+        contents.lighting = $gameLighting;
         return contents;
     }
 
     const extractSaveContents = _.extractSaveContents;
     _.extractSaveContents = function(contents) {
         extractSaveContents(contents);
-        //$gameLighting = contents.lighting;
+        $gameLighting = contents.lighting;
     }
 
 })(DataManager); 
@@ -31,7 +31,6 @@
 
     const destroy = _.destroy;
     _.destroy = function(options) {
-        console.log('destroy')
         if ($shoraLayer.lighting) 
             this.removeChild($shoraLayer.lighting.lightSprite);
         destroy.call(this, options);
@@ -44,7 +43,6 @@
     }
 
     _.createShoraLayer = function() {
-        console.log('create')
         $shoraLayer.createLayer(this);
         $shoraLayer.loadScene();
     }

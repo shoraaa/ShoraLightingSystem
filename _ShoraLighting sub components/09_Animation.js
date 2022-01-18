@@ -1,7 +1,7 @@
 Shora.Animation = class {
-    constructor(sprite, status) {
+    constructor(sprite, ref) {
         this._sprite = sprite;
-        this._status = status;
+        this._ref = ref;
     }
     static get transition() {
         return [
@@ -15,17 +15,17 @@ Shora.Animation = class {
         ]
     }
     destroy() {
-        this._sprite = null;
+        this._sprite = this._ref = null;
     }
 }
 
 class FlickerAnimation extends Shora.Animation {
-    constructor(sprite, options) {
-        super(sprite, options.status);
+    constructor(sprite, ref) {
+        super(sprite, ref);
 
         this.oalpha = 1;
-	    this.flickIntensity = options.flickintensity || 1;
-        this.flickSpeed = options.flickspeed || 1;
+	    this.flickIntensity = ref.flickintensity || 1;
+        this.flickSpeed = ref.flickspeed || 1;
         
 	    this._flickSpeed = 20 * this.flickSpeed;
 	    this._flickIntensity = 1 / (1.1 * this.flickIntensity);
@@ -34,7 +34,7 @@ class FlickerAnimation extends Shora.Animation {
     }
 
     update() {
-        if (!this._status) return;
+        if (!this._ref.status) return;
         if (this._flickCounter > 0 && Math.randomInt(this._flickCounter / 5) !== 0) {
             this._flickCounter -= this._flickSpeed;
             this._sprite.alpha = this.oalpha;
@@ -46,14 +46,14 @@ class FlickerAnimation extends Shora.Animation {
 }
 
 class PulseAnimation extends Shora.Animation {
-    constructor(sprite, options) {
-        super(sprite, options.status);
+    constructor(sprite, ref) {
+        super(sprite, ref);
         this.pulsating = true;
         this.range = 1;
-        this.pulseFactor = options.pulsefactor / 100;
+        this.pulseFactor = ref.pulsefactor / 100;
         this.pulseMax = this.range + this.pulseFactor;
 		this.pulseMin = this.range - this.pulseFactor;
-        this.pulseSpeed = options.pulsespeed / 1000;
+        this.pulseSpeed = ref.pulsespeed / 1000;
         
         this.tick = this.space = 0;
     }
@@ -68,7 +68,7 @@ class PulseAnimation extends Shora.Animation {
     }
 
     update() {
-    	if (!this._status) return;
+    	if (!this._ref.status) return;
         let spd = Math.random() / 500 + this.pulseSpeed;
         if (this.pulsating) {
 	        if (this._sprite.scale.x < this.pulseMax) {
@@ -150,9 +150,11 @@ class DirectionManager {
 }
 
 class OffsetAnimation {
-    constructor(x, y) {
-        this.x = this.ox = x;
-        this.y = this.oy = y;
+    constructor(offset) {
+        // ref
+        this.offset = offset;
+        this.ox = offset.x;
+        this.oy = offset.y;
         this.tick_x = 2; this.time_x = this.delta_x = 1;
         this.tick_y = 2; this.time_y = this.delta_y = 1;
         this.type_x = this.type_y = 0;
@@ -163,14 +165,14 @@ class OffsetAnimation {
     }
 
     setX(x, time, type) {
-        this.ox = this.x;
+        this.ox = this.offset.x;
         this.delta_x = x - this.ox;
         this.time_x = time; this.tick_x = 1;
         if (type) this.type_x = type - 1;
     }
 
     setY(y, time, type) {
-        this.oy = this.y;
+        this.oy = this.offset.y;
         this.delta_y = y - this.oy;
         this.time_y = time; this.tick_y = 1;
         if (type) this.type_y = type - 1;
@@ -178,22 +180,33 @@ class OffsetAnimation {
 
     update() {
         if (this.tick_x <= this.time_x) {
-            this.x = this.ox + Shora.Animation.transition[this.type_x](this.tick_x / this.time_x) * this.delta_x;
+            this.offset.x = this.ox + Shora.Animation.transition[this.type_x](this.tick_x / this.time_x) * this.delta_x;
             this.tick_x++;
         }
         if (this.tick_y <= this.time_y) {
-            this.y = this.oy + Shora.Animation.transition[this.type_y](this.tick_y / this.time_y) * this.delta_y;
+            this.offset.y = this.oy + Shora.Animation.transition[this.type_y](this.tick_y / this.time_y) * this.delta_y;
             this.tick_y++;
         }
+    }
+
+    destroy() {
+        this.offset = null;
+    }
+
+    get x() {
+        return this.offset.x;
+    }
+    get y() {
+        return this.offset.y;
     }
 }
 
 class ColorAnimation extends Shora.Animation {
-    constructor(sprite, color) {
-        super(sprite);
-        this._sprite.tint = color || Math.round(Math.random() * 0xfffff);
+    constructor(sprite, ref) {
+        super(sprite, ref);
+        this._sprite.tint = ref.tint || Math.round(Math.random() * 0xfffff);
 
-        this.ocolor = Shora.ColorManager.hexToRGB(color);
+        this.ocolor = Shora.ColorManager.hexToRGB(ref.tint);
         this.dcolor = this.ocolor;
         this.tick = this.len = 0;
     }
@@ -205,7 +218,7 @@ class ColorAnimation extends Shora.Animation {
     update() {
         if (this.tick < this.len) {
             let p = this.tick / this.len;
-            this._sprite.tint = Shora.ColorManager.transition(p, this.ocolor, this.dcolor);
+            this._ref.tint = this._sprite.tint = Shora.ColorManager.transition(p, this.ocolor, this.dcolor);
             this.tick++;
         }
     }

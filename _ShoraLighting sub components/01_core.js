@@ -245,19 +245,20 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
     // Set light color
     PluginManager.registerCommand(pluginName, 'Set Light Parameters', function(args) {
         let id = args.id == "" ? this._eventId : Number(args.id);
-        let character = id == 0 ? $gamePlayer : $gameMap._events[id];
-        if (!character) {
-            Shora.warn(id + ' is not a valid event id.'); return;
-        }
-        if (character.hasLight) {
+        if ($gameMap._lighting[id]) {
             let time = Number(args.time);
             let type = Number(args.type);
             let parameters = JSON.parse(args.parameters);
+            console.log(parameters.status);
             if (parameters.offset !== "") {
                 parameters.offset = JSON.parse(parameters.offset);
-                if (parameters.offset.x !== "") $gameLighting.setOffsetX(id, Number(parameters.offset.x), time, type);
-                if (parameters.offset.y !== "") $gameLighting.setOffsetY(id, Number(parameters.offset.y), time, type);
+                if (parameters.offset.x !== "") 
+                    $gameLighting.setOffsetX(id, Number(parameters.offset.x), time, type);
+                if (parameters.offset.y !== "") 
+                    $gameLighting.setOffsetY(id, Number(parameters.offset.y), time, type);
             }
+            if (parameters.hasOwnProperty('status') && parameters.status !== "") 
+                $gameLighting.setStatus(id, parameters.status !== 'false');
             if (parameters.tint !== "") $gameLighting.setColor(id, Number(parameters.tint), time);
         } else {
             Shora.warn('Event ' + id + " doesn't have a light to change parameter.");
