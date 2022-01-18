@@ -61,6 +61,9 @@ class GameLighting {
             parameters.offset[p] = Number(parameters.offset[p]);
         }
 
+        parameters.shadowoffsetx = Number(parameters.shadowoffsetx);
+        parameters.shadowoffsety = Number(parameters.shadowoffsety);
+        
         parameters.colorfilter = JSON.parse(parameters.colorfilter);
         parameters.colorfilter.hue = Number(parameters.colorfilter.hue);
         parameters.colorfilter.brightness = Number(parameters.colorfilter.brightness);
@@ -81,13 +84,6 @@ class GameLighting {
     }
 
     /**
-     * A list of lights of map.
-     */
-    get lighting() {
-        return $gameMap._lighting;
-    }
-
-    /**
      * Add a lighting instance to scene.
      * 
      * @param {Game_Character} character 
@@ -100,7 +96,7 @@ class GameLighting {
         }
         const params = {...this.LIGHTING[options.name], ...options};
         this.remove(params.id);
-        this.lighting.push(params);
+        $gameMap._lighting.push(params);
         return $shoraLayer.lighting.addLight(params);
     }
 
@@ -110,7 +106,7 @@ class GameLighting {
      */
     remove(id) {
         let i;
-        if ((i = this.lighting.findIndex(light => light.id === id)) !== -1) {
+        if ((i = $gameMap._lighting.findIndex(light => light.id === id)) !== -1) {
             this.lighting.splice(i, 1);
             $shoraLayer.lighting.removeLight(id);
         }

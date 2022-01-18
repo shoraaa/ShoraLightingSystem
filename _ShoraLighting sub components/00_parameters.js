@@ -208,6 +208,14 @@
  * @text [Shadow: Ambient]
  * @desc Leave blank for default. Optional advanced choice to make this light shadow color differ from the rest (hex). 
  * @default
+ * 
+ * @param shadowoffsetx
+ * @text [Shadow: X-Offset]
+ * @default 0
+ * 
+ * @param shadowoffsety
+ * @text [Shadow: Y-Offset]
+ * @default 0
  *
  */
 /*~struct~ColorFilterSettings:

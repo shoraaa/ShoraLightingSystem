@@ -55,12 +55,15 @@ class Layer {
         Shora.MessageY = 0;
 
         if ($gameMap.mapId() === this.mapId && this.lighting) {
-            this._spriteset.addChild(this.lighting.lightSprite); return;
+            this._spriteset.addChild(this.lighting.lightSprite); 
+            return;
         }
 
         this.mapId = $gameMap.mapId();
+        console.log(this.lighting);
         if (this.lighting) 
             this.lighting.destroy();
+            
         switch (this._spriteset.type()) {
             case 'map':
                 this.lighting = new LightingLayer();
@@ -78,5 +81,5 @@ class Layer {
     
 }
 
-// $shoraLayer = new Layer();
+$shoraLayer = new Layer();
 

@@ -16,6 +16,7 @@ class LightingLayer {
     }
 
     destroy() {
+        console.log('destroy lighting layer')
         this.lights = null;
         this.layer.destroy(true);
         this.layer.filters = null;
@@ -23,7 +24,7 @@ class LightingLayer {
         this.lightTexture.destroy(true);
         this.lightSprite = null;
         this.lightTexture = null;
-        $gameLighting._lighting = [];
+        $gameMap._lighting = [];
     }
 
     createDarkenLayer() {
@@ -32,7 +33,7 @@ class LightingLayer {
     }
 
     createLightingSprite() {
-        for (const light of $gameLighting.lighting) 
+        for (const light of $gameMap._lighting) 
             this.addLight(light);
     }
 

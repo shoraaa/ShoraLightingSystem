@@ -208,6 +208,14 @@
  * @text [Shadow: Ambient]
  * @desc Leave blank for default. Optional advanced choice to make this light shadow color differ from the rest (hex). 
  * @default
+ * 
+ * @param shadowoffsetx
+ * @text [Shadow: X-Offset]
+ * @default 0
+ * 
+ * @param shadowoffsety
+ * @text [Shadow: Y-Offset]
+ * @default 0
  *
  */
 /*~struct~ColorFilterSettings:
@@ -898,15 +906,12 @@ class Layer {
         const path = require('path');
         Shora.DIR_PATH = path.join(path.dirname(process.mainModule.filename));
         let cache = this.baseTextureCache;
-        let dirPath = path.join(Shora.DIR_PATH, 'img', 'light');
-        if (!fs.existsSync(dir)){
-            fs.mkdirSync(dir);
-        }
+        let dirPath = path.join(Shora.DIR_PATH, 'img', 'lights');
+        if (!fs.existsSync(dirPath)) 
+            fs.mkdirSync(dirPath)
         fs.readdir(dirPath, function (err, files) {
             if (err) return Shora.warn('Unable to scan directory: ' + err);
-            files.forEach(function(file) {
-                cache[file] = ImageManager.loadLight(file);
-            });
+            files.forEach(file => cache[file] = ImageManager.loadLight(file))
         });
     }
 
@@ -915,6 +920,8 @@ class Layer {
      * @param {String} name 
      */
     load(name) {
+        if (!this.baseTextureCache[name + '.png'])
+            throw new Error('Please add + ' + name + '.png light image to /img/lights/.');
         return this.baseTextureCache[name + '.png']._baseTexture;
     }
 
@@ -1120,8 +1127,9 @@ class LightingSprite extends PIXI.Sprite {
         this._shadow = options.shadow;
         if (this._shadow) {
             this._static = options.static;
-            this.shadowOffsetX = options.shadowOffsetX || 0;
-            this.shadowOffsetY = options.shadowOffsetY || 0; 
+            this.shadowOffsetX = options.shadowoffsetx || 0;
+            this.shadowOffsetY = options.shadowoffsety || 0; 
+
             if (!this.bwall) // 54.00001; tw * h + 6 + eps
             	this.shadowOffsetY += $gameShadow.getWallHeight(this.globalX(), this.globalY());
             this.renderTexture = PIXI.RenderTexture.create(this.width, this.height); // texture to cache
@@ -2198,6 +2206,9 @@ class GameLighting {
             parameters.offset[p] = Number(parameters.offset[p]);
         }
 
+        parameters.shadowoffsetx = Number(parameters.shadowoffsetx);
+        parameters.shadowoffsety = Number(parameters.shadowoffsety);
+        
         parameters.colorfilter = JSON.parse(parameters.colorfilter);
         parameters.colorfilter.hue = Number(parameters.colorfilter.hue);
         parameters.colorfilter.brightness = Number(parameters.colorfilter.brightness);

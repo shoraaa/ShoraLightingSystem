@@ -208,6 +208,14 @@
  * @text [Shadow: Ambient]
  * @desc Leave blank for default. Optional advanced choice to make this light shadow color differ from the rest (hex). 
  * @default
+ * 
+ * @param shadowoffsetx
+ * @text [Shadow: X-Offset]
+ * @default 0
+ * 
+ * @param shadowoffsety
+ * @text [Shadow: Y-Offset]
+ * @default 0
  *
  */
 /*~struct~ColorFilterSettings:
@@ -688,13 +696,40 @@ String.prototype.shoraDoubleCommands = function() {
 
 // RPGM Override
 
+// DataManger
+
+((_) => {
+    const createGameObjects = _.createGameObjects;
+    _.createGameObjects = function() {
+        createGameObjects();
+        //$gameLighting = new GameLighting();
+        //$shoraLayer = new Layer();
+    }
+    const makeSaveContents = _.makeSaveContents;
+    _.makeSaveContents = function() {
+        const contents = makeSaveContents();
+        //contents.lighting = $gameLighting;
+        return contents;
+    }
+
+    const extractSaveContents = _.extractSaveContents;
+    _.extractSaveContents = function(contents) {
+        extractSaveContents(contents);
+        //$gameLighting = contents.lighting;
+    }
+
+})(DataManager); 
+
+
 // Spriteset_Map
 ((_) => {
     _.type = () => 'map';
 
     const destroy = _.destroy;
     _.destroy = function(options) {
-        if ($shoraLayer.lighting) this.removeChild($shoraLayer.lighting.lightSprite);
+        console.log('destroy')
+        if ($shoraLayer.lighting) 
+            this.removeChild($shoraLayer.lighting.lightSprite);
         destroy.call(this, options);
     }
 
@@ -705,6 +740,7 @@ String.prototype.shoraDoubleCommands = function() {
     }
 
     _.createShoraLayer = function() {
+        console.log('create')
         $shoraLayer.createLayer(this);
         $shoraLayer.loadScene();
     }
@@ -871,15 +907,6 @@ String.prototype.shoraDoubleCommands = function() {
 
 })(Game_Event.prototype);
 
-// DataManager
-((_) => {
-    const createGameObjects = _.createGameObjects;
-    _.createGameObjects = function() {
-        createGameObjects.call(this);
-        $shoraLayer = new Layer();
-    }
-})(DataManager);
-
 class Layer {
     constructor() {
         /* MV ONLY */
@@ -937,12 +964,15 @@ class Layer {
         Shora.MessageY = 0;
 
         if ($gameMap.mapId() === this.mapId && this.lighting) {
-            this._spriteset.addChild(this.lighting.lightSprite); return;
+            this._spriteset.addChild(this.lighting.lightSprite); 
+            return;
         }
 
         this.mapId = $gameMap.mapId();
+        console.log(this.lighting);
         if (this.lighting) 
             this.lighting.destroy();
+            
         switch (this._spriteset.type()) {
             case 'map':
                 this.lighting = new LightingLayer();
@@ -960,7 +990,7 @@ class Layer {
     
 }
 
-// $shoraLayer = new Layer();
+$shoraLayer = new Layer();
 
 class LightingLayer {
     constructor() {
@@ -980,6 +1010,7 @@ class LightingLayer {
     }
 
     destroy() {
+        console.log('destroy lighting layer')
         this.lights = null;
         this.layer.destroy(true);
         this.layer.filters = null;
@@ -987,7 +1018,7 @@ class LightingLayer {
         this.lightTexture.destroy(true);
         this.lightSprite = null;
         this.lightTexture = null;
-        $gameLighting._lighting = [];
+        $gameMap._lighting = [];
     }
 
     createDarkenLayer() {
@@ -996,7 +1027,7 @@ class LightingLayer {
     }
 
     createLightingSprite() {
-        for (const light of $gameLighting.lighting) 
+        for (const light of $gameMap._lighting) 
             this.addLight(light);
     }
 
@@ -1119,8 +1150,9 @@ class LightingSprite extends PIXI.Sprite {
         this._shadow = options.shadow;
         if (this._shadow) {
             this._static = options.static;
-            this.shadowOffsetX = options.shadowOffsetX || 0;
-            this.shadowOffsetY = options.shadowOffsetY || 0; 
+            this.shadowOffsetX = options.shadowoffsetx || 0;
+            this.shadowOffsetY = options.shadowoffsety || 0; 
+
             if (!this.bwall) // 54.00001; tw * h + 6 + eps
             	this.shadowOffsetY += $gameShadow.getWallHeight(this.globalX(), this.globalY());
             this.renderTexture = PIXI.RenderTexture.create(this.width, this.height); // texture to cache
@@ -2197,6 +2229,9 @@ class GameLighting {
             parameters.offset[p] = Number(parameters.offset[p]);
         }
 
+        parameters.shadowoffsetx = Number(parameters.shadowoffsetx);
+        parameters.shadowoffsety = Number(parameters.shadowoffsety);
+        
         parameters.colorfilter = JSON.parse(parameters.colorfilter);
         parameters.colorfilter.hue = Number(parameters.colorfilter.hue);
         parameters.colorfilter.brightness = Number(parameters.colorfilter.brightness);
@@ -2217,13 +2252,6 @@ class GameLighting {
     }
 
     /**
-     * A list of lights of map.
-     */
-    get lighting() {
-        return $gameMap._lighting;
-    }
-
-    /**
      * Add a lighting instance to scene.
      * 
      * @param {Game_Character} character 
@@ -2236,7 +2264,7 @@ class GameLighting {
         }
         const params = {...this.LIGHTING[options.name], ...options};
         this.remove(params.id);
-        this.lighting.push(params);
+        $gameMap._lighting.push(params);
         return $shoraLayer.lighting.addLight(params);
     }
 
@@ -2246,7 +2274,7 @@ class GameLighting {
      */
     remove(id) {
         let i;
-        if ((i = this.lighting.findIndex(light => light.id === id)) !== -1) {
+        if ((i = $gameMap._lighting.findIndex(light => light.id === id)) !== -1) {
             this.lighting.splice(i, 1);
             $shoraLayer.lighting.removeLight(id);
         }
