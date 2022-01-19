@@ -1,10 +1,14 @@
 /*:
- * @plugindesc 1.4b
- * <Shora Lighting System>
+ * @plugindesc 
+ * [v1.51] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
  * @author Shora
- * @desc Shora Lighting System for MV/MZ. 
  * @url https://forums.rpgmakerweb.com/index.php?members/shora.158648/
  * @help
+ * Forums Post: https://forums.rpgmakerweb.com/index.php?threads/mz-mv-v1-5-released-shora-lighting-plugin-dynamic-2-5d-ambient-shadow-effect.131410/
+ * Starting Guide: https://github.com/dattranxxx/-ShoraLighting-/wiki/Getting-Started
+ * Itch.io Page: https://shoraaa.itch.io/shora-lighting-plugin-demo
+ * 
+ * Go check the forum post for more info on the plugin, and wiki for an easy start!
  *
  * @command Set Light Parameters
  * @desc Change the light color in tick(s) time. Use during transition between event pages.
@@ -538,7 +542,7 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
                 $gameLighting.setShadowAmbient(args[0]);
             } else if (command === 'topblockambient') {
                 $gameLighting.setTopBlockAmbient(args[0]);
-            } else if (command === 'offset' || command === 'tint') {
+            } else if (command === 'offset' || command === 'tint' || command === 'status') {
                 let id = args[0] == '=' ? this._eventId : Number(args[0]);
                 let character = id == 0 ? $gamePlayer : $gameMap._events[id];
                 if (!character) {
@@ -919,11 +923,6 @@ String.prototype.shoraDoubleCommands = function() {
 
 class Layer {
     constructor() {
-        /* MV ONLY */
-        if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
-            Shora.MVOverload();
-        }
-
         this.baseTextureCache = {};
         this.lightingCache = {};
         this.mapId = 0;
@@ -2205,6 +2204,11 @@ function GameLighting() {
 GameLighting.prototype.constructor = GameLighting;
 
 GameLighting.prototype.initialize = function() {
+    /* MV ONLY */
+    if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV')
+        Shora.MVOverload();
+    
+
     this.LIGHTING = {};
     this.loadParameters();
     this.loadLighting();

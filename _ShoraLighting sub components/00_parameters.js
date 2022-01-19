@@ -1,10 +1,14 @@
 /*:
- * @plugindesc 1.4b
- * <Shora Lighting System>
+ * @plugindesc 
+ * [v1.51] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
  * @author Shora
- * @desc Shora Lighting System for MV/MZ. 
  * @url https://forums.rpgmakerweb.com/index.php?members/shora.158648/
  * @help
+ * Forums Post: https://forums.rpgmakerweb.com/index.php?threads/mz-mv-v1-5-released-shora-lighting-plugin-dynamic-2-5d-ambient-shadow-effect.131410/
+ * Starting Guide: https://github.com/dattranxxx/-ShoraLighting-/wiki/Getting-Started
+ * Itch.io Page: https://shoraaa.itch.io/shora-lighting-plugin-demo
+ * 
+ * Go check the forum post for more info on the plugin, and wiki for an easy start!
  *
  * @command Set Light Parameters
  * @desc Change the light color in tick(s) time. Use during transition between event pages.

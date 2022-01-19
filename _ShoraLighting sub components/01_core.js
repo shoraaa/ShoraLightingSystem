@@ -199,7 +199,7 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
                 $gameLighting.setShadowAmbient(args[0]);
             } else if (command === 'topblockambient') {
                 $gameLighting.setTopBlockAmbient(args[0]);
-            } else if (command === 'offset' || command === 'tint') {
+            } else if (command === 'offset' || command === 'tint' || command === 'status') {
                 let id = args[0] == '=' ? this._eventId : Number(args[0]);
                 let character = id == 0 ? $gamePlayer : $gameMap._events[id];
                 if (!character) {

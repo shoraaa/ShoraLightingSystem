@@ -7,6 +7,11 @@ function GameLighting() {
 GameLighting.prototype.constructor = GameLighting;
 
 GameLighting.prototype.initialize = function() {
+    /* MV ONLY */
+    if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV')
+        Shora.MVOverload();
+    
+
     this.LIGHTING = {};
     this.loadParameters();
     this.loadLighting();

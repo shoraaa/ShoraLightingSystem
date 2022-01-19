@@ -1,10 +1,5 @@
 class Layer {
     constructor() {
-        /* MV ONLY */
-        if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
-            Shora.MVOverload();
-        }
-
         this.baseTextureCache = {};
         this.lightingCache = {};
         this.mapId = 0;
