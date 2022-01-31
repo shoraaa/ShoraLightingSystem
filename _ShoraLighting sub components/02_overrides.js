@@ -1,12 +1,9 @@
-// RPGM Override
-
 // DataManger
-
 ((_) => {
     const createGameObjects = _.createGameObjects;
     _.createGameObjects = function() {
         createGameObjects();
-        $shoraLayer.mapId = 0;
+        $shoraLayer.reset();
         $gameLighting = new GameLighting();
     }
     const makeSaveContents = _.makeSaveContents;
@@ -29,32 +26,19 @@
 ((_) => {
     _.type = () => 'map';
 
-    const destroy = _.destroy;
-    _.destroy = function(options) {
-        if ($shoraLayer.lighting) 
-            this.removeChild($shoraLayer.lighting.lightSprite);
-        destroy.call(this, options);
-    }
-
-    const createUpperLayer = _.createUpperLayer;
-    _.createUpperLayer = function() {
-        createUpperLayer.call(this);
-        this.createShoraLayer();
-    }
-
-    _.createShoraLayer = function() {
+    const createLowerLayer = _.createLowerLayer;
+    _.createLowerLayer = function() {
+        createLowerLayer.call(this);
         $shoraLayer.createLayer(this);
-        $shoraLayer.loadScene();
+        if (!$gameLighting._disabled)
+            $shoraLayer.loadScene();
     }
 
     const update = _.update;
     _.update = function() {
         update.call(this);
-        this.updateShoraLayer();
-    }
-
-    _.updateShoraLayer = function() {
-        $shoraLayer.update();
+        if (!$gameLighting._disabled)
+            $shoraLayer.update();
     }
 })(Spriteset_Map.prototype);
 
@@ -64,6 +48,7 @@
     _.setup = function(mapId) {
         setup.call(this, mapId);
         this._lighting = [];
+        this._staticLighting = [];
         if ($dataMap) {
             this.scanNoteTags($dataMap.note.split('\n'));
             this.scanTileNoteTag(this.tileset().note.split('\n'));

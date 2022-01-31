@@ -24,7 +24,7 @@ class LightingSprite extends PIXI.Sprite {
         this.anchor = new PIXI.Point(0.5, 0.5);
         this.bwall = options.bwall;
 
-         if (options.direction) 
+         if (options.direction && options.id != 'static') 
             this.direction = new DirectionManager(this);
 
         // animation
@@ -37,7 +37,6 @@ class LightingSprite extends PIXI.Sprite {
             this._static = options.static;
             this.shadowOffsetX = options.shadowoffsetx || 0;
             this.shadowOffsetY = options.shadowoffsety || 0; 
-
             if (!this.bwall) // 54.00001; tw * h + 6 + eps
             	this.shadowOffsetY += $gameShadow.getWallHeight(this.globalX(), this.globalY());
             this.renderTexture = PIXI.RenderTexture.create(this.width, this.height); // texture to cache
@@ -48,7 +47,6 @@ class LightingSprite extends PIXI.Sprite {
             this.setMask(null);
             this.shadow.mask.renderable = false;
             if (this._static) {
-                this.setMask(null);
                 this.shadow.destroy();
                 this.shadow = null;
             }
@@ -91,9 +89,10 @@ class LightingSprite extends PIXI.Sprite {
         if (this._shadow) {
             this.renderTexture.destroy(true);
             this.renderTexture = null;
-            if (this.shadow) this.shadow.destroy();
+            if (this.shadow) 
+                this.shadow.destroy();
             this.shadow = null;
-            //this.shadowFilter[0].destroy();
+            // this.shadowFilter[0].destroy(); // PIXIv4 
             this.shadowFilter = null;
         }
         this.pulse = null;
@@ -111,7 +110,7 @@ class LightingSprite extends PIXI.Sprite {
 
     update() {
         if (!this.status) 
-        return this.renderable = false;
+            return this.renderable = false;
         this.updatePostion();
         this.updateShadow();
         this.updateAnimation();
@@ -176,7 +175,7 @@ class LightingSprite extends PIXI.Sprite {
     }
 
     updateDisplay() {
-        let [x, y] = [this.character.screenX(), this.character.screenY()];
+        let [x, y] = [this.x, this.y];
         let minX = x - (this.width / 2),
             minY = y - (this.height / 2),
             maxX = x + (this.width / 2),
@@ -208,8 +207,10 @@ class LightingSprite extends PIXI.Sprite {
 
     setPostion(options) {
         // this.character = options.character; // ref -> set
-        this.x = this.character.screenX() + this.offset.x;
-        this.y = this.character.screenY() + this.offset.y;
+        this.x = options.x != undefined ? $gameShadow.screenX(options.x / $gameMap.tileWidth())
+         : this.character.screenX() + this.offset.x;
+        this.y = options.y != undefined ? $gameShadow.screenY(options.y / $gameMap.tileHeight())
+         : this.character.screenY() + this.offset.y;
     }
 
     updateTexture() {

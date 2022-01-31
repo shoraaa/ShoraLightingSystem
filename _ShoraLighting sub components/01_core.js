@@ -4,7 +4,7 @@
 var Shora = Shora || {};
 Shora.Lighting = {};
 Shora.Lighting.pluginName = '-ShoraLighting-';
-Shora.Lighting.VERSION = 1.3;
+Shora.Lighting.VERSION = 1.61;
 Shora.Lighting.PARAMETERS = PluginManager.parameters(Shora.Lighting.pluginName);
 
 Shora.tempMatrix = new PIXI.Matrix();
@@ -26,12 +26,18 @@ Shora.warn = function(err) {
     if (Graphics.app.stage) Graphics.app.stage.addChild(message);
 }
 
-Shora.MVOverload = function() {
-    Graphics.app = { renderer: Graphics._renderer };
-}
+Shora.EngineVersion = Shora.Lighting.PARAMETERS.version.toUpperCase();
 
 /* overload for rpgm mv */
-if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
+if (Shora.EngineVersion == 'MV') {
+
+    ((_) => {
+        const _createRenderer = Graphics._createRenderer;
+        Graphics._createRenderer = function() {
+            _createRenderer.call(this);
+            this.app = { renderer: this._renderer };
+        };
+    })(Graphics); 
 
     ImageManager.loadLight = function(filename) {
         return this.loadBitmap('img/lights/', filename.substring(0, filename.length - 4), true);
@@ -192,7 +198,6 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
         _Game_Interpreter_pluginCommand.call(this, command, args);
         if (command) {
             command = command.toLowerCase();
-            console.log(this._eventId);
             if (command === 'ambient') {
                 $gameLighting.setMapAmbient(args[0], args[1]);
             } else if (command === 'shadowambient') {
@@ -205,14 +210,17 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
                 if (!character) {
                     Shora.warn(id + ' is not a valid event id.'); return;
                 }
+                if (!$shoraLayer.lighting.lights[id]) return;
                 for (let i = 1; i <= 4; ++i) args[i] = Number(args[i]);
                 if (command === 'offset') {
-                    $gameLighting.setOffset(id, args[1], args[2], args[3], args[4] || 1);
+                    $gameLighting.setOffset(id, args[1], args[2], args[3], args[4]);
                 } else if (command === 'tint') {
                     $gameLighting.setColor(id, args[1], args[2]);
                 } else if (command === 'status') {
                     $gameLighting.setStatus(id, args[1]);
                 }
+            } else if (command === 'static_light') {
+                $gameLighting.addStaticLight(Number(args[0]), Number(args[1]), args[2]);
             }
         }
     }
@@ -225,8 +233,8 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
     const { pluginName } = Shora.Lighting;
 
     // Add new statical light into map
-    PluginManager.registerCommand(pluginName, 'Add Point Light', args => {
-        //
+    PluginManager.registerCommand(pluginName, 'Add Static Light', args => {
+        $gameLighting.addPointLight(Number(args.x), Number(args.y), args.ref);
     });
 
     // Change map ambient color
@@ -251,7 +259,6 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
             let time = Number(args.time);
             let type = Number(args.type);
             let parameters = JSON.parse(args.parameters);
-            console.log(parameters.status);
             if (parameters.offset !== "") {
                 parameters.offset = JSON.parse(parameters.offset);
                 if (parameters.offset.x !== "") 
@@ -261,7 +268,8 @@ if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV') {
             }
             if (parameters.hasOwnProperty('status') && parameters.status !== "") 
                 $gameLighting.setStatus(id, parameters.status !== 'false');
-            if (parameters.tint !== "") $gameLighting.setColor(id, Number(parameters.tint), time);
+            if (parameters.tint !== "") 
+                $gameLighting.setColor(id, Number(parameters.tint), time);
         } else {
             Shora.warn('Event ' + id + " doesn't have a light to change parameter.");
         }

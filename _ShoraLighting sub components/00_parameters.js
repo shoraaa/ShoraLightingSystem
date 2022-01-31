@@ -1,6 +1,6 @@
 /*:
  * @plugindesc 
- * [v1.51] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
+ * [v1.6] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
  * @author Shora
  * @url https://forums.rpgmakerweb.com/index.php?members/shora.158648/
  * @help
@@ -10,6 +10,15 @@
  * 
  * Go check the forum post for more info on the plugin, and wiki for an easy start!
  *
+ * @command Add Static Light
+ * @desc Change the light color in tick(s) time. Use during transition between event pages.
+ * @arg ref
+ * @default default
+ * @arg x
+ * @default 0
+ * @arg y
+ * @default 0
+ * 
  * @command Set Light Parameters
  * @desc Change the light color in tick(s) time. Use during transition between event pages.
  * @arg id
@@ -31,7 +40,7 @@
  * @value 1
  * @option EaseInOut
  * @value 2
- * @desc The animation movement type. 1 = linear; 2 = easeInOut; Leave empty to use remain light type+.
+ * @desc The animation movement type. 1 = linear; 2 = easeInOut; Leave empty to use remain light type.
  * 
  * @command Set Map Ambient
  * @desc Change the map Ambient color in tick(s) time.
@@ -97,43 +106,73 @@
  * @text [Lights: Custom]
  * @type struct<LightSettings>[]
  * @default []
- *
+ * 
+ * @param sep2
+ * @text ==================================
+ * @default 
+ * 
+ * @param filter
+ * @text [Advanced: Filters]
+ * @type struct<FilterSettings>
+ * @desc Apply filter to the whole map for better light intensity and blending. Can be called using $shoraLayer.colorFilter
+ * @default {"status":"false","sep0":"","brightness":"1.5"}
  */
 
 /*~struct~GameSettings:
  * @param regionStart
- * @text Region Id Start Index
+ * @text [Shadow: Start Id]
  * @desc Starting index of the shadow region id.
  * @default 1
  * 
  * @param regionEnd
- * @text Region Id End Index
+ * @text [Shadow: End Id]
  * @desc Ending index of the shadow region id.
  * @default 10
  * 
  * @param topRegionId
- * @text Top-roof region id
+ * @text [Top-Roof: Id]
  * @desc Region id specified for top roof without any wall. Shouldn't in the range of wall's id.
  * @default 50
  * 
  * @param ignoreShadowsId
- * @text Ignore Shadows Region Id
+ * @text [Ignore-Shadow: Id]
  * @desc Region id specified for tile that shadow cannot be cast to, mean that it will always be light here.
  * @default 51
+ * @param sep
+ * @text ==================================
+ * @param drawBelowPicture
+ * @text [Layer: Below Picture?]
+ * @type boolean
+ * @default false
  */
+
 /*~struct~MapSettings:
  * @param ambient
- * @text Default Ambient
+ * @text [Default: Ambient]
  * @desc Color of map' shadow. Hexadecimal.
  * @default #333333
  * @param shadowAmbient
- * @text Default Shadow Ambient
+ * @text [Default: Shadow Ambient]
  * @desc This decide the color you see in the blocked part of light. Black = not see any thing. Use it to manipulate ambient shadow.
  * @default #333333
  * @param topBlockAmbient
- * @text Default Top Block Ambient
+ * @text [Default: Top Block Ambient]
  * @desc Black = top block completely block light. You can set it a little bright to make it feel more visually.
  * @default #333333
+ * @param sep
+ * @text ==================================
+ * @param softshadow
+ * @text [Soft Shadow: Status]
+ * @type boolean
+ * @default true
+ * @param softShadowStr
+ * @text [Soft Shadow: Strength] 
+ * @defalt Strength of the soft shadow.
+ * @default 1
+ * @param softShadowQlt
+ * @text [Soft Shadow: Quality] 
+ * @defalt Quality of the soft shadow.
+ * @default 1
  */
 /*~struct~ColorFilterSettings:
  * @param hue
@@ -341,3 +380,22 @@
  * @default 0
  *
  */
+
+/*~struct~FilterSettings:
+ * @param status
+ * @text Status [On/Off]
+ * @desc The status of the filters.
+ * @type boolean
+ * @default false
+ * 
+ * @param sep0
+ * @text ==================================
+ * @default 
+ * 
+ * @param brightness
+ * @text [Brightness]
+ * @desc The default brightness value. Leave blank for not apply.
+ * @default 1.5
+ *
+ * 
+*/

@@ -12,18 +12,19 @@ class Shadow {
     }
 
     destroy() {
-        this.polygon = null; this.bounds = null; this._parallelSegments = null;
-        this._shadowMask.destroy(true); this._shadowMask = null;
-        this._shadowTexture = null; this.shadowMask = null;
-        /* this will get destroyed by layer call
+        this.polygon = this.bounds = 
+        this._parallelSegments = this.shadowAmbient = null;
+
+        this._shadowMask.destroy(true);
         this._shadowTexture.destroy(true); 
         this.shadowMask.destroy(true); 
-        */
-        this.bounds = null;
+
+        this._shadowMask = null;
+        this._shadowTexture = null; 
+        this.shadowMask = null;
     }
 
     update(x, y, bounds) {
-        //console.log("update x =" + x + " y = " + y);
         this.bounds = bounds;
         this.polygon = ShadowSystem.computeViewport([x, y], $gameShadow.segments, [this.bounds.left, this.bounds.top], [this.bounds.right, this.bounds.bottom]);
         //this.bounds = bounds;
@@ -36,7 +37,6 @@ class Shadow {
     }
 
     updateGlobal(ox, oy, bounds) {
-        //console.log("update global x =" + ox + " y = " + oy);
         this.bounds = bounds;
         this.polygon = ShadowSystem.computeViewport([ox, oy], $gameShadow.globalSegments, [this.bounds.left, this.bounds.top], [this.bounds.right, this.bounds.bottom]);
         this._parallelSegments = {};
@@ -153,5 +153,3 @@ class Shadow {
         */
     }
 }
-
-let _shadowMask = new PIXI.Graphics();
