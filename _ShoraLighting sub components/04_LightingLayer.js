@@ -17,6 +17,7 @@ class LightingLayer {
         this.staticLighting = new PIXI.Sprite(this._staticLighting);
 
         $gameShadow.refresh();
+        Shora._shadowTexture.resize($gameLighting.width(), $gameLighting.height());
         this.createDarkenLayer();
         this.createLightingSprite();
 
@@ -58,8 +59,6 @@ class LightingLayer {
         const light = new LightingSprite(options);
         this.lights[options.id] = light;
         this.layer.addChild(light);
-        if (light.shadow) 
-            this.layer.addChild(light.shadow.mask);
     }
 
     addStaticLight(options) {
@@ -85,8 +84,6 @@ class LightingLayer {
         const light = this.lights[id];
         this.lights[id] = null;
         this.layer.removeChild(light);
-        if (light.shadow)
-            this.layer.removeChild(light.shadow.mask);
         light.destroy();
 	}
 

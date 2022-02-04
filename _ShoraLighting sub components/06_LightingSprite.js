@@ -5,7 +5,8 @@ class LightingSprite extends PIXI.Sprite {
     }
 
     constructor(options) {
-        super();
+        let filtered_sprite = TextureManager.filter(options);
+        super(filtered_sprite.texture);
 
         this.renderable = false;
         this.id = options.id;
@@ -14,10 +15,8 @@ class LightingSprite extends PIXI.Sprite {
         this.static = options.static;
 
         this.fileName = options.filename;
-        this.lightName = options.name;
+        this.filteredSprite = filtered_sprite;
         this.colorFilter = options.colorfilter;
-
-        this.updateTexture();
 
         this.offset = new OffsetAnimation(options.offset);
         this.setPostion(options);
@@ -31,7 +30,7 @@ class LightingSprite extends PIXI.Sprite {
         this.pulse = new PulseAnimation(this, options.animation.pulse);
         this.flicker = new FlickerAnimation(this, options.animation.flicker);
         this.color = new ColorAnimation(this, options);
-
+        this.blendMode = PIXI.BLEND_MODES.ADD;
         this._shadow = options.shadow;
         if (this._shadow) {
             this._static = options.static;
@@ -41,10 +40,9 @@ class LightingSprite extends PIXI.Sprite {
             	this.shadowOffsetY += $gameShadow.getWallHeight(this.globalX(), this.globalY());
             this.renderTexture = PIXI.RenderTexture.create(this.width, this.height); // texture to cache
             this.shadow = new Shadow(this.globalX(), this.globalY(), this.globalBounds(), options.shadowambient);
-            this.setMask(this.shadow.mask);
+            //this.setMask(this.shadow.mask);
             this.shadow.mask.renderable = true;
             this.snapshot();
-            this.setMask(null);
             this.shadow.mask.renderable = false;
             if (this._static) {
                 this.shadow.destroy();
@@ -132,30 +130,16 @@ class LightingSprite extends PIXI.Sprite {
         // if shadow stopped -> take a snap
         if (this.needUpdateShadowMask()) {
             // update shadow
-            this.shadow.mask.x = -$gameMap.displayX() * $gameMap.tileWidth(); 
-            this.shadow.mask.y = -$gameMap.displayY() * $gameMap.tileHeight();
+            //this.shadow.mask.x = -$gameMap.displayX() * $gameMap.tileWidth(); 
+            //this.shadow.mask.y = -$gameMap.displayY() * $gameMap.tileHeight();
             if (this.needRecalculateShadow()) {
                 this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
             } else {
                 this.shadow.mask.x = -$gameMap.displayX() * $gameMap.tileWidth(); 
                 this.shadow.mask.y = -$gameMap.displayY() * $gameMap.tileHeight();
             }
-            // update mask 
-            if (!this.filters) {
-                this.updateTexture(); 
-                this.setMask(this.shadow.mask);
-            }
-            
-        } else if (this.filters) {
-            // snap
-            this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
             this.shadow.mask.renderable = true;
-            this.shadowOffsetX += $gameMap.displayX() * $gameMap.tileWidth();
-            this.shadowOffsetY += $gameMap.displayY() * $gameMap.tileWidth();
             this.snapshot();
-            this.shadowOffsetX -= $gameMap.displayX() * $gameMap.tileWidth();
-            this.shadowOffsetY -= $gameMap.displayY() * $gameMap.tileWidth();
-            this.setMask(null);
             this.shadow.mask.renderable = false;
         }
     }
@@ -211,10 +195,6 @@ class LightingSprite extends PIXI.Sprite {
          : this.character.screenX() + this.offset.x;
         this.y = options.y != undefined ? $gameShadow.screenY(options.y / $gameMap.tileHeight())
          : this.character.screenY() + this.offset.y;
-    }
-
-    updateTexture() {
-        this.texture = TextureManager.filter($shoraLayer.load(this.fileName), this.colorFilter, this.lightName);
     }
 
     // command

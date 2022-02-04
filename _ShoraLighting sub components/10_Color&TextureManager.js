@@ -16,11 +16,9 @@ const TextureManager = {
      * @param {PIXI.BaseTexture} baseTexture 
      * @param {Object} colorFilter 
      */
-    filter: function(baseTexture, colorFilter, name) {
-        // return new PIXI.Texture(baseTexture);
-        if (!colorFilter) return baseTexture;
-        if ($shoraLayer.lightingCache[name]) 
-            return $shoraLayer.lightingCache[name];
+    filter: function(options) {
+        let baseTexture = $shoraLayer.load(options.filename);
+        let colorFilter = options.colorfilter;
         let sprite = new PIXI.Sprite(new PIXI.Texture(baseTexture));
         let filter = new ColorFilter();
 		filter.setBrightness(colorFilter.brightness || 255);
@@ -31,7 +29,7 @@ const TextureManager = {
         let renderedTexture = Graphics.app.renderer.generateTexture(sprite, 1, 1, sprite.getBounds());
         sprite.filters = null;
 		sprite.destroy({texture: true});
-		return $shoraLayer.lightingCache[name] = renderedTexture;
+		return new PIXI.Sprite(renderedTexture);
     },
 
     snapshot: function(sprite) {
@@ -52,15 +50,9 @@ const TextureManager = {
         Shora.tempMatrix.tx = -region.x + sprite.shadowOffsetX;
         Shora.tempMatrix.ty = -region.y + sprite.shadowOffsetY;
         
-        Graphics.app.renderer.render(sprite.shadow.mask, Shora.maskTexture, false, Shora.tempMatrix, true);
-        // let maskSprite = new PIXI.Sprite(Shora.maskTexture);
-        // Shora.MASK = maskSprite;
-
-        sprite.filters = [new PIXI.SpriteMaskFilter(new PIXI.Sprite(Shora.maskTexture))];
-
 		// sprite.renderTexture.resize(sprite.width, sprite.height);
-        Graphics.app.renderer.render(sprite, sprite.renderTexture);
-        sprite.filters = null;
+        Graphics.app.renderer.render(sprite.filteredSprite, sprite.renderTexture, true, null, true);
+        Graphics.app.renderer.render(sprite.shadow.mask, sprite.renderTexture, false, Shora.tempMatrix, true);
 
         sprite.x = x; 
         sprite.y = y; 

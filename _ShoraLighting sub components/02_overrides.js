@@ -1,3 +1,6 @@
+
+Tilemap.prototype._addShadow = function() {}; // remove engine shadow
+
 // DataManger
 ((_) => {
     const createGameObjects = _.createGameObjects;
@@ -57,7 +60,7 @@
 
     _.scanNoteTags = function(lines) {
         for (command of lines) {
-            
+            // TODO
         }
     }
 
@@ -69,6 +72,7 @@
 
 // Game_Character
 ((_) => {
+    // NEED REWORK
     const initialize = _.initialize;
     _.initialize = function() {
         initialize.call(this);

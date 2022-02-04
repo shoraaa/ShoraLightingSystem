@@ -1,6 +1,6 @@
 /*:
  * @plugindesc 
- * [v1.6] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
+ * [v1.65] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
  * @author Shora
  * @url https://forums.rpgmakerweb.com/index.php?members/shora.158648/
  * @help
@@ -409,6 +409,7 @@ Shora.Lighting.PARAMETERS = PluginManager.parameters(Shora.Lighting.pluginName);
 
 Shora.tempMatrix = new PIXI.Matrix();
 Shora.maskTexture = PIXI.RenderTexture.create(0, 0);
+Shora._shadowTexture = PIXI.RenderTexture.create(Graphics.width, Graphics.height);
 
 Shora.DEBUG_GRAPHICS = new PIXI.Graphics();
 
@@ -775,6 +776,9 @@ String.prototype.shoraDoubleCommands = function() {
     return this.match(Shora.REGEX.DOUBLE_COMMAND);
 };
 
+
+Tilemap.prototype._addShadow = function() {}; // remove engine shadow
+
 // DataManger
 ((_) => {
     const createGameObjects = _.createGameObjects;
@@ -834,7 +838,7 @@ String.prototype.shoraDoubleCommands = function() {
 
     _.scanNoteTags = function(lines) {
         for (command of lines) {
-            
+            // TODO
         }
     }
 
@@ -846,6 +850,7 @@ String.prototype.shoraDoubleCommands = function() {
 
 // Game_Character
 ((_) => {
+    // NEED REWORK
     const initialize = _.initialize;
     _.initialize = function() {
         initialize.call(this);
@@ -973,8 +978,7 @@ String.prototype.shoraDoubleCommands = function() {
 
 class Layer {
     constructor() {
-        this.baseTextureCache = {};
-        this.lightingCache = {};
+        this.baseTextureCache = {}; // TODO: Wait for texture to load
         this.mapId = 0;
 
         this.LIGHTING = {};
@@ -1175,6 +1179,7 @@ class LightingLayer {
         this.staticLighting = new PIXI.Sprite(this._staticLighting);
 
         $gameShadow.refresh();
+        Shora._shadowTexture.resize($gameLighting.width(), $gameLighting.height());
         this.createDarkenLayer();
         this.createLightingSprite();
 
@@ -1216,8 +1221,6 @@ class LightingLayer {
         const light = new LightingSprite(options);
         this.lights[options.id] = light;
         this.layer.addChild(light);
-        if (light.shadow) 
-            this.layer.addChild(light.shadow.mask);
     }
 
     addStaticLight(options) {
@@ -1243,8 +1246,6 @@ class LightingLayer {
         const light = this.lights[id];
         this.lights[id] = null;
         this.layer.removeChild(light);
-        if (light.shadow)
-            this.layer.removeChild(light.shadow.mask);
         light.destroy();
 	}
 
@@ -1315,7 +1316,8 @@ class LightingSprite extends PIXI.Sprite {
     }
 
     constructor(options) {
-        super();
+        let filtered_sprite = TextureManager.filter(options);
+        super(filtered_sprite.texture);
 
         this.renderable = false;
         this.id = options.id;
@@ -1324,10 +1326,8 @@ class LightingSprite extends PIXI.Sprite {
         this.static = options.static;
 
         this.fileName = options.filename;
-        this.lightName = options.name;
+        this.filteredSprite = filtered_sprite;
         this.colorFilter = options.colorfilter;
-
-        this.updateTexture();
 
         this.offset = new OffsetAnimation(options.offset);
         this.setPostion(options);
@@ -1341,7 +1341,7 @@ class LightingSprite extends PIXI.Sprite {
         this.pulse = new PulseAnimation(this, options.animation.pulse);
         this.flicker = new FlickerAnimation(this, options.animation.flicker);
         this.color = new ColorAnimation(this, options);
-
+        this.blendMode = PIXI.BLEND_MODES.ADD;
         this._shadow = options.shadow;
         if (this._shadow) {
             this._static = options.static;
@@ -1351,10 +1351,9 @@ class LightingSprite extends PIXI.Sprite {
             	this.shadowOffsetY += $gameShadow.getWallHeight(this.globalX(), this.globalY());
             this.renderTexture = PIXI.RenderTexture.create(this.width, this.height); // texture to cache
             this.shadow = new Shadow(this.globalX(), this.globalY(), this.globalBounds(), options.shadowambient);
-            this.setMask(this.shadow.mask);
+            //this.setMask(this.shadow.mask);
             this.shadow.mask.renderable = true;
             this.snapshot();
-            this.setMask(null);
             this.shadow.mask.renderable = false;
             if (this._static) {
                 this.shadow.destroy();
@@ -1442,30 +1441,16 @@ class LightingSprite extends PIXI.Sprite {
         // if shadow stopped -> take a snap
         if (this.needUpdateShadowMask()) {
             // update shadow
-            this.shadow.mask.x = -$gameMap.displayX() * $gameMap.tileWidth(); 
-            this.shadow.mask.y = -$gameMap.displayY() * $gameMap.tileHeight();
+            //this.shadow.mask.x = -$gameMap.displayX() * $gameMap.tileWidth(); 
+            //this.shadow.mask.y = -$gameMap.displayY() * $gameMap.tileHeight();
             if (this.needRecalculateShadow()) {
                 this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
             } else {
                 this.shadow.mask.x = -$gameMap.displayX() * $gameMap.tileWidth(); 
                 this.shadow.mask.y = -$gameMap.displayY() * $gameMap.tileHeight();
             }
-            // update mask 
-            if (!this.filters) {
-                this.updateTexture(); 
-                this.setMask(this.shadow.mask);
-            }
-            
-        } else if (this.filters) {
-            // snap
-            this.shadow.updateGlobal(this.globalX(), this.globalY(), this.globalBounds());
             this.shadow.mask.renderable = true;
-            this.shadowOffsetX += $gameMap.displayX() * $gameMap.tileWidth();
-            this.shadowOffsetY += $gameMap.displayY() * $gameMap.tileWidth();
             this.snapshot();
-            this.shadowOffsetX -= $gameMap.displayX() * $gameMap.tileWidth();
-            this.shadowOffsetY -= $gameMap.displayY() * $gameMap.tileWidth();
-            this.setMask(null);
             this.shadow.mask.renderable = false;
         }
     }
@@ -1523,10 +1508,6 @@ class LightingSprite extends PIXI.Sprite {
          : this.character.screenY() + this.offset.y;
     }
 
-    updateTexture() {
-        this.texture = TextureManager.filter($shoraLayer.load(this.fileName), this.colorFilter, this.lightName);
-    }
-
     // command
     /**
      * Set light to color in time tick(s).
@@ -1560,6 +1541,8 @@ class LightingSprite extends PIXI.Sprite {
     */
 }
 
+
+
 class Shadow {
     get mask() {
         return this.shadowMask;
@@ -1567,8 +1550,8 @@ class Shadow {
     constructor(ox, oy, bounds, shadowAmbient) {
         // TODO: Calculate Transform.
         this._shadowMask = new PIXI.Graphics();
-        this._shadowTexture = PIXI.RenderTexture.create($gameLighting.width(), $gameLighting.height());
-        this.shadowMask = new PIXI.Sprite(this._shadowTexture);
+        this.shadowMask = new PIXI.Sprite(Shora._shadowTexture);
+        this.shadowMask.blendMode = PIXI.BLEND_MODES.MULTIPLY;
         this.shadowAmbient = shadowAmbient;
         this.updateGlobal(ox, oy, bounds);
     }
@@ -1578,11 +1561,11 @@ class Shadow {
         this._parallelSegments = this.shadowAmbient = null;
 
         this._shadowMask.destroy(true);
-        this._shadowTexture.destroy(true); 
+        //this._shadowTexture.destroy(true); 
         this.shadowMask.destroy(true); 
 
         this._shadowMask = null;
-        this._shadowTexture = null; 
+        //this._shadowTexture = null; 
         this.shadowMask = null;
     }
 
@@ -1593,9 +1576,9 @@ class Shadow {
         this._parallelSegments = {};
         this._shadowMask.clear();
         this.draw(y, $gameShadow.lowerWalls);
-        Graphics.app.renderer.render(this._shadowMask, this._shadowTexture);
+        Graphics.app.renderer.render(this._shadowMask, Shora._shadowTexture);
         // top-wall
-        Graphics.app.renderer.render($gameShadow.upperWalls, this._shadowTexture, false);
+        Graphics.app.renderer.render($gameShadow.upperWalls, Shora._shadowTexture, false);
     }
 
     updateGlobal(ox, oy, bounds) {
@@ -1604,11 +1587,11 @@ class Shadow {
         this._parallelSegments = {};
         this._shadowMask.clear();
         this.draw(oy, $gameShadow.globalLowerWalls);
-        Graphics.app.renderer.render(this._shadowMask, this._shadowTexture);
+        Graphics.app.renderer.render(this._shadowMask, Shora._shadowTexture);
         // top-wall
         let {x, y} = $gameShadow.upperWalls;
         $gameShadow.upperWalls.x = $gameShadow.upperWalls.y = 0;
-        Graphics.app.renderer.render($gameShadow.upperWalls, this._shadowTexture, false);
+        Graphics.app.renderer.render($gameShadow.upperWalls, Shora._shadowTexture, false);
         $gameShadow.upperWalls.x = x; $gameShadow.upperWalls.y = y;
     }
 
@@ -2320,11 +2303,9 @@ const TextureManager = {
      * @param {PIXI.BaseTexture} baseTexture 
      * @param {Object} colorFilter 
      */
-    filter: function(baseTexture, colorFilter, name) {
-        // return new PIXI.Texture(baseTexture);
-        if (!colorFilter) return baseTexture;
-        if ($shoraLayer.lightingCache[name]) 
-            return $shoraLayer.lightingCache[name];
+    filter: function(options) {
+        let baseTexture = $shoraLayer.load(options.filename);
+        let colorFilter = options.colorfilter;
         let sprite = new PIXI.Sprite(new PIXI.Texture(baseTexture));
         let filter = new ColorFilter();
 		filter.setBrightness(colorFilter.brightness || 255);
@@ -2335,7 +2316,7 @@ const TextureManager = {
         let renderedTexture = Graphics.app.renderer.generateTexture(sprite, 1, 1, sprite.getBounds());
         sprite.filters = null;
 		sprite.destroy({texture: true});
-		return $shoraLayer.lightingCache[name] = renderedTexture;
+		return new PIXI.Sprite(renderedTexture);
     },
 
     snapshot: function(sprite) {
@@ -2356,15 +2337,9 @@ const TextureManager = {
         Shora.tempMatrix.tx = -region.x + sprite.shadowOffsetX;
         Shora.tempMatrix.ty = -region.y + sprite.shadowOffsetY;
         
-        Graphics.app.renderer.render(sprite.shadow.mask, Shora.maskTexture, false, Shora.tempMatrix, true);
-        // let maskSprite = new PIXI.Sprite(Shora.maskTexture);
-        // Shora.MASK = maskSprite;
-
-        sprite.filters = [new PIXI.SpriteMaskFilter(new PIXI.Sprite(Shora.maskTexture))];
-
 		// sprite.renderTexture.resize(sprite.width, sprite.height);
-        Graphics.app.renderer.render(sprite, sprite.renderTexture);
-        sprite.filters = null;
+        Graphics.app.renderer.render(sprite.filteredSprite, sprite.renderTexture, true, null, true);
+        Graphics.app.renderer.render(sprite.shadow.mask, sprite.renderTexture, false, Shora.tempMatrix, true);
 
         sprite.x = x; 
         sprite.y = y; 
@@ -2461,24 +2436,29 @@ GameLighting.prototype.height = function() {
 }
 
 GameLighting.prototype.setStatus = function(id, status) {
+    if (!$shoraLayer.lighting.lights[id]) return;
     $gameMap._lighting[id].status = 
     $shoraLayer.lighting.lights[id].status = status;
     $shoraLayer.lighting.lights[id].renderable = true;
 }
 
 GameLighting.prototype.setOffset = function(id, x, y, time, type) {
+    if (!$shoraLayer.lighting.lights[id]) return;
     $shoraLayer.lighting.lights[id].setOffset(x, y, time, type);
 }
 
 GameLighting.prototype.setOffsetX = function(id, x, time, type) {
+    if (!$shoraLayer.lighting.lights[id]) return;
     $shoraLayer.lighting.lights[id].setOffsetX(x, time, type);
 }
 
 GameLighting.prototype.setOffsetY = function(id, y, time, type) {
+    if (!$shoraLayer.lighting.lights[id]) return;
     $shoraLayer.lighting.lights[id].setOffsetY(y, time, type);
 }
 
 GameLighting.prototype.setColor = function(id, color, time) {
+    if (!$shoraLayer.lighting.lights[id]) return;
     $shoraLayer.lighting.lights[id].setColor(color, time);
 }
 

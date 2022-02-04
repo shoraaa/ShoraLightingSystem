@@ -1,6 +1,6 @@
 /*:
  * @plugindesc 
- * [v1.6] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
+ * [v1.65] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
  * @author Shora
  * @url https://forums.rpgmakerweb.com/index.php?members/shora.158648/
  * @help
@@ -775,6 +775,9 @@ String.prototype.shoraDoubleCommands = function() {
     return this.match(Shora.REGEX.DOUBLE_COMMAND);
 };
 
+
+Tilemap.prototype._addShadow = function() {}; // remove engine shadow
+
 // DataManger
 ((_) => {
     const createGameObjects = _.createGameObjects;
@@ -834,7 +837,7 @@ String.prototype.shoraDoubleCommands = function() {
 
     _.scanNoteTags = function(lines) {
         for (command of lines) {
-            
+            // TODO
         }
     }
 
@@ -846,6 +849,7 @@ String.prototype.shoraDoubleCommands = function() {
 
 // Game_Character
 ((_) => {
+    // NEED REWORK
     const initialize = _.initialize;
     _.initialize = function() {
         initialize.call(this);
@@ -1432,7 +1436,7 @@ class LightingSprite extends PIXI.Sprite {
     }
 
     needUpdateShadowMask() {
-        return 1;
+        return 0;
         return this.needRecalculateShadow() || 
         (this.direction && this.direction.rotate.updating()) || !this.id;
     }
@@ -2462,24 +2466,29 @@ GameLighting.prototype.height = function() {
 }
 
 GameLighting.prototype.setStatus = function(id, status) {
+    if (!$shoraLayer.lighting.lights[id]) return;
     $gameMap._lighting[id].status = 
     $shoraLayer.lighting.lights[id].status = status;
     $shoraLayer.lighting.lights[id].renderable = true;
 }
 
 GameLighting.prototype.setOffset = function(id, x, y, time, type) {
+    if (!$shoraLayer.lighting.lights[id]) return;
     $shoraLayer.lighting.lights[id].setOffset(x, y, time, type);
 }
 
 GameLighting.prototype.setOffsetX = function(id, x, time, type) {
+    if (!$shoraLayer.lighting.lights[id]) return;
     $shoraLayer.lighting.lights[id].setOffsetX(x, time, type);
 }
 
 GameLighting.prototype.setOffsetY = function(id, y, time, type) {
+    if (!$shoraLayer.lighting.lights[id]) return;
     $shoraLayer.lighting.lights[id].setOffsetY(y, time, type);
 }
 
 GameLighting.prototype.setColor = function(id, color, time) {
+    if (!$shoraLayer.lighting.lights[id]) return;
     $shoraLayer.lighting.lights[id].setColor(color, time);
 }
 

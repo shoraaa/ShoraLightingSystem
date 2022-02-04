@@ -84,24 +84,29 @@ GameLighting.prototype.height = function() {
 }
 
 GameLighting.prototype.setStatus = function(id, status) {
+    if (!$shoraLayer.lighting.lights[id]) return;
     $gameMap._lighting[id].status = 
     $shoraLayer.lighting.lights[id].status = status;
     $shoraLayer.lighting.lights[id].renderable = true;
 }
 
 GameLighting.prototype.setOffset = function(id, x, y, time, type) {
+    if (!$shoraLayer.lighting.lights[id]) return;
     $shoraLayer.lighting.lights[id].setOffset(x, y, time, type);
 }
 
 GameLighting.prototype.setOffsetX = function(id, x, time, type) {
+    if (!$shoraLayer.lighting.lights[id]) return;
     $shoraLayer.lighting.lights[id].setOffsetX(x, time, type);
 }
 
 GameLighting.prototype.setOffsetY = function(id, y, time, type) {
+    if (!$shoraLayer.lighting.lights[id]) return;
     $shoraLayer.lighting.lights[id].setOffsetY(y, time, type);
 }
 
 GameLighting.prototype.setColor = function(id, color, time) {
+    if (!$shoraLayer.lighting.lights[id]) return;
     $shoraLayer.lighting.lights[id].setColor(color, time);
 }
 

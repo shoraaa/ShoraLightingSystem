@@ -1,3 +1,5 @@
+
+
 class Shadow {
     get mask() {
         return this.shadowMask;
@@ -5,8 +7,8 @@ class Shadow {
     constructor(ox, oy, bounds, shadowAmbient) {
         // TODO: Calculate Transform.
         this._shadowMask = new PIXI.Graphics();
-        this._shadowTexture = PIXI.RenderTexture.create($gameLighting.width(), $gameLighting.height());
-        this.shadowMask = new PIXI.Sprite(this._shadowTexture);
+        this.shadowMask = new PIXI.Sprite(Shora._shadowTexture);
+        this.shadowMask.blendMode = PIXI.BLEND_MODES.MULTIPLY;
         this.shadowAmbient = shadowAmbient;
         this.updateGlobal(ox, oy, bounds);
     }
@@ -16,11 +18,11 @@ class Shadow {
         this._parallelSegments = this.shadowAmbient = null;
 
         this._shadowMask.destroy(true);
-        this._shadowTexture.destroy(true); 
+        //this._shadowTexture.destroy(true); 
         this.shadowMask.destroy(true); 
 
         this._shadowMask = null;
-        this._shadowTexture = null; 
+        //this._shadowTexture = null; 
         this.shadowMask = null;
     }
 
@@ -31,9 +33,9 @@ class Shadow {
         this._parallelSegments = {};
         this._shadowMask.clear();
         this.draw(y, $gameShadow.lowerWalls);
-        Graphics.app.renderer.render(this._shadowMask, this._shadowTexture);
+        Graphics.app.renderer.render(this._shadowMask, Shora._shadowTexture);
         // top-wall
-        Graphics.app.renderer.render($gameShadow.upperWalls, this._shadowTexture, false);
+        Graphics.app.renderer.render($gameShadow.upperWalls, Shora._shadowTexture, false);
     }
 
     updateGlobal(ox, oy, bounds) {
@@ -42,11 +44,11 @@ class Shadow {
         this._parallelSegments = {};
         this._shadowMask.clear();
         this.draw(oy, $gameShadow.globalLowerWalls);
-        Graphics.app.renderer.render(this._shadowMask, this._shadowTexture);
+        Graphics.app.renderer.render(this._shadowMask, Shora._shadowTexture);
         // top-wall
         let {x, y} = $gameShadow.upperWalls;
         $gameShadow.upperWalls.x = $gameShadow.upperWalls.y = 0;
-        Graphics.app.renderer.render($gameShadow.upperWalls, this._shadowTexture, false);
+        Graphics.app.renderer.render($gameShadow.upperWalls, Shora._shadowTexture, false);
         $gameShadow.upperWalls.x = x; $gameShadow.upperWalls.y = y;
     }
 

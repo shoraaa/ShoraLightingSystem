@@ -1,7 +1,6 @@
 class Layer {
     constructor() {
-        this.baseTextureCache = {};
-        this.lightingCache = {};
+        this.baseTextureCache = {}; // TODO: Wait for texture to load
         this.mapId = 0;
 
         this.LIGHTING = {};

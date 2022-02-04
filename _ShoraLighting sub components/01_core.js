@@ -9,6 +9,7 @@ Shora.Lighting.PARAMETERS = PluginManager.parameters(Shora.Lighting.pluginName);
 
 Shora.tempMatrix = new PIXI.Matrix();
 Shora.maskTexture = PIXI.RenderTexture.create(0, 0);
+Shora._shadowTexture = PIXI.RenderTexture.create(Graphics.width, Graphics.height);
 
 Shora.DEBUG_GRAPHICS = new PIXI.Graphics();
 
