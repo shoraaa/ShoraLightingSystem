@@ -7,11 +7,12 @@ Shora.Lighting.pluginName = '-ShoraLighting-';
 Shora.Lighting.VERSION = 1.61;
 Shora.Lighting.PARAMETERS = PluginManager.parameters(Shora.Lighting.pluginName);
 
-Shora.tempMatrix = new PIXI.Matrix();
-Shora.maskTexture = PIXI.RenderTexture.create(0, 0);
-Shora._shadowTexture = PIXI.RenderTexture.create(Graphics.width, Graphics.height);
+Shora.tempGraphics = new PIXI.Graphics();
 
-Shora.DEBUG_GRAPHICS = new PIXI.Graphics();
+// Shora.tempMatrix = new PIXI.Matrix();
+// Shora.tempRenderTexture = PIXI.RenderTexture.create(1280, 720);
+// Shora.maskTexture = PIXI.RenderTexture.create(1280, 720);
+// Shora.DEBUG_GRAPHICS = new PIXI.Graphics();
 
 // Regex
 Shora.REGEX = {
@@ -19,6 +20,9 @@ Shora.REGEX = {
     COMMAND: /\[([\w_\d]+)\s(-?[\w_\d]+)\]/,
     DOUBLE_COMMAND: /\[([\w_\d]+)\s(-?[\w_\d]+)\s(-?[\w_\d]+)\]/
 };
+
+// Color Helper
+Shora.Color = {};
 
 Shora.MessageY = 0;
 Shora.warn = function(err) {
@@ -205,21 +209,22 @@ if (Shora.EngineVersion == 'MV') {
                 $gameLighting.setShadowAmbient(args[0]);
             } else if (command === 'topblockambient') {
                 $gameLighting.setTopBlockAmbient(args[0]);
-            } else if (command === 'offset' || command === 'tint' || command === 'status') {
+            } else if (command === 'offset' || command === 'tint' || command === 'radius' || 
+                       command === 'angle' || command === 'status' || command === 'shadow') {
                 let id = args[0] == '=' ? this._eventId : Number(args[0]);
-                let character = id == 0 ? $gamePlayer : $gameMap._events[id];
-                if (!character) {
-                    Shora.warn(id + ' is not a valid event id.'); return;
-                }
-                if (!$shoraLayer.lighting.lights[id]) return;
                 for (let i = 1; i <= 4; ++i) args[i] = Number(args[i]);
                 if (command === 'offset') {
                     $gameLighting.setOffset(id, args[1], args[2], args[3], args[4]);
                 } else if (command === 'tint') {
                     $gameLighting.setColor(id, args[1], args[2]);
+                } else if (command === 'radius') {
+                    $gameLighting.setRadius(id, args[1], args[2]);
+                } else if (command === 'angle') {
+                    $gameLighting.setAngle(id, args[1], args[2]);
                 } else if (command === 'status') {
                     $gameLighting.setStatus(id, args[1]);
-                }
+                } else if (command === 'shadow')
+                    $gameLighting.setShadow(id, args[1]);
             } else if (command === 'static_light') {
                 $gameLighting.addStaticLight(Number(args[0]), Number(args[1]), args[2]);
             }
@@ -235,7 +240,7 @@ if (Shora.EngineVersion == 'MV') {
 
     // Add new statical light into map
     PluginManager.registerCommand(pluginName, 'Add Static Light', args => {
-        $gameLighting.addPointLight(Number(args.x), Number(args.y), args.ref);
+        $gameLighting.addStaticLight(Number(args.x), Number(args.y), args.ref);
     });
 
     // Change map ambient color
@@ -259,18 +264,24 @@ if (Shora.EngineVersion == 'MV') {
         if ($gameMap._lighting[id]) {
             let time = Number(args.time);
             let type = Number(args.type);
-            let parameters = JSON.parse(args.parameters);
-            if (parameters.offset !== "") {
-                parameters.offset = JSON.parse(parameters.offset);
-                if (parameters.offset.x !== "") 
-                    $gameLighting.setOffsetX(id, Number(parameters.offset.x), time, type);
-                if (parameters.offset.y !== "") 
-                    $gameLighting.setOffsetY(id, Number(parameters.offset.y), time, type);
+            let params = JSON.parse(args.parameters);
+            if (params.offset !== "") {
+                params.offset = JSON.parse(params.offset);
+                if (params.offset.x !== "") 
+                    $gameLighting.setOffsetX(id, Number(params.offset.x), time, type);
+                if (params.offset.y !== "") 
+                    $gameLighting.setOffsetY(id, Number(params.offset.y), time, type);
             }
-            if (parameters.hasOwnProperty('status') && parameters.status !== "") 
-                $gameLighting.setStatus(id, parameters.status !== 'false');
-            if (parameters.tint !== "") 
-                $gameLighting.setColor(id, Number(parameters.tint), time);
+            if (params.status !== "") 
+                $gameLighting.setStatus(id, params.status !== 'false');
+            if (params.shadow !== "") 
+                $gameLighting.setStatus(id, params.shadow !== 'false');
+            if(params.radius !== "")
+                $gameLighting.setRadius(id, Number(params.radius) / 100, time, type);
+            if(params.angle !== "")
+                $gameLighting.setAngle(id, Number(params.angle), time, type);
+            if (params.tint !== "") 
+                $gameLighting.setColor(id, Number(params.tint), time);
         } else {
             Shora.warn('Event ' + id + " doesn't have a light to change parameter.");
         }
@@ -278,47 +289,62 @@ if (Shora.EngineVersion == 'MV') {
 
 }
 
-Shora.CallCommand = function(params, line) {
-    if (!line) return;
-    let tag, command;
-    if (command = line.shoraCommand()) {
-        command[1] = command[1].toLowerCase();
-        switch (command[1]) {
-            case 'light':
-                params.name = command[2];
+Shora.CallCommand = function(settings, command) {
+    if (!command || command.length <= 2) return;
+    // [<name>, <param1>, <value1>, ..]
+    command = command.substring(1, command.length - 1).split(' ');
+    // fallback
+    if (command.length === 2) 
+        return console.warn('Please use the new syntax for lights comment: \n[<name> -<param1> <value1> -<param2> <value2> ...]'), settings.name = command[1];
+    if (command[0] === 'light') command[0] = 'default';
+    if (!$shoraLayer.LIGHTING[command[0]]) return;
+    settings.name = command[0];
+    for (let i = 1; i < command.length; i += 2) {
+        value = command[i + 1];
+        switch (command[i].toLowerCase()) {
+            case '-radius':
+            case '-r':
+                settings.radius = Number(value) / 100;
                 break;
-            case 'pulsefactor':
-            case 'pulsespeed':
-            case 'flickintensity':
-            case 'flickspeed':
-                params.animation[command[1]] = Number(command[2]);
+            case '-angle':
+            case '-a':
+                settings.angle = Number(value);
                 break;
-            default: 
-                params[command[1]] = Number(command[2]);
-        }
-    } else if (tag = line.shoraTag()) {
-        switch (tag[1].toLowerCase()) {
-            case 'light':
-                params.name = 'default';
+            case '-offsetx':
+            case '-x':
+                settings.offsetx = Number(value);
                 break;
-            case 'shadow':
-                params.shadow = true;
+            case '-offsety':
+            case '-y':
+                settings.offsety = Number(value);
                 break;
-            case 'no_shadow':
-                params.shadow = false;
+            case '-shadowoffsetx':
+            case '-sx':
+                settings.shadowoffsetx = Number(value);
                 break;
-            case 'static':
-                params.static = true;
+            case '-shadowoffsety':
+            case '-sy':
+                settings.shadowoffsety = Number(value);
                 break;
-            case 'wall':
-                params.bwall = false;
+            case '-direction':
+            case '-d':
+                settings.direction = value === 'on';
                 break;
-            case 'bwall':
-                params.bwall = true;
-            default: 
-                Shora.warn(tag[1] + 'is not a valid tag.');
+            case '-tint':
+            case '-t':
+                settings.tint = value.toHexValue();
+                break;
+            case '-shadow':
+            case '-sh':
+                settings.shadow = value === 'on';
+                break;
+            case 'behindwall':
+            case 'bw':
+                settings.bwall = value === 'on';
+                break;
         }
     }
+    
 };
 
 Array.prototype.lowerBound = function(x) {
@@ -358,6 +384,7 @@ Array.prototype.pairFloorSearch = function(x, j) {
     return res;
 };
 String.prototype.toHexValue = function() {
+    if (Shora.Color[this]) return Shora.Color[this];
     if (this.length == 6) return parseInt(this, 16);
     return parseInt(this.substr(1), 16);
 };
@@ -376,3 +403,176 @@ String.prototype.shoraDoubleCommands = function() {
     return this.match(Shora.REGEX.DOUBLE_COMMAND);
 };
 
+class KawaseBlurFilter extends PIXI.Filter {
+    constructor(blur, quality) {
+        const fragment = `
+        varying vec2 vTextureCoord;
+        uniform sampler2D uSampler;
+
+        uniform vec2 uOffset;
+
+        void main(void)
+        {
+            vec4 color = vec4(0.0);
+
+            color += texture2D(uSampler, vec2(vTextureCoord.x - uOffset.x, vTextureCoord.y));
+            color += texture2D(uSampler, vec2(vTextureCoord.x, vTextureCoord.y + uOffset.y));
+            color += texture2D(uSampler, vec2(vTextureCoord.x + uOffset.x, vTextureCoord.y));
+            color += texture2D(uSampler, vec2(vTextureCoord.x, vTextureCoord.y - uOffset.y));
+
+            // Average
+            color *= 0.25;
+
+            gl_FragColor = color;
+        }
+        `;
+        super(null, fragment);
+        this._kernels = [];
+        this.uniforms.uOffset = new Float32Array(2);
+        this._pixelSize = new Point(1);
+        // if `blur` is array , as kernels
+        if (Array.isArray(blur)) {
+            this.kernels = blur;
+        }
+        else {
+            this._blur = blur;
+            this.quality = quality;
+        }
+    }
+    /**
+     * Overrides apply
+     * @private
+     */
+    apply(filterManager, input, output, clear) {
+        const uvX = this._pixelSize.x / input.sourceFrame.width;
+        const uvY = this._pixelSize.y / input.sourceFrame.height;
+        let offset;
+        if (this._quality === 1 || this._blur === 0) {
+            offset = this._kernels[0] + 0.5;
+            this.uniforms.uOffset[0] = offset * uvX;
+            this.uniforms.uOffset[1] = offset * uvY;
+            filterManager.applyFilter(this, input, output, clear);
+        }
+        else {
+            const renderTarget = filterManager.getRenderTarget(true);
+            let source = input;
+            let target = renderTarget;
+            let tmp;
+            const last = this._quality - 1;
+            for (let i = 0; i < last; i++) {
+                offset = this._kernels[i] + 0.5;
+                this.uniforms.uOffset[0] = offset * uvX;
+                this.uniforms.uOffset[1] = offset * uvY;
+                filterManager.applyFilter(this, source, target, 1);
+                tmp = source;
+                source = target;
+                target = tmp;
+            }
+            offset = this._kernels[last] + 0.5;
+            this.uniforms.uOffset[0] = offset * uvX;
+            this.uniforms.uOffset[1] = offset * uvY;
+            filterManager.applyFilter(this, source, output, clear);
+            filterManager.returnRenderTarget(renderTarget);
+        }
+    }
+    _updatePadding() {
+        this.padding = Math.ceil(this._kernels.reduce((acc, v) => acc + v + 0.5, 0));
+    }
+    /**
+     * Auto generate kernels by blur & quality
+     * @private
+     */
+    _generateKernels() {
+        const blur = this._blur;
+        const quality = this._quality;
+        const kernels = [blur];
+        if (blur > 0) {
+            let k = blur;
+            const step = blur / quality;
+            for (let i = 1; i < quality; i++) {
+                k -= step;
+                kernels.push(k);
+            }
+        }
+        this._kernels = kernels;
+        this._updatePadding();
+    }
+    /**
+     * The kernel size of the blur filter, for advanced usage.
+     * @default [0]
+     */
+    get kernels() {
+        return this._kernels;
+    }
+    set kernels(value) {
+        if (Array.isArray(value) && value.length > 0) {
+            this._kernels = value;
+            this._quality = value.length;
+            this._blur = Math.max(...value);
+        }
+        else {
+            // if value is invalid , set default value
+            this._kernels = [0];
+            this._quality = 1;
+        }
+    }
+    /**
+     * Get the if the filter is clampped.
+     *
+     * @readonly
+     * @default false
+     */
+    get clamp() {
+        return this._clamp;
+    }
+    /**
+     * Sets the pixel size of the filter. Large size is blurrier. For advanced usage.
+     *
+     * @member {PIXI.Point|number[]}
+     * @default [1, 1]
+     */
+    set pixelSize(value) {
+        if (typeof value === 'number') {
+            this._pixelSize.x = value;
+            this._pixelSize.y = value;
+        }
+        else if (Array.isArray(value)) {
+            this._pixelSize.x = value[0];
+            this._pixelSize.y = value[1];
+        }
+        else if (value instanceof Point) {
+            this._pixelSize.x = value.x;
+            this._pixelSize.y = value.y;
+        }
+        else {
+            // if value is invalid , set default value
+            this._pixelSize.x = 1;
+            this._pixelSize.y = 1;
+        }
+    }
+    get pixelSize() {
+        return this._pixelSize;
+    }
+    /**
+     * The quality of the filter, integer greater than `1`.
+     * @default 3
+     */
+    get quality() {
+        return this._quality;
+    }
+    set quality(value) {
+        this._quality = Math.max(1, Math.round(value));
+        this._generateKernels();
+    }
+    /**
+     * The amount of blur, value greater than `0`.
+     * @default 4
+     */
+    get blur() {
+        return this._blur;
+    }
+    set blur(value) {
+        this._blur = value;
+        this._generateKernels();
+    }
+}

@@ -1,14 +1,17 @@
 class Layer {
     constructor() {
         this.baseTextureCache = {}; // TODO: Wait for texture to load
+        this.textureCache = {}; // TODO: Sprite Cache
         this.mapId = 0;
 
         this.LIGHTING = {};
         this._colorFilter = JSON.parse(Shora.Lighting.PARAMETERS.filter || '{}') ;
 
         this.preload();
-        this.loadLighting();
         this.loadParameters();
+        this.loadLighting();
+        
+        this.lighting = null;
     }
     
     preload() {
@@ -32,6 +35,13 @@ class Layer {
         this._topRegionId = Number(GAME_PARAMETERS.topRegionId);
         this._ignoreShadowsId = Number(GAME_PARAMETERS.ignoreShadowsId);
         this._drawBelowPicture = GAME_PARAMETERS.drawBelowPicture === 'true';
+
+        // Color List
+        let COLORS = JSON.parse(JSON.parse(Shora.Lighting.PARAMETERS['helper']).colors);
+        for (let i = 0; i < COLORS.length; ++i) {
+            COLORS[i] = JSON.parse(COLORS[i]);
+            Shora.Color[COLORS[i].name] = COLORS[i].color.toHexValue();
+        }
     }
 
     /**
@@ -67,118 +77,101 @@ class Layer {
      * @param {String} name 
      * @param {Object} settings 
      */
-    addLighting(settings) {
-        const parameters = JSON.parse(settings);
-        let name = parameters.name;
-        if (name == "") {
-            console.warn('Lighting name field cannot be left empty. Cancelling register process.'); 
-            return;
-        }
-        console.log('Lighting ' + name + ' is having registered');
-
-        parameters.status = parameters.status !== 'false';
-
-        parameters.direction = parameters.direction === 'true';
-        parameters.tint = parameters.tint.toHexValue();
-        parameters.bwall = parameters.bwall === 'true';
-        parameters.shadow = parameters.shadow === 'true';
-        parameters.static = parameters.static === 'true';
+    addLighting(_settings) {
+        const settings = JSON.parse(_settings);
+        let name = settings.name;
+        if (name == "<-- CHANGE_THIS -->") 
+            return console.warn('Please set the reference of light, aka it name when adding new custom light. Register progress canceled.'); 
         
-        parameters.shadowambient = 
-            parameters.shadowambient == "" ?  
-            this.shadowAmbient :
-            parameters.shadowambient.toHexValue();
+        settings.radius = Number(settings.radius || 100) / 100;
+        settings.angle = Number(settings.angle) || 0; 
+        settings.status = settings.status !== 'false';
 
-        parameters.offset = JSON.parse(parameters.offset);
-        for (const p in parameters.offset) {
-            parameters.offset[p] = Number(parameters.offset[p]);
+        settings.direction = settings.direction === 'true';
+        settings.tint = settings.tint.toHexValue();
+        settings.bwall = settings.bwall === 'true';
+        settings.shadow = settings.shadow === 'true';
+        
+        let defaultShadowAmbient = JSON.parse(Shora.Lighting.PARAMETERS['Map']).shadowAmbient;
+        settings.shadowambient = 
+            settings.shadowambient == "" ?  
+            defaultShadowAmbient.toHexValue() :
+            settings.shadowambient.toHexValue();
+
+        settings.offset = JSON.parse(settings.offset);
+        for (const p in settings.offset) {
+            settings.offset[p] = Number(settings.offset[p]);
         }
 
-        parameters.shadowoffsetx = Number(parameters.shadowoffsetx);
-        parameters.shadowoffsety = Number(parameters.shadowoffsety);
+        settings.shadowoffsetx = Number(settings.shadowoffsetx);
+        settings.shadowoffsety = Number(settings.shadowoffsety);
         
-        parameters.colorfilter = JSON.parse(parameters.colorfilter);
-        parameters.colorfilter.hue = Number(parameters.colorfilter.hue);
-        parameters.colorfilter.brightness = Number(parameters.colorfilter.brightness);
-        parameters.colorfilter.colortone = parameters.colorfilter.colortone.toRGBA();
-        parameters.colorfilter.blendcolor = parameters.colorfilter.blendcolor.toRGBA();
+        settings.colorfilter = JSON.parse(settings.colorfilter);
+        settings.colorfilter.hue = Number(settings.colorfilter.hue);
+        settings.colorfilter.brightness = Number(settings.colorfilter.brightness);
+        settings.colorfilter.colortone = settings.colorfilter.colortone.toRGBA();
+        settings.colorfilter.blendcolor = settings.colorfilter.blendcolor.toRGBA();
 
-        parameters.animation = JSON.parse(parameters.animation);
-        for (const p in parameters.animation) {
+        settings.animation = JSON.parse(settings.animation);
+        for (const p in settings.animation) {
             if (p[0] === '.') continue;
-            parameters.animation[p] = JSON.parse(parameters.animation[p]);
-            for (let a in parameters.animation[p]) {
-                parameters.animation[p][a] = JSON.parse(parameters.animation[p][a]);
+            settings.animation[p] = JSON.parse(settings.animation[p]);
+            for (let a in settings.animation[p]) {
+                settings.animation[p][a] = JSON.parse(settings.animation[p][a]);
             }
         }
 
-        parameters.name = name;
-        this.LIGHTING[name] = parameters;
+        settings.name = name;
+        this.LIGHTING[name] = settings;
+
+        console.log(name + ' registered');
     }
 
     reset() {
         this.mapId = 0;
     }
 
-    /**
-     * Create a layer instance.
-     * @param {Spriteset_Base} spriteset 
-     */
-    createLayer(spriteset) { 
-        if (this._spriteset)
-            this.removeScene();
-        this._spriteset = spriteset;
-    }
-
-    updateIntensityFilter() {
-        if (this._colorFilter.status == 'true') {
-            if (!this.colorFilter)
-                this.colorFilter = new PIXI.filters.ColorMatrixFilter();
-            if (!this._spriteset._baseSprite.filters)
-                this._spriteset._baseSprite.filters = [this.colorFilter];
-            else 
-                this._spriteset._baseSprite.filters.push(this.colorFilter);
-            this.colorFilter.brightness(Number(this._colorFilter.brightness));
+    updateIntensityFilter(spriteset, disable) {
+        if (!disable && this._colorFilter.status == 'true') {
+            if (Shora.EngineVersion == 'MV')
+                spriteset._baseSprite.filters[0].brightness(Number(this._colorFilter.brightness));
+            else
+                spriteset._baseSprite.filters[0].setBrightness(Number(this._colorFilter.brightness) * 255);
         } else {
-            if (this._spriteset._baseSprite.filters && this._spriteset._baseSprite.filters[1])
-                this._spriteset._baseSprite.filters.pop();
+            if (Shora.EngineVersion == 'MV')
+                spriteset._baseSprite.filters[0].brightness(1);
+            else
+                spriteset._baseSprite.filters[0].setBrightness(255);
         }
     }
 
-    loadScene() {
+    loadScene(spriteset) {
+        // Automatically removeChild in old maps sprite
+        this._spriteset = spriteset;
+        if (!this.lighting)
+            this.lighting = new LightingLayer();
         Shora.MessageY = 0;
-        this.updateIntensityFilter();
+        this.updateIntensityFilter(this._spriteset);
         if ($gameMap.mapId() === this.mapId && this._spriteset.type() == this._spritesetType && this.lighting) 
-            return this._spriteset._baseSprite.addChild(this.lighting.lightSprite); 
+            return this.lighting.update(), this._spriteset._baseSprite.addChild(this.lighting.sprite); 
         this._spritesetType = this._spriteset.type();
         this.mapId = $gameMap.mapId();
-        if (this.lighting) 
-            this.lighting.destroy(),
-            this.lighting = null;
-        this.lighting = new LightingLayer(this._spritesetType);
-        this._spriteset._baseSprite.addChild(this.lighting.lightSprite);
+        this.lighting.initialize();
+        this._spriteset._baseSprite.addChild(this.lighting.sprite);
     }
 
-    removeScene() {
-        if (this._spriteset._baseSprite.filters && this._spriteset._baseSprite.filters[1])
-            this._spriteset._baseSprite.filters.pop();
-        this._spriteset._baseSprite.removeChild($shoraLayer.lighting.lightSprite);
-        this.lighting.destroy(),
-        this.lighting = null;
+    removeScene(spriteset) {
+        this.updateIntensityFilter(spriteset, true);
+        spriteset._baseSprite.removeChild($shoraLayer.lighting.sprite);
     }
 
     update() {
         if ($gameMap.mapId() != this.mapId)
             this.mapId = $gameMap.mapId(),
             $gameMap._lighting = [];
-        this.updateLight();
-    }
-
-    updateLight() {
         this.lighting.update();
     }
     
 }
 
-$shoraLayer = new Layer();
 

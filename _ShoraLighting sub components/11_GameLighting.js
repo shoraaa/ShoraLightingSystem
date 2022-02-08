@@ -18,6 +18,7 @@ GameLighting.prototype.loadParameters = function() {
     this.shadowAmbient = PARAMETERS.shadowAmbient.toHexValue();
     this.topBlockAmbient = PARAMETERS.topBlockAmbient.toHexValue();
 
+    PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['filter']);
     this.softShadow = PARAMETERS.softShadow !== 'false';
     this.softShadowStr = Number(PARAMETERS.softShadowStr) || 1;
     this.softShadowQlt = Number(PARAMETERS.softShadowQlt) || 1;
@@ -90,6 +91,21 @@ GameLighting.prototype.setStatus = function(id, status) {
     $shoraLayer.lighting.lights[id].renderable = true;
 }
 
+GameLighting.prototype.setRadius = function(id, radius, time, type) {
+    if (!$shoraLayer.lighting.lights[id]) return;
+    $shoraLayer.lighting.lights[id].setRadius(radius, time, type);
+}
+
+GameLighting.prototype.setAngle = function(id, angle, time, type) {
+    if (!$shoraLayer.lighting.lights[id]) return;
+    $shoraLayer.lighting.lights[id].setAngle(angle, time, type);
+}
+
+GameLighting.prototype.setShadow = function(id, status) {
+    if (!$shoraLayer.lighting.lights[id]) return;
+    $shoraLayer.lighting.lights[id].setShadow(status);
+}
+
 GameLighting.prototype.setOffset = function(id, x, y, time, type) {
     if (!$shoraLayer.lighting.lights[id]) return;
     $shoraLayer.lighting.lights[id].setOffset(x, y, time, type);
@@ -111,6 +127,7 @@ GameLighting.prototype.setColor = function(id, color, time) {
 }
 
 GameLighting.prototype.addStaticLight = function(x, y, name) {
+    return; // TODO
     let options = {
         name: name || 'default',
         fileName: 'lights', 
@@ -145,12 +162,16 @@ GameLighting.prototype.setPluginState = function(status) {
 }
 
 GameLighting.prototype.enable = function() {
+    if (!this._disabled) return;
     this._disabled = false;
-    $shoraLayer.loadScene();
+    if (SceneManager._scene._spriteset)
+        $shoraLayer.loadScene(SceneManager._scene._spriteset);
 }
 
 GameLighting.prototype.disable = function() {
+    if (this._disabled) return;
     this._disabled = true;
-    $shoraLayer.removeScene();
+    if (SceneManager._scene._spriteset)
+        $shoraLayer.removeScene(SceneManager._scene._spriteset);
 }
 

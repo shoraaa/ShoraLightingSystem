@@ -17,9 +17,11 @@ const TextureManager = {
      * @param {Object} colorFilter 
      */
     filter: function(options) {
+        if ($shoraLayer.textureCache[options.filename])
+            return new PIXI.Sprite($shoraLayer.textureCache[options.filename]);
         let baseTexture = $shoraLayer.load(options.filename);
-        let colorFilter = options.colorfilter;
         let sprite = new PIXI.Sprite(new PIXI.Texture(baseTexture));
+        let colorFilter = options.colorfilter;
         let filter = new ColorFilter();
 		filter.setBrightness(colorFilter.brightness || 255);
 		filter.setHue(colorFilter.hue === -1 ? Math.random() * 360 : colorFilter.hue);
@@ -29,37 +31,8 @@ const TextureManager = {
         let renderedTexture = Graphics.app.renderer.generateTexture(sprite, 1, 1, sprite.getBounds());
         sprite.filters = null;
 		sprite.destroy({texture: true});
+        $shoraLayer.textureCache[options.filename] = renderedTexture;
 		return new PIXI.Sprite(renderedTexture);
-    },
-
-    snapshot: function(sprite) {
-        // todo: rotation angle correcting, no need filter when rotate        
-        let region = sprite.shadow.bounds;
-        let [x, y, rotation, scale] = [sprite.x, sprite.y, sprite.rotation, sprite.scale.x];
-		sprite.x = 0;
-		sprite.y = 0;
-		sprite.anchor.set(0);
-        sprite.mask = null;
-        sprite.rotation = 0;
-        sprite.renderable = true;
-        sprite.filters = null;
-        
-        sprite.shadow.mask.renderable = true;
-        Shora.maskTexture.resize(sprite.width, sprite.height);
-
-        Shora.tempMatrix.tx = -region.x + sprite.shadowOffsetX;
-        Shora.tempMatrix.ty = -region.y + sprite.shadowOffsetY;
-        
-		// sprite.renderTexture.resize(sprite.width, sprite.height);
-        Graphics.app.renderer.render(sprite.filteredSprite, sprite.renderTexture, true, null, true);
-        Graphics.app.renderer.render(sprite.shadow.mask, sprite.renderTexture, false, Shora.tempMatrix, true);
-
-        sprite.x = x; 
-        sprite.y = y; 
-        sprite.anchor.set(0.5);
-        sprite.rotation = rotation; 
-        sprite.pulse.set(1, 1);
-        sprite.texture = sprite.renderTexture;
-    } 
+    }
 }
 

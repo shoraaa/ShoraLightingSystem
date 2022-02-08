@@ -1,4 +1,4 @@
-class LightingSurface extends PIXI.Graphics {
+class AmbientLayer extends PIXI.Graphics {
     constructor() {
         super();
         this.id = -1;
@@ -6,7 +6,7 @@ class LightingSurface extends PIXI.Graphics {
 	    this.drawRect(0, 0, Graphics.width, Graphics.height);
         this.endFill();
         this.tint = $gameLighting.ambient;
-        this.ambient = new ColorAnimation(this, this);
+        this.ambient = new TintAnimation(this, this);
     }
 
     destroy() {
@@ -15,17 +15,13 @@ class LightingSurface extends PIXI.Graphics {
         super.destroy();
     }
 
-    setMapAmbient(color, time) {
-        $gameLighting.ambient = color;
+    set(color, time) {
         this.ambient.set(color, time || 1);
     }
 
     update() {
         this.ambient.update();
         $gameLighting.ambient = this.tint;
-    }
-    updateDisplay() {
-        //
     }
 
 }

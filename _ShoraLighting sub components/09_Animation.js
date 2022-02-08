@@ -45,92 +45,105 @@ class FlickerAnimation extends Shora.Animation {
     }
 }
 
-class PulseAnimation extends Shora.Animation {
-    constructor(sprite, ref) {
-        super(sprite, ref);
-        this.pulsating = true;
-        this.range = 1;
-        this.pulseFactor = ref.pulsefactor / 100;
-        this.pulseMax = this.range + this.pulseFactor;
-		this.pulseMin = this.range - this.pulseFactor;
-        this.pulseSpeed = ref.pulsespeed / 1000;
+// class PulseAnimation extends Shora.Animation {
+//     constructor(sprite, ref) {
+//         super(sprite._baseSprite, ref);
+//         this.pulsating = true;
+//         this.range = 1;
+//         this.factor = ref.pulsefactor / 50 || 0;
+//         this.max = this.range + this.factor;
+// 		this.min = this.range - this.factor;
+//         this.speed = ref.pulsespeed / 500 || 0;
         
-        this.tick = this.space = 0;
-    }
+//         this.tick = this.space = 0;
+//     }
 
-    set(range, time) {
-        this.tick = time;
-        this.space = (range - this.range) / time;
+//     set(range, time) {
+//         this.tick = time;
+//         this.space = (range - this.range) / time;
+//     }
+
+//     updating() {
+//         return this._ref.status && this.factor !== 0;
+//     }
+
+//     update() {
+//     	if (!this._ref.status) return;
+//         let spd = Math.random() / 500 + this.speed;
+//         if (this.pulsating) {
+// 	        if (this._sprite.scale.x < this.max) {
+// 	            this._sprite.scale.x += spd;
+// 	            this._sprite.scale.y += spd;
+// 	        } else {
+// 	            this.pulsating = false;
+// 	        }
+// 	    } else {
+// 	        if (this._sprite.scale.x > this.min) {
+// 	            this._sprite.scale.x -= spd;
+// 	            this._sprite.scale.y -= spd;
+// 	        } else {
+// 	            this.pulsating = true;
+// 	        }
+// 	    }
+//     }
+// }
+
+class ScaleAnimation extends Shora.Animation {
+    constructor(light, ref) {
+        super(light._baseSprite, ref);
+        this.s0 = this.s1 = ref.radius; 
+        this.delta = this.tick = 0; this.time = -1;
+        this.originalScale = ref.radius;
+        this._sprite.scale.set(ref.radius);
+
     }
 
     updating() {
-        return this.pulseFactor !== 0;
+        return this.tick <= this.time;
     }
 
     update() {
-    	if (!this._ref.status) return;
-        let spd = Math.random() / 500 + this.pulseSpeed;
-        if (this.pulsating) {
-	        if (this._sprite.scale.x < this.pulseMax) {
-	            this._sprite.scale.x += spd;
-	            this._sprite.scale.y += spd;
-	        } else {
-	            this.pulsating = false;
-	        }
-	    } else {
-	        if (this._sprite.scale.x > this.pulseMin) {
-	            this._sprite.scale.x -= spd;
-	            this._sprite.scale.y -= spd;
-	        } else {
-	            this.pulsating = true;
-	        }
-	    }
-    }
-}
-
-class RotationAnimation extends Shora.Animation {
-    constructor(sprite, angle) {
-        super(sprite, 0);
-        this.r0 = this.r1 = angle; 
-        this.delta = this.tick = this.time = 0;
-        this._sprite.rotation = angle;
-    }
-
-    updating() {
-        return this._sprite.rotation || this.tick < this.time;
-    }
-
-    update() {
-        if (this.tick < this.time) {
-            this._sprite.rotation = this.r0 + Shora.Animation.transition[this.type](this.tick / this.time) * this.delta;
+        if (this.tick <= this.time) {
+            this._ref.radius = this.s0 + Shora.Animation.transition[this.type](this.tick / this.time) * this.delta;
+            this._sprite.scale.set(this._ref.radius);
             this.tick++;
         }
     }
 
-    set(angle, time, type) {
-        this.r0 = this._sprite.rotation; this.r1 = angle;
-        this.delta = this.r1 - this.r0;
+    set(scale, time, type) {
+        scale *= this.originalScale;
+        this.s0 = this._sprite.scale.x; this.s1 = scale;
+        this.delta = this.s1 - this.s0;
         this.time = time; this.tick = 0;
         if (type) this.type = type - 1;
     }
     
 }
 
-class DirectionManager {
-    constructor(sprite) {
-        this._sprite = sprite; 
-        this.direction = this._sprite.character.direction();
-        this.rotate = new RotationAnimation(sprite, this.angle());
+
+class AngleAnimation extends Shora.Animation {
+    constructor(light, ref) {
+        super(light._baseSprite, ref);
+        this.a0 = this.a1 = ref.angle; 
+        this.delta = this.tick = 0; this.time = -1;
+
+        this._character = light.character;
+        this.direction = this._character ? this._character.direction() : null;
+        this._sprite.rotation = ref.direction ? this.angle() : ref.angle;
     }
 
     destroy() {
-        this.rotate.destroy();
-        this.rotate = null;
-        this._sprite = null;
+        super.destroy();
+        this._character = null;
+    }
+
+    updating() {
+        return this.tick <= this.time;
     }
 
     angle() {
-        let dest = [3.125, 4.6875, 1.5625, 0]; //[ [3.125, 4.6875, 1.5625, 0], [-3.125, -1.5625, -4.6825, 6.25] ];
+        // update .rotation for pixiv4 compatibility
+        let dest = [3.125, 4.6875, 1.5625, 0]; 
         let x = dest[this.direction / 2 - 1];
         if (Math.abs(this._sprite.rotation - 6.25 - x) < Math.abs(this._sprite.rotation - x)) 
             this._sprite.rotation -= 6.25;
@@ -140,13 +153,49 @@ class DirectionManager {
     }
 
     update() {
-        if (this.direction != this._sprite.character.direction()) {
-            this.direction = this._sprite.character.direction();
-            this.rotate.set(this.angle(), 20, 2);
+        if (this._ref.direction && this.direction != this._character.direction()) {
+            this.direction = this._character.direction();
+            this.set(this.angle(), 20, 2);
          }
-        this.rotate.update();
+
+        if (this.tick <= this.time) {
+            this._ref.angle 
+            = this._sprite.rotation 
+            = this.a0 + Shora.Animation.transition[this.type](this.tick / this.time) * this.delta;
+            this.tick++;
+        }
     }
 
+    set(angle, time, type) {
+        this.a0 = this._sprite.rotation; this.a1 = angle;
+        this.delta = this.a1 - this.a0;
+        this.time = time; this.tick = 0;
+        if (type) this.type = type - 1;
+    }
+    
+}
+
+class TintAnimation extends Shora.Animation {
+    constructor(light, ref) {
+        super(light, ref);
+        this._sprite.tint = ref.tint || Math.round(Math.random() * 0xfffff);
+
+        this.ocolor = Shora.ColorManager.hexToRGB(ref.tint);
+        this.dcolor = this.ocolor;
+        this.tick = 0; this.len = -1;
+    }
+    set(color, time) {
+        this.tick = 0; this.len = time;
+        this.ocolor = this.dcolor;
+        this.dcolor = Shora.ColorManager.hexToRGB(color);
+    }
+    update() {
+        if (this.tick <= this.len) {
+            let p = this.tick / this.len;
+            this._ref.tint = this._sprite.tint = Shora.ColorManager.transition(p, this.ocolor, this.dcolor);
+            this.tick++;
+        }
+    }
 }
 
 class OffsetAnimation {
@@ -200,27 +249,3 @@ class OffsetAnimation {
         return this.offset.y;
     }
 }
-
-class ColorAnimation extends Shora.Animation {
-    constructor(sprite, ref) {
-        super(sprite, ref);
-        this._sprite.tint = ref.tint || Math.round(Math.random() * 0xfffff);
-
-        this.ocolor = Shora.ColorManager.hexToRGB(ref.tint);
-        this.dcolor = this.ocolor;
-        this.tick = this.len = 0;
-    }
-    set(color, time) {
-        this.tick = 0; this.len = time;
-        this.ocolor = this.dcolor;
-        this.dcolor = Shora.ColorManager.hexToRGB(color);
-    }
-    update() {
-        if (this.tick < this.len) {
-            let p = this.tick / this.len;
-            this._ref.tint = this._sprite.tint = Shora.ColorManager.transition(p, this.ocolor, this.dcolor);
-            this.tick++;
-        }
-    }
-}
-

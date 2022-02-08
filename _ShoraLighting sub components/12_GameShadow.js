@@ -17,9 +17,13 @@ class GameShadow {
         this.lowerWalls = [];
         this.originalLowerWalls = [];
         this.ignoreShadows = [];
-        this.upperWalls = new PIXI.Graphics();
         this.topWalls = []; // for fallback to draw each top wall
         this.customCasters = [];
+
+        this._upperWalls = new PIXI.Graphics();
+        this._upperWallsTexture = PIXI.RenderTexture.create();
+        this.upperWalls = new PIXI.Sprite(this._upperWallsTexture);
+        // this._upperWalls.blendMode = PIXI.BLEND_MODES.MULTIPLY;
     }
 
     refresh() {
@@ -29,11 +33,12 @@ class GameShadow {
         this.verticalSegments = [];
         this.lowerWalls = [];
         this.originalLowerWalls = [];
-        this.upperWalls.clear();
+        this._upperWalls.clear();
+        this._upperWallsTexture.resize($gameLighting.width(), $gameLighting.height());
         this.scanMapCaster();
 		this.createSegments();
     }
-
+    
     scanMapCaster() {
         this.map = new Array($gameMap.height())
             .fill(0)
@@ -45,7 +50,7 @@ class GameShadow {
         let topRegionId = $shoraLayer._topRegionId;
         let ignoreShadowsId = $shoraLayer._ignoreShadowsId;
         
-        this.upperWalls.beginFill($gameLighting.topBlockAmbient);
+        this._upperWalls.beginFill($gameLighting.topBlockAmbient);
         let flag = false, begin = 0, width = 0;
         for (var i = 0; i < $gameMap.height(); ++i) {
             this.topWalls.push([]);
@@ -54,7 +59,7 @@ class GameShadow {
                     this.map[i][j] = $gameMap.regionId(j, i) - regionStart + 1; 
                 }
                 if ((regionStart <= $gameMap.regionId(j, i) && $gameMap.regionId(j, i) <= regionEnd) || $gameMap.regionId(j, i) == topRegionId) {
-                    this.upperWalls.drawRect(j * tw, i * th, tw, th);
+                    this._upperWalls.drawRect(j * tw, i * th, tw, th);
                     /*
                     if (!flag) {
                         flag = true;
@@ -71,7 +76,8 @@ class GameShadow {
                     this.ignoreShadows.push([j * tw, i * tw]);
             }
         }
-        this.upperWalls.endFill();
+        this._upperWalls.endFill();
+        Graphics.app.renderer.render(this._upperWalls, this._upperWallsTexture);
     }
 
     outOfBound(x, y) {
@@ -216,50 +222,23 @@ class GameShadow {
         //     this.segments = this.segments.concat(caster.segments);
 
 		this.segments = ShadowSystem.getSegments(this.horizontalSegments.concat(this.verticalSegments));
-        this.originalSegments = this.segments.map(s => s.map(p => p.map(x => x / 48)));
 
 		// Lower walls
         this.lowerWalls = this.mergeLowerWalls(this.lowerWalls);
         this.lowerWalls.sort((a, b) => b[0] - a[0]);
-        this.originalLowerWalls = this.lowerWalls.map(s => s.map(p => p >= $gameMap.tileWidth() ? p / $gameMap.tileWidth() : p));
-
-        this.globalSegments = JSON.parse(JSON.stringify(this.segments));
-        this.globalLowerWalls = JSON.parse(JSON.stringify(this.lowerWalls));
     }
     
-    screenX(x) {
-        let tw = $gameMap.tileWidth();
-        return Math.round($gameMap.adjustX(x) * tw);
+    worldToScreenX(x) {
+        return Math.round($gameMap.adjustX(x));
     }
 
-    screenY(y) {
-        let th = $gameMap.tileHeight();
-        return Math.round($gameMap.adjustY(y) * th);
-    }
-
-    update() {
-        // Update segments
-        for (let i = 0; i < this.segments.length; ++i) {
-            this.segments[i][0][0] = this.screenX(this.originalSegments[i][0][0]);
-            this.segments[i][0][1] = this.screenY(this.originalSegments[i][0][1]);
-            this.segments[i][1][0] = this.screenX(this.originalSegments[i][1][0]);
-            this.segments[i][1][1] = this.screenY(this.originalSegments[i][1][1]);
-        }
-        // Update lower walls
-        for (let i = 0; i < this.lowerWalls.length; ++i) {
-            this.lowerWalls[i][0] = this.screenX(this.originalLowerWalls[i][0]);
-            this.lowerWalls[i][1] = this.screenY(this.originalLowerWalls[i][1]);
-            this.lowerWalls[i][2] = this.screenX(this.originalLowerWalls[i][2]);
-            this.lowerWalls[i][3] = this.screenY(this.originalLowerWalls[i][3]);
-        }
-        // upper walls // todo
-        this.upperWalls.x = -$gameMap.displayX() * $gameMap.tileWidth();
-        this.upperWalls.y = -$gameMap.displayY() * $gameMap.tileHeight();
+    worldToScreenY(y) {
+        return Math.round($gameMap.adjustY(y));
     }
 
     getWallHeight(x, y) {
         let tw = $gameMap.tileWidth(), eps = 0.0001; // tw * h + 6 + eps
-        for (const [x2, y2, x1, y1, h] of this.globalLowerWalls) {
+        for (const [x2, y2, x1, y1, h] of this.lowerWalls) {
             if (x >= x1 && x <= x2 && y <= y1 && y >= y2-tw*h) {
                 return y1 - y + eps;
             }
@@ -268,4 +247,5 @@ class GameShadow {
     }
 }
 
+$shoraLayer = new Layer();
 $gameShadow = new GameShadow();

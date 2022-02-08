@@ -1,13 +1,27 @@
+// remove engine shadow
+if (JSON.parse(Shora.Lighting.PARAMETERS.helper).disableEngineShadow === 'true') {
+    Tilemap.prototype._addShadow = function() {}; 
+    if (Shora.EngineVersion === 'MV')
+        ShaderTilemap.prototype._addShadow = function() {}; 
+}
 
-Tilemap.prototype._addShadow = function() {}; // remove engine shadow
+
+// Sprite
+((_) => {
+    _.addFilter = function(filter) {
+        if (!this.filters) this.filters = [filter];
+        else this.filters.push(filter);
+    }
+})(Sprite.prototype); 
+
 
 // DataManger
 ((_) => {
     const createGameObjects = _.createGameObjects;
     _.createGameObjects = function() {
+        $gameLighting = new GameLighting();
         createGameObjects();
         $shoraLayer.reset();
-        $gameLighting = new GameLighting();
     }
     const makeSaveContents = _.makeSaveContents;
     _.makeSaveContents = function() {
@@ -20,6 +34,7 @@ Tilemap.prototype._addShadow = function() {}; // remove engine shadow
     _.extractSaveContents = function(contents) {
         extractSaveContents(contents);
         $gameLighting = contents.lighting;
+        if (!gameLighting) $gameLighting = new GameLighting();
     }
 
 })(DataManager); 
@@ -28,13 +43,17 @@ Tilemap.prototype._addShadow = function() {}; // remove engine shadow
 // Spriteset_Map
 ((_) => {
     _.type = () => 'map';
-
-    const createLowerLayer = _.createLowerLayer;
-    _.createLowerLayer = function() {
-        createLowerLayer.call(this);
-        $shoraLayer.createLayer(this);
+    const destroy = _.destroy;
+    _.destroy = function(options) {
+        if ($shoraLayer.lighting) 
+            $shoraLayer.removeScene(this);
+        destroy.call(this, options);
+    }
+    const createUpperLayer = _.createUpperLayer;
+    _.createUpperLayer = function() {
         if (!$gameLighting._disabled)
-            $shoraLayer.loadScene();
+            $shoraLayer.loadScene(this);
+        createUpperLayer.call(this);
     }
 
     const update = _.update;
@@ -60,7 +79,23 @@ Tilemap.prototype._addShadow = function() {}; // remove engine shadow
 
     _.scanNoteTags = function(lines) {
         for (command of lines) {
-            // TODO
+            command = command.match(Shora.REGEX.COMMAND);
+            if (!command) continue;
+            switch (command[1].toLowerCase()) {
+                case 'ambient': 
+                    if ($shoraLayer.lighting)
+                        $gameLighting.setMapAmbient(command[2]);
+                    else 
+                        $gameLighting.ambient = command[2].toHexValue();
+                break;
+                case 'shadowambient':
+                    $gameShadow.shadowAmbient = command[2].toHexValue();
+                    break;
+                case 'topBlockAmbient':
+                    $gameShadow.topBlockAmbient = command[2].toHexValue();
+                    break;
+
+            }
         }
     }
 
@@ -122,31 +157,29 @@ Tilemap.prototype._addShadow = function() {}; // remove engine shadow
         this.scanLighting();
     }
     _.scanLighting = function() {
-        let note = '';
-        if ($gameParty.leader()){
+        let note = '', command = '';
+        let lightingParams = {id: 0};
+        if ($gameParty.leader())
             note = $gameParty.leader().actor().note.split('\n');
-        }
-        let lightingParams = { id: 0, auto: true };
-        for (let line of note) {
-            Shora.CallCommand(lightingParams, line);
-        }
+        for (let line of note)
+            command += line;   
+        Shora.CallCommand(lightingParams, command);
         if (lightingParams.name) {
             this.setLighting(lightingParams);
         } else {
-        	let lightingParams = { id: 0, auto: true };
+        	lightingParams = {id: 0}, command = '';
             for (const item of $gameParty.items()) {
                 const note = item.note.split('\n');
-                for (let line of note) {
-                    Shora.CallCommand(lightingParams, line);
-                }
+                for (let line of note)
+                    command += line;   
+                Shora.CallCommand(lightingParams, command);
+                if (lightingParams.name) 
+                    return this.setLighting(lightingParams);
             }
-            if (lightingParams.name) {
-                this.setLighting(lightingParams);
-        	} else this.hasLight = false;
+        	this.hasLight = false;
         }
     }
     _.setLighting = function(params) {
-        params.static = false;
         if (this.hasLight) {
             this.hasLight = false;
             this.updateLighting();
@@ -179,19 +212,13 @@ Tilemap.prototype._addShadow = function() {}; // remove engine shadow
     }
     
     _.setupLighting = function() {
-        let lightParams = [];
-        let static = true;
+        let command = '';
         this.page().list.forEach((comment) => {
-            if (comment.code === 205) static = false;
-            if (comment.code === 108 || comment.code === 408) {
-                lightParams.push(comment.parameters.join());
-            }
+            if (comment.code === 108 || comment.code === 408) 
+                command += comment.parameters.join('');
         });
         this.lightingParams = {};
-        for (line of lightParams) {
-            Shora.CallCommand(this.lightingParams, line);
-        }
-        if (!static) this.lightingParams.static = static;
+        Shora.CallCommand(this.lightingParams, command);
         this.lightingParams.id = this._eventId;
         this.hasLight = !!this.lightingParams.name;
     }

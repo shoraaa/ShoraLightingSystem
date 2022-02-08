@@ -1,6 +1,6 @@
 /*:
  * @plugindesc 
- * [v1.65] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
+ * [v1.8] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
  * @author Shora
  * @url https://forums.rpgmakerweb.com/index.php?members/shora.158648/
  * @help
@@ -102,6 +102,7 @@
  * @desc The default settings for all light. You can use [light] or [light default] in actor/item note or event comment to use this setting. * 
  * @default {"name":"default","filename":"lights","status":"true","sep0":"","tint":"#ffffff","colorfilter":"{\"hue\":\"0\",\"colortone\":\"rgba(0,0,0,0)\",\"blendcolor\":\"rgba(0,0,0,0)\",\"brightness\":\"255\"}","sep1":"","offset":"{\"x\":\"0\",\"y\":\"0\"}","animation":"{\".Static\":\"=====================\",\"flicker\":\"{\\\"status\\\":\\\"true\\\",\\\"flickintensity\\\":\\\"1\\\",\\\"flickspeed\\\":\\\"1\\\"}\",\".Dynamic\":\"=====================\",\"pulse\":\"{\\\"status\\\":\\\"false\\\",\\\"pulsefactor\\\":\\\"1\\\",\\\"pulsespeed\\\":\\\"1\\\"}\",\"rotation\":\"{\\\"rotatespeed\\\":\\\"1\\\"}\"}","direction":"false","sep4":"","shadow":"true","static":"auto","bwall":"false","shadowambient":"","shadowoffsetx":"0","shadowoffsety":"0"}
  *  
+ * 
  * @param LightList
  * @text [Lights: Custom]
  * @type struct<LightSettings>[]
@@ -110,6 +111,15 @@
  * @param sep2
  * @text ==================================
  * @default 
+ * 
+ * @param helper
+ * @text [Helper]
+ * @type struct<Helper>
+ * @default {"colors":"[\"{\\\"name\\\":\\\"white\\\",\\\"color\\\":\\\"#ffffff\\\"}\",\"{\\\"name\\\":\\\"black\\\",\\\"color\\\":\\\"#000000\\\"}\",\"{\\\"name\\\":\\\"red\\\",\\\"color\\\":\\\"#ff000000\\\"}\",\"{\\\"name\\\":\\\"green\\\",\\\"color\\\":\\\"#00ff00\\\"}\",\"{\\\"name\\\":\\\"blue\\\",\\\"color\\\":\\\"#0000ff\\\"}\",\"{\\\"name\\\":\\\"orange\\\",\\\"color\\\":\\\"#ffa500\\\"}\",\"{\\\"name\\\":\\\"cyan\\\",\\\"color\\\":\\\"#00ffff\\\"}\",\"{\\\"name\\\":\\\"pink\\\",\\\"color\\\":\\\"#ffc0cb\\\"}\"]","disableEngineShadow":"true"}
+ * @desc Helper parameters to improve QoL.
+ * 
+ * @param sep3
+ * @text ==================================
  * 
  * @param filter
  * @text [Advanced: Filters]
@@ -138,12 +148,6 @@
  * @text [Ignore-Shadow: Id]
  * @desc Region id specified for tile that shadow cannot be cast to, mean that it will always be light here.
  * @default 51
- * @param sep
- * @text ==================================
- * @param drawBelowPicture
- * @text [Layer: Below Picture?]
- * @type boolean
- * @default false
  */
 
 /*~struct~MapSettings:
@@ -159,20 +163,6 @@
  * @text [Default: Top Block Ambient]
  * @desc Black = top block completely block light. You can set it a little bright to make it feel more visually.
  * @default #333333
- * @param sep
- * @text ==================================
- * @param softshadow
- * @text [Soft Shadow: Status]
- * @type boolean
- * @default true
- * @param softShadowStr
- * @text [Soft Shadow: Strength] 
- * @defalt Strength of the soft shadow.
- * @default 1
- * @param softShadowQlt
- * @text [Soft Shadow: Quality] 
- * @defalt Quality of the soft shadow.
- * @default 1
  */
 /*~struct~ColorFilterSettings:
  * @param hue
@@ -206,6 +196,7 @@
  * @type struct<FlickerAnimation>
  * @param .Dynamic
  * @text [Effect: Dynamic]
+ * @default Currently No Effect
  * @default 
  * @param pulse
  * @text - [Pulse]
@@ -233,6 +224,14 @@
  * @desc The status of the light.
  * @type boolean
  * 
+ * @param radius
+ * @text Radius [%]
+ * @desc Radius (scale) of the light. By percentage of original image.
+ * 
+ * @param angle
+ * @text Angle [°]
+ * @desc Angle rotation of the light. By dgree. 
+ * 
  * @param offset
  * @text Offset [X/Y]
  * @type struct<OffsetSettings>
@@ -241,6 +240,11 @@
  * @param tint
  * @text Color [Hex]
  * @desc The tint of the light (Hexadecimal). #ffffff is unchanged.  -1 to generate random color.
+ * 
+ * @param shadow
+ * @text Shadow [On/Off]
+ * @desc The status of shadow
+ * @type boolean
  * 
 */
 /*~struct~FlickerAnimation:
@@ -289,22 +293,38 @@
 
 /*~struct~LightSettings:
  * @param name
- * @text Ref
+ * @text Ref [Name]
  * @desc The registered name for this light. Use [light <name>] to use it. Ex: [light flashlight]; [light] is equivalent as [light default]
  * @default <-- CHANGE_THIS -->
  * 
  * @param filename
- * @text Image
+ * @text Image [.png]
  * @type file
  * @dir img/lights/
  * @desc The filename of the default light (string).
  * @default lights
  * 
  * @param status
- * @text Default [On/Off]
+ * @text Status [On/Off]
  * @type boolean
  * @desc Initial State of the light. 
  * @default true
+ * 
+ * @param radius
+ * @text Radius [%]
+ * @desc Radius (scale) of the light. By percentage of original image.
+ * @default 100
+ * 
+ * @param angle
+ * @text Angle [°]
+ * @desc Angle rotation of the light. By dgree. 
+ * @default 0
+ * 
+ * @param direction
+ * @text [Angle = Direction]
+ * @type boolean
+ * @desc Sync with character direction. Will be override angle.
+ * @default false
  * 
  * @param sep0
  * @text ==================================
@@ -339,12 +359,6 @@
  * @desc The animation setting for default light.
  * @default {".Static":"=====================","flicker":"{\"status\":\"true\",\"flickintensity\":\"1\",\"flickspeed\":\"1\"}",".Dynamic":"=====================","pulse":"{\"status\":\"false\",\"pulsefactor\":\"1\",\"pulsespeed\":\"1\"}","rotation":"{\"rotatespeed\":\"1\"}"}
  * 
- * @param direction
- * @text [Advanced: Direction]
- * @type boolean
- * @desc Sync with direction setting. Will be overrided if set advanced rotation.
- * @default false
- * 
  * @param sep4
  * @text ==================================
  * @default 
@@ -354,11 +368,6 @@
  * @type boolean
  * @desc Set the shadow status.
  * @default true
- * 
- * @param static
- * @text [Shadow: Static]
- * @desc The static/dynamic state for light. (true/auto)
- * @default auto
  * 
  * @param bwall
  * @text [Shadow: z-Index]
@@ -382,20 +391,52 @@
  */
 
 /*~struct~FilterSettings:
+ * @param il
+ * @text [Intensity Light]
  * @param status
- * @text Status [On/Off]
+ * @text - Status
  * @desc The status of the filters.
  * @type boolean
  * @default false
  * 
- * @param sep0
- * @text ==================================
- * @default 
- * 
  * @param brightness
- * @text [Brightness]
+ * @text - Value
  * @desc The default brightness value. Leave blank for not apply.
  * @default 1.5
- *
  * 
+ * @param sep
+ * @text ==================================
+ * @param ss
+ * @text [Soft Shadow]
+ * @param softShadow
+ * @text - Status
+ * @type boolean
+ * @default true
+ * @param softShadowStr
+ * @text - Strength
+ * @defalt Strength of the soft shadow.
+ * @default 1
+ * @param softShadowQlt
+ * @text - Quality
+ * @defalt Quality of the soft shadow.
+ * @default 2
+*/
+
+/*~struct~Helper:
+ * @param colors
+ * @text [Colors: Defined List]
+ * @desc You can defined color here, for usage like [light -tint red] instead of [light -tint #ff0000].
+ * @type struct<DefinedColor>[]
+ * 
+ * @param disableEngineShadow
+ * @text [Disable Engine Shadow?]
+ * @desc Helper parameters to disable the default engine shadow. 
+ * @default true
+*/
+
+/*~struct~DefinedColor:
+ * @param name
+ * @default white
+ * @param color
+ * @default #ffffff
 */
