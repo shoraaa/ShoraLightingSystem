@@ -85,45 +85,45 @@ GameLighting.prototype.height = function() {
 }
 
 GameLighting.prototype.setStatus = function(id, status) {
-    if (!$shoraLayer.lighting.lights[id]) return;
+    if (!$shoraLayer.lighting.lights[id] || status === '') return;
     $gameMap._lighting[id].status = 
-    $shoraLayer.lighting.lights[id].status = status;
+    $shoraLayer.lighting.lights[id].status = status === 'true' || status === 'on';
     $shoraLayer.lighting.lights[id].renderable = true;
 }
 
 GameLighting.prototype.setRadius = function(id, radius, time, type) {
-    if (!$shoraLayer.lighting.lights[id]) return;
-    $shoraLayer.lighting.lights[id].setRadius(radius, time, type);
+    if (!$shoraLayer.lighting.lights[id] || radius === '') return;
+    $shoraLayer.lighting.lights[id].setRadius(Number(radius) / 100, Number(time), Number(type));
 }
 
 GameLighting.prototype.setAngle = function(id, angle, time, type) {
-    if (!$shoraLayer.lighting.lights[id]) return;
-    $shoraLayer.lighting.lights[id].setAngle(angle, time, type);
+    if (!$shoraLayer.lighting.lights[id] || angle === '') return;
+    $shoraLayer.lighting.lights[id].setAngle(Number(angle) / 57.6, Number(time), Number(type));
 }
 
 GameLighting.prototype.setShadow = function(id, status) {
-    if (!$shoraLayer.lighting.lights[id]) return;
-    $shoraLayer.lighting.lights[id].setShadow(status);
+    if (!$shoraLayer.lighting.lights[id] || status === '') return;
+    $shoraLayer.lighting.lights[id].setShadow(status === 'true' || status === 'on');
 }
 
 GameLighting.prototype.setOffset = function(id, x, y, time, type) {
     if (!$shoraLayer.lighting.lights[id]) return;
-    $shoraLayer.lighting.lights[id].setOffset(x, y, time, type);
+    $shoraLayer.lighting.lights[id].setOffset(Number(x), Number(y), Number(time), Number(type));
 }
 
 GameLighting.prototype.setOffsetX = function(id, x, time, type) {
-    if (!$shoraLayer.lighting.lights[id]) return;
-    $shoraLayer.lighting.lights[id].setOffsetX(x, time, type);
+    if (!$shoraLayer.lighting.lights[id] || x === '') return;
+    $shoraLayer.lighting.lights[id].setOffsetX(Number(x), Number(time), Number(type));
 }
 
 GameLighting.prototype.setOffsetY = function(id, y, time, type) {
-    if (!$shoraLayer.lighting.lights[id]) return;
-    $shoraLayer.lighting.lights[id].setOffsetY(y, time, type);
+    if (!$shoraLayer.lighting.lights[id] || y === '') return;
+    $shoraLayer.lighting.lights[id].setOffsetY(Number(y), Number(time), Number(type));
 }
 
-GameLighting.prototype.setColor = function(id, color, time) {
-    if (!$shoraLayer.lighting.lights[id]) return;
-    $shoraLayer.lighting.lights[id].setColor(color, time);
+GameLighting.prototype.setTint = function(id, color, time, type) {
+    if (!$shoraLayer.lighting.lights[id] || color === '') return;
+    $shoraLayer.lighting.lights[id].setTint(color.toHexValue(), Number(time), Number(type));
 }
 
 GameLighting.prototype.addStaticLight = function(x, y, name) {

@@ -1,7 +1,10 @@
+PIXI.Renderer.registerPlugin("light", Shora.LightingRenderer);
+
+
 // remove engine shadow
 if (JSON.parse(Shora.Lighting.PARAMETERS.helper).disableEngineShadow === 'true') {
     Tilemap.prototype._addShadow = function() {}; 
-    if (Shora.EngineVersion === 'MV')
+    if (Shora.isMV)
         ShaderTilemap.prototype._addShadow = function() {}; 
 }
 
@@ -20,6 +23,7 @@ if (JSON.parse(Shora.Lighting.PARAMETERS.helper).disableEngineShadow === 'true')
     const createGameObjects = _.createGameObjects;
     _.createGameObjects = function() {
         $gameLighting = new GameLighting();
+        $shoraLayer = new Layer();
         createGameObjects();
         $shoraLayer.reset();
     }
@@ -34,7 +38,8 @@ if (JSON.parse(Shora.Lighting.PARAMETERS.helper).disableEngineShadow === 'true')
     _.extractSaveContents = function(contents) {
         extractSaveContents(contents);
         $gameLighting = contents.lighting;
-        if (!gameLighting) $gameLighting = new GameLighting();
+        if (!contents.lighting) 
+            $gameLighting = new GameLighting();
     }
 
 })(DataManager); 
@@ -157,22 +162,20 @@ if (JSON.parse(Shora.Lighting.PARAMETERS.helper).disableEngineShadow === 'true')
         this.scanLighting();
     }
     _.scanLighting = function() {
-        let note = '', command = '';
+        let note = '';
         let lightingParams = {id: 0};
         if ($gameParty.leader())
             note = $gameParty.leader().actor().note.split('\n');
         for (let line of note)
-            command += line;   
-        Shora.CallCommand(lightingParams, command);
+            Shora.CallCommand(lightingParams, line);
         if (lightingParams.name) {
             this.setLighting(lightingParams);
         } else {
-        	lightingParams = {id: 0}, command = '';
+        	lightingParams = {id: 0};
             for (const item of $gameParty.items()) {
                 const note = item.note.split('\n');
                 for (let line of note)
-                    command += line;   
-                Shora.CallCommand(lightingParams, command);
+                    Shora.CallCommand(lightingParams, line);
                 if (lightingParams.name) 
                     return this.setLighting(lightingParams);
             }
@@ -212,13 +215,11 @@ if (JSON.parse(Shora.Lighting.PARAMETERS.helper).disableEngineShadow === 'true')
     }
     
     _.setupLighting = function() {
-        let command = '';
+        this.lightingParams = {};
         this.page().list.forEach((comment) => {
             if (comment.code === 108 || comment.code === 408) 
-                command += comment.parameters.join('');
+                Shora.CallCommand(this.lightingParams, comment.parameters.join(''));
         });
-        this.lightingParams = {};
-        Shora.CallCommand(this.lightingParams, command);
         this.lightingParams.id = this._eventId;
         this.hasLight = !!this.lightingParams.name;
     }

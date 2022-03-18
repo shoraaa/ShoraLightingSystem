@@ -1,31 +1,40 @@
 class Layer {
     constructor() {
-        this.baseTextureCache = {}; // TODO: Wait for texture to load
-        this.textureCache = {}; // TODO: Sprite Cache
+        this.baseTextureCache = {};
+        this.textureCache = {}; 
+        this._renderTexturesPool = [];
+        this._rtpCount = [];
         this.mapId = 0;
 
         this.LIGHTING = {};
         this._colorFilter = JSON.parse(Shora.Lighting.PARAMETERS.filter || '{}') ;
 
-        this.preload();
         this.loadParameters();
         this.loadLighting();
+        this.createRenderTexturesPool();
         
         this.lighting = null;
     }
     
-    preload() {
-        const fs = require('fs');
-        const path = require('path');
-        Shora.DIR_PATH = path.join(path.dirname(process.mainModule.filename));
-        let cache = this.baseTextureCache;
-        let dirPath = path.join(Shora.DIR_PATH, 'img', 'lights');
-        if (!fs.existsSync(dirPath)) 
-            fs.mkdirSync(dirPath)
-        fs.readdir(dirPath, function (err, files) {
-            if (err) return Shora.warn('Unable to scan directory: ' + err);
-            files.forEach(file => cache[file] = ImageManager.loadLight(file))
-        });
+    createRenderTexturesPool() {
+        return;
+        this.MAX_SIZE = 1024;
+        for (let i = 1; i <= this.MAX_SIZE; ++i) {
+            this._rtpCount = -1;
+            this._renderTexturesPool[i] = [];
+            for (let j = 0; j < 8; ++j) 
+                this._renderTexturesPool[i][j] = PIXI.RenderTexture.create(i, i);
+        }
+    }
+
+    renderTexturesPool(w) {
+        this._rtpCount++;
+        if (this._rtpCount === 8) this._rtpCount = 0;
+        return this._renderTexturesPool[Math.min(Math.round(w), this.MAX_SIZE)][this._rtpCount];
+    }
+
+    preload(filename) {
+        this.baseTextureCache[filename] = ImageManager.loadLight(filename + '.png');
     }
 
     loadParameters() {
@@ -49,13 +58,13 @@ class Layer {
      * @param {String} name 
      */
     load(name) {
-        if (!this.baseTextureCache[name + '.png']) {
+        if (!this.baseTextureCache[name]) {
             if (name == undefined)
                 throw new Error("Please don't change default lighting reference and set it back to 'default'");
             else
                 throw new Error('Please add + ' + name + '.png light image to /img/lights/.');
         }
-        return this.baseTextureCache[name + '.png']._baseTexture;
+        return this.baseTextureCache[name]._baseTexture;
     }
 
     loadLighting() {
@@ -83,6 +92,8 @@ class Layer {
         if (name == "<-- CHANGE_THIS -->") 
             return console.warn('Please set the reference of light, aka it name when adding new custom light. Register progress canceled.'); 
         
+        this.preload(settings.filename);
+
         settings.radius = Number(settings.radius || 100) / 100;
         settings.angle = Number(settings.angle) || 0; 
         settings.status = settings.status !== 'false';
@@ -133,12 +144,12 @@ class Layer {
 
     updateIntensityFilter(spriteset, disable) {
         if (!disable && this._colorFilter.status == 'true') {
-            if (Shora.EngineVersion == 'MV')
+            if (Shora.isMV)
                 spriteset._baseSprite.filters[0].brightness(Number(this._colorFilter.brightness));
             else
                 spriteset._baseSprite.filters[0].setBrightness(Number(this._colorFilter.brightness) * 255);
         } else {
-            if (Shora.EngineVersion == 'MV')
+            if (Shora.isMV)
                 spriteset._baseSprite.filters[0].brightness(1);
             else
                 spriteset._baseSprite.filters[0].setBrightness(255);

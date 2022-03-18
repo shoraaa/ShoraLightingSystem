@@ -1,6 +1,6 @@
 /*:
  * @plugindesc 
- * [v1.8] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
+ * [v1.8.1] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
  * @author Shora
  * @url https://forums.rpgmakerweb.com/index.php?members/shora.158648/
  * @help

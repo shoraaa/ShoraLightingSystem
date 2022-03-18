@@ -90,11 +90,11 @@ class FlickerAnimation extends Shora.Animation {
 
 class ScaleAnimation extends Shora.Animation {
     constructor(light, ref) {
-        super(light._baseSprite, ref);
+        super(light, ref);
         this.s0 = this.s1 = ref.radius; 
         this.delta = this.tick = 0; this.time = -1;
         this.originalScale = ref.radius;
-        this._sprite.scale.set(ref.radius);
+        this._sprite.scale.set(Math.round(ref.radius));
 
     }
 
@@ -123,7 +123,7 @@ class ScaleAnimation extends Shora.Animation {
 
 class AngleAnimation extends Shora.Animation {
     constructor(light, ref) {
-        super(light._baseSprite, ref);
+        super(light, ref);
         this.a0 = this.a1 = ref.angle; 
         this.delta = this.tick = 0; this.time = -1;
 
@@ -176,8 +176,8 @@ class AngleAnimation extends Shora.Animation {
 }
 
 class TintAnimation extends Shora.Animation {
-    constructor(light, ref) {
-        super(light, ref);
+    constructor(sprite, ref) {
+        super(sprite, ref);
         this._sprite.tint = ref.tint || Math.round(Math.random() * 0xfffff);
 
         this.ocolor = Shora.ColorManager.hexToRGB(ref.tint);

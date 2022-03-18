@@ -5,20 +5,17 @@ class LightingSprite extends PIXI.Sprite {
     }
 
     constructor(options) {
-        let baseSprite = TextureManager.filter(options);
-        super();
-
-        this._baseSprite = baseSprite;
-        this._baseSprite.anchor.set(0.5);
+        super(TextureManager.filter(options));
+        this.pluginName = 'light';
 
         this.renderable = false;
         this.id = options.id;
         this.fileName = options.filename;
         this.colorFilter = options.colorfilter;
 
+        this.status = options.status;
         this.radius = new ScaleAnimation(this, options);
         this.rotate = new AngleAnimation(this, options);
-        this.status = options.status;
 
         this.offset = new OffsetAnimation(options.offset);
         this.setPostion(options);
@@ -26,30 +23,20 @@ class LightingSprite extends PIXI.Sprite {
 
         this.flicker = new FlickerAnimation(this, options.animation.flicker);
         this.color = new TintAnimation(this, options);
-
-        this.texture = PIXI.RenderTexture.create(this._baseSprite.width, this._baseSprite.height);
         this.blendMode = PIXI.BLEND_MODES.ADD;
 
-        this._baseSprite.position.set(this._baseSprite.width / 2, this._baseSprite.height / 2);
-        Graphics.app.renderer.render(this._baseSprite, this.texture);
-
         this._shadow = options.shadow;
-        this.bwall = options.bwall;
         this.shadowOffsetX = options.shadowoffsetx || 0;
         this.shadowOffsetY = options.shadowoffsety || 0; 
-        if (!this.bwall) // 54.00001; tw * h + 6 + eps
-            this.shadowOffsetY += $gameShadow.getWallHeight(this.worldX(), this.worldY());
-        this.shadow = new Shadow(this.worldX(), this.worldY(), this.worldBound(), options.shadowambient, this.shadowOffsetX, this.shadowOffsetY);
-        if (this._shadow) 
-            this.shadow.render(this.texture);
+        this.bwall = options.bwall;
+        // if (!this.bwall) // 54.00001; tw * h + 6 + eps
+        //     this.shadowOffsetY += $gameShadow.getWallHeight(this.worldX(), this.worldY());
+        this.shadow = new Shadow(this.worldX(), this.worldY(), this.worldBounds(), options.shadowambient, this.width, this.height, this.rotation);
 
         this.updateDisplay();
         this._justMoving = 2;
     }
     destroy() {
-        this._baseSprite.destroy(); // don't destroy texture
-        this._baseSprite = null;
-
         this.radius.destroy();
         this.flicker.destroy();
         this.offset.destroy();
@@ -63,7 +50,7 @@ class LightingSprite extends PIXI.Sprite {
         this.rotate = null;
         this.shadow = null;
 
-        super.destroy(true);
+        super.destroy();
     }
 
     update() {
@@ -71,10 +58,21 @@ class LightingSprite extends PIXI.Sprite {
             return this.renderable = false;
         this.updateAnimation();
         this.updatePostion();
-        this.updateTexture();
+        this.updateShadow();
+    }
+
+    _render(renderer) {
+        this.calculateVertices();
+        //this.shadowTexture = PIXI.Texture.WHITE;
+        this.texture.baseTexture.shadow = this._shadow ? this.shadow.texture : PIXI.Texture.WHITE;
+
+        renderer.batch.setObjectRenderer(renderer.plugins[this.pluginName]);
+        renderer.plugins[this.pluginName].render(this);
     }
 
     needRecalculateShadow() {
+        if (!this._shadow) 
+            return false;
         if (this.offset.updating()) 
             return true;
         if (this.character.isStopping()) {
@@ -85,22 +83,16 @@ class LightingSprite extends PIXI.Sprite {
         return this._justMoving = 0, true;
     }
 
-    needRerender() {
-        return this.needRecalculateShadow() || this.radius.updating() || this.rotate.updating();
+    needRerenderShadow() {
+        return this.needRecalculateShadow() || !this.shadow._rendered || 
+        this.radius.updating() || this.rotate.updating();
     }
 
-    updateTexture() {
-        if (!this.renderable || !this.needRerender()) return;
-        this.__render();
-    }
-
-    __render() {
-        Graphics.app.renderer.render(this._baseSprite, this.texture);
-        if (this._shadow) {
-            if (this.needRecalculateShadow()) 
-                this.shadow.update(this.worldX(), this.worldY(), this.worldBound(), this.shadowOffsetX, this.shadowOffsetY);
-            this.shadow.render(this.texture);
-        }
+    updateShadow() {
+        if (!this._shadow || !this.needRerenderShadow()) return;
+        if (this.needRecalculateShadow())
+            this.shadow.calculate(this.sourceX(), this.sourceY(), this.worldBounds());
+        this.shadow.render(this.worldX(), this.worldY(), this.width, this.height, this.rotation);
     }
 
     updatePostion() {
@@ -120,25 +112,33 @@ class LightingSprite extends PIXI.Sprite {
     updateDisplay() {
         // TODO: Better culling
         let [x, y] = [this.x, this.y];
-        let minX = x - (this._baseSprite.width / 2),
-            minY = y - (this._baseSprite.height / 2),
-            maxX = x + (this._baseSprite.width / 2),
-            maxY = y + (this._baseSprite.height / 2);
+        let minX = x - (this.width / 2),
+            minY = y - (this.height / 2),
+            maxX = x + (this.width / 2),
+            maxY = y + (this.height / 2);
         this.renderable = $gameLighting.inDisplay(minX, minY, maxX, maxY);
     }
 
     worldX() {
-        return this.x + $gameMap.displayX() * $gameMap.tileWidth() + this.shadowOffsetX;
+        return this.x + $gameMap.displayX() * $gameMap.tileWidth();
+    }
+
+    sourceX() {
+        return this.worldX() + this.shadowOffsetX;
     }
 
     worldY() {
-        return this.y + $gameMap.displayY() * $gameMap.tileHeight() + this.shadowOffsetY;
+        return this.y + $gameMap.displayY() * $gameMap.tileHeight();
     }
 
-    worldBound() {
+    sourceY() {
+        return this.worldY() + this.shadowOffsetY;
+    }
+
+    worldBounds() {
         let bounds = this.getBounds();
-        bounds.x += $gameMap.displayX() * $gameMap.tileWidth() + this.shadowOffsetX;
-        bounds.y += $gameMap.displayY() * $gameMap.tileHeight() + this.shadowOffsetY;
+        bounds.x += $gameMap.displayX() * $gameMap.tileWidth();
+        bounds.y += $gameMap.displayY() * $gameMap.tileHeight();
         return bounds;
     }
 
@@ -155,11 +155,12 @@ class LightingSprite extends PIXI.Sprite {
 
     setAngle(angle, time, type) {
         // update .rotation instead of .angle for pixiv4 support
-        this.rotate.set(angle / 57.6, time || 1, type);
+        this.rotate.set(angle, time || 1, type);
     }
 
-    setColor(color, time) {
-        this.color.set(color, time || 1);
+    setTint(color, time, type) {
+        console.log(color, time);
+        this.color.set(color, time || 1, type);
     }
 
     setOffsetX(x, time, type) {
@@ -176,7 +177,6 @@ class LightingSprite extends PIXI.Sprite {
     }
     setShadow(shadow) {
         $gameMap._lighting[this.id].shadow = this._shadow = shadow;
-        this.__render();
     }
 }
 

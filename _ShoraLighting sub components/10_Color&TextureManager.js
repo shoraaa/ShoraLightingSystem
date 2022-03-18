@@ -17,8 +17,8 @@ const TextureManager = {
      * @param {Object} colorFilter 
      */
     filter: function(options) {
-        if ($shoraLayer.textureCache[options.filename])
-            return new PIXI.Sprite($shoraLayer.textureCache[options.filename]);
+        // if ($shoraLayer.textureCache[options.filename])
+        //     return $shoraLayer.textureCache[options.filename];
         let baseTexture = $shoraLayer.load(options.filename);
         let sprite = new PIXI.Sprite(new PIXI.Texture(baseTexture));
         let colorFilter = options.colorfilter;
@@ -31,8 +31,7 @@ const TextureManager = {
         let renderedTexture = Graphics.app.renderer.generateTexture(sprite, 1, 1, sprite.getBounds());
         sprite.filters = null;
 		sprite.destroy({texture: true});
-        $shoraLayer.textureCache[options.filename] = renderedTexture;
-		return new PIXI.Sprite(renderedTexture);
+        return $shoraLayer.textureCache[options.filename] = renderedTexture;
     }
 }
 

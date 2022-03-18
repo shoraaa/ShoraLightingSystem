@@ -111,7 +111,10 @@ class LightingLayer {
         for (const child of this.layer.children) {
             if (child.update) child.update();
         }
-        Graphics.app.renderer.render(this.layer, this.texture, false);
+
+        const renderer = Graphics.app.renderer;
+
+        renderer.render(this.layer, this.texture, false);
     }
 
     updateDisplay() {

@@ -1,143 +1,79 @@
-class ShadowCaster {
-    constructor(p, height) {
-        this.height = height;
-        this.segments = [];
-        for (let i = 0; i < p.length - 1; ++i)
-            this.segments.push([p[i], p[i + 1]]);
-        this.segments.push([p[p.length - 1], p[0]]);
-    }
-}
 
 class GameShadow {
     constructor() {
         this.segments = [];
-        this.originalSegments = [];
-        this.horizontalSegments = [];
-        this.verticalSegments = [];
-        this.lowerWalls = [];
-        this.originalLowerWalls = [];
-        this.ignoreShadows = [];
-        this.topWalls = []; // for fallback to draw each top wall
-        this.customCasters = [];
 
-        this._upperWalls = new PIXI.Graphics();
-        this._upperWallsTexture = PIXI.RenderTexture.create();
-        this.upperWalls = new PIXI.Sprite(this._upperWallsTexture);
-        // this._upperWalls.blendMode = PIXI.BLEND_MODES.MULTIPLY;
+        this.map = null;
+        this.lower = null;
+        this.ignore = null;
+        this.upper = null;
     }
 
     refresh() {
         this.segments = [];
-        this.originalSegments = [];
-        this.horizontalSegments = [];
-        this.verticalSegments = [];
-        this.lowerWalls = [];
-        this.originalLowerWalls = [];
-        this._upperWalls.clear();
-        this._upperWallsTexture.resize($gameLighting.width(), $gameLighting.height());
         this.scanMapCaster();
 		this.createSegments();
     }
     
     scanMapCaster() {
-        this.map = new Array($gameMap.height())
-            .fill(0)
-            .map(() => new Array($gameMap.width()).fill(0));
+        const width = $gameMap.width(),
+              height = $gameMap.height(),
+              regionStart = $shoraLayer._regionStart,
+              regionEnd = $shoraLayer._regionEnd,
+              topRegionId = $shoraLayer._topRegionId,
+              ignoreShadowsId = $shoraLayer._ignoreShadowsId;
 
-        let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
-        let regionStart = $shoraLayer._regionStart;
-        let regionEnd = $shoraLayer._regionEnd;
-        let topRegionId = $shoraLayer._topRegionId;
-        let ignoreShadowsId = $shoraLayer._ignoreShadowsId;
+
+        this.map = new Array(height)
+            .fill(0)
+            .map(() => new Array(width).fill(0));
+        this.lower = new Array(height)
+            .fill(0)
+            .map(() => new Array(width).fill(0));
+        this.upper = new Array(height)
+            .fill(0)
+            .map(() => new Array(width).fill(0));
+        this.ignore = new Array(height)
+            .fill(0)
+            .map(() => new Array(width).fill(0));
+
+        let id, h;
         
-        this._upperWalls.beginFill($gameLighting.topBlockAmbient);
-        let flag = false, begin = 0, width = 0;
-        for (var i = 0; i < $gameMap.height(); ++i) {
-            this.topWalls.push([]);
-            for (var j = 0; j < $gameMap.width(); ++j) {
-                if (regionStart <= $gameMap.regionId(j, i) && $gameMap.regionId(j, i) <= regionEnd) {
-                    this.map[i][j] = $gameMap.regionId(j, i) - regionStart + 1; 
+        for (var i = 0; i < height; ++i) {
+            for (var j = 0; j < width; ++j) {
+                id = $gameMap.regionId(j + 1, i + 1);
+                if (regionStart <= id && id <= regionEnd) {
+                    h = id - regionStart + 1;
+                    this.map[i][j] = h; 
+                    if (i + h < height) this.lower[i + h][j] = 1;
+                    if (i - h + 1 >= 0) this.upper[i - h + 1][j] = 1;
                 }
-                if ((regionStart <= $gameMap.regionId(j, i) && $gameMap.regionId(j, i) <= regionEnd) || $gameMap.regionId(j, i) == topRegionId) {
-                    this._upperWalls.drawRect(j * tw, i * th, tw, th);
-                    /*
-                    if (!flag) {
-                        flag = true;
-                        begin = j * 48;
-                    }
-                    width += 48;
-                } else if (flag) {
-                    flag = false;
-                    this.topWalls[i].push([begin, begin+width]);
-                    width = 0;
-                    */
-                }
-                if ($gameMap.regionId(j, i) == ignoreShadowsId) 
-                    this.ignoreShadows.push([j * tw, i * tw]);
+                if (id === topRegionId) 
+                    this.upper[i][j] = 1;
+                if (id === ignoreShadowsId) 
+                    this.ignore[i][j] = 1;
             }
         }
-        this._upperWalls.endFill();
-        Graphics.app.renderer.render(this._upperWalls, this._upperWallsTexture);
     }
 
     outOfBound(x, y) {
 		return x < 0 || y < 0 || y >= this.map.length || x >= this.map[y].length;
     }
     
-    addUpperSegment(x, y, height) {
-		let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
-		this.horizontalSegments.push([x * tw, (y + height) * th, (x + 1) * tw, (y + height) * th]);
-    }
-    
-    addLowerSegment(x, y, height) {
-		let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
-		this.horizontalSegments.push([(x + 1) * tw, (y + height + 1) * th, x * tw, (y + height + 1) * th]);
-		this.lowerWalls.push([(x + 1) * tw, (y + height + 1) * th, x * tw, (y + height + 1) * th, height]);
-    }
-    
-    addRightSegment(x, y, height) {
-		let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
-		this.verticalSegments.push([(x + 1) * tw, (y + height) * th, (x + 1) * tw, (y + height + 1) * th]);
-    }
-    
-    addLeftSegment(x, y, height) {
-		let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
-		this.verticalSegments.push([x * tw, (y + height) * th, x * tw, (y + height + 1) * th]);
-    }
-    
-    addCaster(x, y, height) {
-		// Check left of this postion.
+    addCaster(x, y, h, vert, horz) {
+        const tw = $gameMap.tileWidth(), th = $gameMap.tileHeight();
 		if (!this.outOfBound(x, y - 1) && this.map[y - 1][x]) {
-			// Check upper of this postion.
-			if (!this.outOfBound(x - 1, y)) {
-				if (!this.map[y][x - 1]) {
-					this.addLeftSegment(x, y, height);
-				} 
-			}
-		} else {
-			// Check upper of this postion.
-			if (!this.outOfBound(x - 1, y)) {
-				this.addUpperSegment(x, y, height);
-				// Check left of this postion.
-				if (!this.map[y][x - 1]) {
-					this.addLeftSegment(x, y, height);
-				} 
-			} 
+			if (!this.outOfBound(x - 1, y) && !this.map[y][x - 1]) 
+				vert.push([(x + 1) * tw, (y + h) * th, (x + 1) * tw, (y + h + 1) * th]);
+		} else if (!this.outOfBound(x - 1, y)) {
+            horz.push([(x + 1) * tw, (y + h) * th, (x + 2) * tw, (y + h) * th]);
+            if (!this.map[y][x - 1]) 
+                vert.push([(x + 1) * tw, (y + h) * th, (x + 1) * tw, (y + h + 1) * th]);
 		} 
-
-		// Check right of this postion.
-		if (!this.outOfBound(x + 1, y)) {
-			if (!this.map[y][x + 1]) {
-				this.addRightSegment(x, y, height);
-			}
-		}
-
-		// Check lower of this postion.
-		if (!this.outOfBound(x, y + 1)) {
-			if (!this.map[y + 1][x]) {
-				this.addLowerSegment(x, y, height);
-			}
-		}
+		if (!this.outOfBound(x + 1, y) && !this.map[y][x + 1]) 
+				vert.push([(x + 2) * tw, (y + h) * th, (x + 2) * tw, (y + h + 1) * th]);
+		if (!this.outOfBound(x, y + 1) && !this.map[y + 1][x]) 
+				horz.push([(x + 2) * tw, (y + h + 1) * th, (x + 1) * tw, (y + h + 1) * th]);
     }
     
     mergeHorizontalSegments(a) {
@@ -205,27 +141,14 @@ class GameShadow {
     }
     
     createSegments() {
-		for (var y = 0; y < this.map.length; y++) {
-			for (var x = 0; x < this.map[y].length; x++) {
-				if (this.map[y][x]) {
-					this.addCaster(x, y, this.map[y][x] - 1);
-				}
-			}
-		}
+        let vert = [], horz = [];
+		for (var y = 0; y < this.map.length; y++) 
+			for (var x = 0; x < this.map[y].length; x++) if (this.map[y][x]) 
+					this.addCaster(x, y, this.map[y][x], vert, horz);
 
-		// Shadow Casters
-        this.verticalSegments = this.mergeVerticalSegments(this.verticalSegments);
-        this.horizontalSegments = this.mergeHorizontalSegments(this.horizontalSegments);
-
-        // this.segments = this.horizontalSegments.concat(this.verticalSegments);
-        // for (const caster of this.customCasters)
-        //     this.segments = this.segments.concat(caster.segments);
-
-		this.segments = ShadowSystem.getSegments(this.horizontalSegments.concat(this.verticalSegments));
-
-		// Lower walls
-        this.lowerWalls = this.mergeLowerWalls(this.lowerWalls);
-        this.lowerWalls.sort((a, b) => b[0] - a[0]);
+		this.segments = ShadowSystem.getSegments(
+            this.mergeVerticalSegments(vert).concat(
+            this.mergeHorizontalSegments(horz)));
     }
     
     worldToScreenX(x) {
@@ -237,6 +160,7 @@ class GameShadow {
     }
 
     getWallHeight(x, y) {
+        return;
         let tw = $gameMap.tileWidth(), eps = 0.0001; // tw * h + 6 + eps
         for (const [x2, y2, x1, y1, h] of this.lowerWalls) {
             if (x >= x1 && x <= x2 && y <= y1 && y >= y2-tw*h) {
@@ -247,5 +171,5 @@ class GameShadow {
     }
 }
 
-$shoraLayer = new Layer();
+// $shoraLayer = new Layer();
 $gameShadow = new GameShadow();

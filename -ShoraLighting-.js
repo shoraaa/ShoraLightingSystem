@@ -1,6 +1,6 @@
 /*:
  * @plugindesc 
- * [v1.8] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
+ * [v1.8.1] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
  * @author Shora
  * @url https://forums.rpgmakerweb.com/index.php?members/shora.158648/
  * @help
@@ -445,13 +445,13 @@
 var Shora = Shora || {};
 Shora.Lighting = {};
 Shora.Lighting.pluginName = '-ShoraLighting-';
-Shora.Lighting.VERSION = 1.61;
+Shora.Lighting.VERSION = 1.81;
 Shora.Lighting.PARAMETERS = PluginManager.parameters(Shora.Lighting.pluginName);
 
 Shora.tempGraphics = new PIXI.Graphics();
 
-// Shora.tempMatrix = new PIXI.Matrix();
-// Shora.tempRenderTexture = PIXI.RenderTexture.create(1280, 720);
+Shora.tempMatrix = new PIXI.Matrix();
+Shora.curRenderTexture = PIXI.RenderTexture.create();
 // Shora.maskTexture = PIXI.RenderTexture.create(1280, 720);
 // Shora.DEBUG_GRAPHICS = new PIXI.Graphics();
 
@@ -470,264 +470,6 @@ Shora.warn = function(err) {
     const message = new PIXI.Text('Shora Lighting Plugin: ' + err, {fontFamily : 'Arial', fontSize: 12, fill : 0xffffff, align : 'left'});
     message.y += Shora.MessageY; Shora.MessageY += message.height;
     if (Graphics.app.stage) Graphics.app.stage.addChild(message);
-}
-
-Shora.EngineVersion = Shora.Lighting.PARAMETERS.version.toUpperCase();
-
-/* overload for rpgm mv */
-if (Shora.EngineVersion == 'MV') {
-
-    ((_) => {
-        const _createRenderer = Graphics._createRenderer;
-        Graphics._createRenderer = function() {
-            _createRenderer.call(this);
-            this.app = { renderer: this._renderer };
-        };
-    })(Graphics); 
-
-    ImageManager.loadLight = function(filename) {
-        return this.loadBitmap('img/lights/', filename.substring(0, filename.length - 4), true);
-    };
-    /**
-     * The color filter for WebGL.
-     *
-     * @class
-     * @extends PIXI.Filter
-     */
-     function ColorFilter() {
-        this.initialize(...arguments);
-    }
-
-    ColorFilter.prototype = Object.create(PIXI.Filter.prototype);
-    ColorFilter.prototype.constructor = ColorFilter;
-
-    ColorFilter.prototype.initialize = function() {
-        PIXI.Filter.call(this, null, this._fragmentSrc());
-        this.uniforms.hue = 0;
-        this.uniforms.colorTone = [0, 0, 0, 0];
-        this.uniforms.blendColor = [0, 0, 0, 0];
-        this.uniforms.brightness = 255;
-    };
-
-    /**
-     * Sets the hue rotation value.
-     *
-     * @param {number} hue - The hue value (-360, 360).
-     */
-    ColorFilter.prototype.setHue = function(hue) {
-        this.uniforms.hue = Number(hue);
-    };
-
-    /**
-     * Sets the color tone.
-     *
-     * @param {array} tone - The color tone [r, g, b, gray].
-     */
-    ColorFilter.prototype.setColorTone = function(tone) {
-        if (!(tone instanceof Array)) {
-            throw new Error("Argument must be an array");
-        }
-        this.uniforms.colorTone = tone.clone();
-    };
-
-    /**
-     * Sets the blend color.
-     *
-     * @param {array} color - The blend color [r, g, b, a].
-     */
-    ColorFilter.prototype.setBlendColor = function(color) {
-        if (!(color instanceof Array)) {
-            throw new Error("Argument must be an array");
-        }
-        this.uniforms.blendColor = color.clone();
-    };
-
-    /**
-     * Sets the brightness.
-     *
-     * @param {number} brightness - The brightness (0 to 255).
-     */
-    ColorFilter.prototype.setBrightness = function(brightness) {
-        this.uniforms.brightness = Number(brightness);
-    };
-
-    ColorFilter.prototype._fragmentSrc = function() {
-        const src =
-            "varying vec2 vTextureCoord;" +
-            "uniform sampler2D uSampler;" +
-            "uniform float hue;" +
-            "uniform vec4 colorTone;" +
-            "uniform vec4 blendColor;" +
-            "uniform float brightness;" +
-            "vec3 rgbToHsl(vec3 rgb) {" +
-            "  float r = rgb.r;" +
-            "  float g = rgb.g;" +
-            "  float b = rgb.b;" +
-            "  float cmin = min(r, min(g, b));" +
-            "  float cmax = max(r, max(g, b));" +
-            "  float h = 0.0;" +
-            "  float s = 0.0;" +
-            "  float l = (cmin + cmax) / 2.0;" +
-            "  float delta = cmax - cmin;" +
-            "  if (delta > 0.0) {" +
-            "    if (r == cmax) {" +
-            "      h = mod((g - b) / delta + 6.0, 6.0) / 6.0;" +
-            "    } else if (g == cmax) {" +
-            "      h = ((b - r) / delta + 2.0) / 6.0;" +
-            "    } else {" +
-            "      h = ((r - g) / delta + 4.0) / 6.0;" +
-            "    }" +
-            "    if (l < 1.0) {" +
-            "      s = delta / (1.0 - abs(2.0 * l - 1.0));" +
-            "    }" +
-            "  }" +
-            "  return vec3(h, s, l);" +
-            "}" +
-            "vec3 hslToRgb(vec3 hsl) {" +
-            "  float h = hsl.x;" +
-            "  float s = hsl.y;" +
-            "  float l = hsl.z;" +
-            "  float c = (1.0 - abs(2.0 * l - 1.0)) * s;" +
-            "  float x = c * (1.0 - abs((mod(h * 6.0, 2.0)) - 1.0));" +
-            "  float m = l - c / 2.0;" +
-            "  float cm = c + m;" +
-            "  float xm = x + m;" +
-            "  if (h < 1.0 / 6.0) {" +
-            "    return vec3(cm, xm, m);" +
-            "  } else if (h < 2.0 / 6.0) {" +
-            "    return vec3(xm, cm, m);" +
-            "  } else if (h < 3.0 / 6.0) {" +
-            "    return vec3(m, cm, xm);" +
-            "  } else if (h < 4.0 / 6.0) {" +
-            "    return vec3(m, xm, cm);" +
-            "  } else if (h < 5.0 / 6.0) {" +
-            "    return vec3(xm, m, cm);" +
-            "  } else {" +
-            "    return vec3(cm, m, xm);" +
-            "  }" +
-            "}" +
-            "void main() {" +
-            "  vec4 sample = texture2D(uSampler, vTextureCoord);" +
-            "  float a = sample.a;" +
-            "  vec3 hsl = rgbToHsl(sample.rgb);" +
-            "  hsl.x = mod(hsl.x + hue / 360.0, 1.0);" +
-            "  hsl.y = hsl.y * (1.0 - colorTone.a / 255.0);" +
-            "  vec3 rgb = hslToRgb(hsl);" +
-            "  float r = rgb.r;" +
-            "  float g = rgb.g;" +
-            "  float b = rgb.b;" +
-            "  float r2 = colorTone.r / 255.0;" +
-            "  float g2 = colorTone.g / 255.0;" +
-            "  float b2 = colorTone.b / 255.0;" +
-            "  float r3 = blendColor.r / 255.0;" +
-            "  float g3 = blendColor.g / 255.0;" +
-            "  float b3 = blendColor.b / 255.0;" +
-            "  float i3 = blendColor.a / 255.0;" +
-            "  float i1 = 1.0 - i3;" +
-            "  r = clamp((r / a + r2) * a, 0.0, 1.0);" +
-            "  g = clamp((g / a + g2) * a, 0.0, 1.0);" +
-            "  b = clamp((b / a + b2) * a, 0.0, 1.0);" +
-            "  r = clamp(r * i1 + r3 * i3 * a, 0.0, 1.0);" +
-            "  g = clamp(g * i1 + g3 * i3 * a, 0.0, 1.0);" +
-            "  b = clamp(b * i1 + b3 * i3 * a, 0.0, 1.0);" +
-            "  r = r * brightness / 255.0;" +
-            "  g = g * brightness / 255.0;" +
-            "  b = b * brightness / 255.0;" +
-            "  gl_FragColor = vec4(r, g, b, a);" +
-            "}";
-        return src;
-    };
-
-    // Plugin Command (MV)
-    var _Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
-    Game_Interpreter.prototype.pluginCommand = function(command, args) {
-        _Game_Interpreter_pluginCommand.call(this, command, args);
-        if (command) {
-            command = command.toLowerCase();
-            if (command === 'ambient') {
-                $gameLighting.setMapAmbient(args[0], args[1]);
-            } else if (command === 'shadowambient') {
-                $gameLighting.setShadowAmbient(args[0]);
-            } else if (command === 'topblockambient') {
-                $gameLighting.setTopBlockAmbient(args[0]);
-            } else if (command === 'offset' || command === 'tint' || command === 'radius' || 
-                       command === 'angle' || command === 'status' || command === 'shadow') {
-                let id = args[0] == '=' ? this._eventId : Number(args[0]);
-                for (let i = 1; i <= 4; ++i) args[i] = Number(args[i]);
-                if (command === 'offset') {
-                    $gameLighting.setOffset(id, args[1], args[2], args[3], args[4]);
-                } else if (command === 'tint') {
-                    $gameLighting.setColor(id, args[1], args[2]);
-                } else if (command === 'radius') {
-                    $gameLighting.setRadius(id, args[1], args[2]);
-                } else if (command === 'angle') {
-                    $gameLighting.setAngle(id, args[1], args[2]);
-                } else if (command === 'status') {
-                    $gameLighting.setStatus(id, args[1]);
-                } else if (command === 'shadow')
-                    $gameLighting.setShadow(id, args[1]);
-            } else if (command === 'static_light') {
-                $gameLighting.addStaticLight(Number(args[0]), Number(args[1]), args[2]);
-            }
-        }
-    }
-} else {
-    ImageManager.loadLight = function(filename) {
-        const url = 'img/lights/' + Utils.encodeURI(filename);
-        return Bitmap.load(url);
-    };
-
-    const { pluginName } = Shora.Lighting;
-
-    // Add new statical light into map
-    PluginManager.registerCommand(pluginName, 'Add Static Light', args => {
-        $gameLighting.addStaticLight(Number(args.x), Number(args.y), args.ref);
-    });
-
-    // Change map ambient color
-    PluginManager.registerCommand(pluginName, 'Set Map Ambient', args => {
-        $gameLighting.setMapAmbient(args.color, Number(args.time) || 0);
-    });
-
-    // Change shadow ambient color
-    PluginManager.registerCommand(pluginName, 'Set Shadow Ambient', args => {
-        $gameLighting.setShadowAmbient(args.color);
-    });
-
-    // Change Top Block ambient color
-    PluginManager.registerCommand(pluginName, 'Set Top Block Ambient', args => {
-        $gameLighting.setTopBlockAmbient(args.color);
-    });
-
-    // Set light color
-    PluginManager.registerCommand(pluginName, 'Set Light Parameters', function(args) {
-        let id = args.id == "" ? this._eventId : Number(args.id);
-        if ($gameMap._lighting[id]) {
-            let time = Number(args.time);
-            let type = Number(args.type);
-            let params = JSON.parse(args.parameters);
-            if (params.offset !== "") {
-                params.offset = JSON.parse(params.offset);
-                if (params.offset.x !== "") 
-                    $gameLighting.setOffsetX(id, Number(params.offset.x), time, type);
-                if (params.offset.y !== "") 
-                    $gameLighting.setOffsetY(id, Number(params.offset.y), time, type);
-            }
-            if (params.status !== "") 
-                $gameLighting.setStatus(id, params.status !== 'false');
-            if (params.shadow !== "") 
-                $gameLighting.setStatus(id, params.shadow !== 'false');
-            if(params.radius !== "")
-                $gameLighting.setRadius(id, Number(params.radius) / 100, time, type);
-            if(params.angle !== "")
-                $gameLighting.setAngle(id, Number(params.angle), time, type);
-            if (params.tint !== "") 
-                $gameLighting.setColor(id, Number(params.tint), time);
-        } else {
-            Shora.warn('Event ' + id + " doesn't have a light to change parameter.");
-        }
-    });
-
 }
 
 Shora.CallCommand = function(settings, command) {
@@ -749,7 +491,7 @@ Shora.CallCommand = function(settings, command) {
                 break;
             case '-angle':
             case '-a':
-                settings.angle = Number(value);
+                settings.angle = Number(value) / 57.6;
                 break;
             case '-offsetx':
             case '-x':
@@ -788,42 +530,6 @@ Shora.CallCommand = function(settings, command) {
     
 };
 
-Array.prototype.lowerBound = function(x) {
-    // return minimum i that a[i] >= x
-    let lo = 0, hi = this.length - 1, mid, res = -1;
-    while (lo <= hi) {
-        mid = (lo + hi) >> 1;
-        if (a[mid] >= x) {
-            res = mid;
-            hi = mid - 1;
-        } else lo = mid + 1;
-    }
-    return res;
-};
-Array.prototype.floorSearch = function(x) {
-    // return minimum i that a[i] <= x
-    let lo = 0, hi = this.length - 1, mid, res = -1;
-    while (lo <= hi) {
-        mid = (lo + hi) >> 1;
-        if (a[mid] <= x) {
-            res = mid;
-            lo = mid + 1;
-        } else hi = mid - 1;
-    }
-    return res;
-};
-Array.prototype.pairFloorSearch = function(x, j) {
-    // return minimum i that a[i][j] <= x
-    let lo = 0, hi = this.length - 1, mid, res = -1;
-    while (lo <= hi) {
-        mid = (lo + hi) >> 1;
-        if (this[mid][j] <= x) {
-            res = mid;
-            lo = mid + 1;
-        } else hi = mid - 1;
-    }
-    return res;
-};
 String.prototype.toHexValue = function() {
     if (Shora.Color[this]) return Shora.Color[this];
     if (this.length == 6) return parseInt(this, 16);
@@ -1016,10 +722,1228 @@ class KawaseBlurFilter extends PIXI.Filter {
         this._blur = value;
         this._generateKernels();
     }
-}// remove engine shadow
+};
+
+Shora.IsMV = PIXI.VERSION[0] < 5;
+if (Shora.isMV) {
+
+((_) => {
+    const _createRenderer = Graphics._createRenderer;
+    Graphics._createRenderer = function() {
+        _createRenderer.call(this);
+        this.app = { renderer: this._renderer };
+    };
+})(Graphics); 
+
+ImageManager.loadLight = function(filename) {
+    return this.loadBitmap('img/lights/', filename.substring(0, filename.length - 4), true);
+};
+/**
+ * The color filter for WebGL.
+ *
+ * @class
+ * @extends PIXI.Filter
+ */
+    function ColorFilter() {
+    this.initialize(...arguments);
+}
+
+ColorFilter.prototype = Object.create(PIXI.Filter.prototype);
+ColorFilter.prototype.constructor = ColorFilter;
+
+ColorFilter.prototype.initialize = function() {
+    PIXI.Filter.call(this, null, this._fragmentSrc());
+    this.uniforms.hue = 0;
+    this.uniforms.colorTone = [0, 0, 0, 0];
+    this.uniforms.blendColor = [0, 0, 0, 0];
+    this.uniforms.brightness = 255;
+};
+
+/**
+ * Sets the hue rotation value.
+ *
+ * @param {number} hue - The hue value (-360, 360).
+ */
+ColorFilter.prototype.setHue = function(hue) {
+    this.uniforms.hue = Number(hue);
+};
+
+/**
+ * Sets the color tone.
+ *
+ * @param {array} tone - The color tone [r, g, b, gray].
+ */
+ColorFilter.prototype.setColorTone = function(tone) {
+    if (!(tone instanceof Array)) {
+        throw new Error("Argument must be an array");
+    }
+    this.uniforms.colorTone = tone.clone();
+};
+
+/**
+ * Sets the blend color.
+ *
+ * @param {array} color - The blend color [r, g, b, a].
+ */
+ColorFilter.prototype.setBlendColor = function(color) {
+    if (!(color instanceof Array)) {
+        throw new Error("Argument must be an array");
+    }
+    this.uniforms.blendColor = color.clone();
+};
+
+/**
+ * Sets the brightness.
+ *
+ * @param {number} brightness - The brightness (0 to 255).
+ */
+ColorFilter.prototype.setBrightness = function(brightness) {
+    this.uniforms.brightness = Number(brightness);
+};
+
+ColorFilter.prototype._fragmentSrc = function() {
+    const src =
+        "varying vec2 vTextureCoord;" +
+        "uniform sampler2D uSampler;" +
+        "uniform float hue;" +
+        "uniform vec4 colorTone;" +
+        "uniform vec4 blendColor;" +
+        "uniform float brightness;" +
+        "vec3 rgbToHsl(vec3 rgb) {" +
+        "  float r = rgb.r;" +
+        "  float g = rgb.g;" +
+        "  float b = rgb.b;" +
+        "  float cmin = min(r, min(g, b));" +
+        "  float cmax = max(r, max(g, b));" +
+        "  float h = 0.0;" +
+        "  float s = 0.0;" +
+        "  float l = (cmin + cmax) / 2.0;" +
+        "  float delta = cmax - cmin;" +
+        "  if (delta > 0.0) {" +
+        "    if (r == cmax) {" +
+        "      h = mod((g - b) / delta + 6.0, 6.0) / 6.0;" +
+        "    } else if (g == cmax) {" +
+        "      h = ((b - r) / delta + 2.0) / 6.0;" +
+        "    } else {" +
+        "      h = ((r - g) / delta + 4.0) / 6.0;" +
+        "    }" +
+        "    if (l < 1.0) {" +
+        "      s = delta / (1.0 - abs(2.0 * l - 1.0));" +
+        "    }" +
+        "  }" +
+        "  return vec3(h, s, l);" +
+        "}" +
+        "vec3 hslToRgb(vec3 hsl) {" +
+        "  float h = hsl.x;" +
+        "  float s = hsl.y;" +
+        "  float l = hsl.z;" +
+        "  float c = (1.0 - abs(2.0 * l - 1.0)) * s;" +
+        "  float x = c * (1.0 - abs((mod(h * 6.0, 2.0)) - 1.0));" +
+        "  float m = l - c / 2.0;" +
+        "  float cm = c + m;" +
+        "  float xm = x + m;" +
+        "  if (h < 1.0 / 6.0) {" +
+        "    return vec3(cm, xm, m);" +
+        "  } else if (h < 2.0 / 6.0) {" +
+        "    return vec3(xm, cm, m);" +
+        "  } else if (h < 3.0 / 6.0) {" +
+        "    return vec3(m, cm, xm);" +
+        "  } else if (h < 4.0 / 6.0) {" +
+        "    return vec3(m, xm, cm);" +
+        "  } else if (h < 5.0 / 6.0) {" +
+        "    return vec3(xm, m, cm);" +
+        "  } else {" +
+        "    return vec3(cm, m, xm);" +
+        "  }" +
+        "}" +
+        "void main() {" +
+        "  vec4 sample = texture2D(uSampler, vTextureCoord);" +
+        "  float a = sample.a;" +
+        "  vec3 hsl = rgbToHsl(sample.rgb);" +
+        "  hsl.x = mod(hsl.x + hue / 360.0, 1.0);" +
+        "  hsl.y = hsl.y * (1.0 - colorTone.a / 255.0);" +
+        "  vec3 rgb = hslToRgb(hsl);" +
+        "  float r = rgb.r;" +
+        "  float g = rgb.g;" +
+        "  float b = rgb.b;" +
+        "  float r2 = colorTone.r / 255.0;" +
+        "  float g2 = colorTone.g / 255.0;" +
+        "  float b2 = colorTone.b / 255.0;" +
+        "  float r3 = blendColor.r / 255.0;" +
+        "  float g3 = blendColor.g / 255.0;" +
+        "  float b3 = blendColor.b / 255.0;" +
+        "  float i3 = blendColor.a / 255.0;" +
+        "  float i1 = 1.0 - i3;" +
+        "  r = clamp((r / a + r2) * a, 0.0, 1.0);" +
+        "  g = clamp((g / a + g2) * a, 0.0, 1.0);" +
+        "  b = clamp((b / a + b2) * a, 0.0, 1.0);" +
+        "  r = clamp(r * i1 + r3 * i3 * a, 0.0, 1.0);" +
+        "  g = clamp(g * i1 + g3 * i3 * a, 0.0, 1.0);" +
+        "  b = clamp(b * i1 + b3 * i3 * a, 0.0, 1.0);" +
+        "  r = r * brightness / 255.0;" +
+        "  g = g * brightness / 255.0;" +
+        "  b = b * brightness / 255.0;" +
+        "  gl_FragColor = vec4(r, g, b, a);" +
+        "}";
+    return src;
+};
+
+// Plugin Command (MV)
+var _Game_Interpreter_pluginCommand = Game_Interpreter.prototype.pluginCommand;
+Game_Interpreter.prototype.pluginCommand = function(command, args) {
+    _Game_Interpreter_pluginCommand.call(this, command, args);
+    if (command) {
+        command = command.toLowerCase();
+        if (command === 'ambient') {
+            $gameLighting.setMapAmbient(args[0], args[1]);
+        } else if (command === 'shadowambient') {
+            $gameLighting.setShadowAmbient(args[0]);
+        } else if (command === 'topblockambient') {
+            $gameLighting.setTopBlockAmbient(args[0]);
+        } else if (command === 'offset' || command === 'offsetx' || command === 'offsety' || 
+                    command === 'tint' || command === 'radius' || command === 'angle' || 
+                    command === 'status' || command === 'shadow') {
+            let id = args[0] == '=' ? this._eventId : Number(args[0]);
+            if (command === 'offset') {
+                $gameLighting.setOffset(id, args[1], args[2], args[3], args[4]);
+            } else if (command === 'offsetx') {
+                $gameLighting.setOffsetX(id, args[1], args[2], args[3]);
+            } else if (command === 'offsety') {
+                $gameLighting.setOffsetY(id, args[1], args[2], args[3]);
+            } else if (command === 'tint') {
+                $gameLighting.setTint(id, args[1], args[2], args[3]);
+            } else if (command === 'radius') {
+                $gameLighting.setRadius(id, args[1], args[2], args[3]);
+            } else if (command === 'angle') {
+                $gameLighting.setAngle(id, args[1], args[2], args[3]);
+            } else if (command === 'status') {
+                $gameLighting.setStatus(id, args[1]);
+            } else if (command === 'shadow')
+                $gameLighting.setShadow(id, args[1]);
+        }
+    }
+}
+
+
+
+}if (!Shora.IsMV) {
+
+ImageManager.loadLight = function(filename) {
+    const url = 'img/lights/' + Utils.encodeURI(filename);
+    return Bitmap.load(url);
+};
+
+const { pluginName } = Shora.Lighting;
+
+// Add new statical light into map
+PluginManager.registerCommand(pluginName, 'Add Static Light', args => {
+    $gameLighting.addStaticLight(Number(args.x), Number(args.y), args.ref);
+});
+
+// Change map ambient color
+PluginManager.registerCommand(pluginName, 'Set Map Ambient', args => {
+    $gameLighting.setMapAmbient(args.color, Number(args.time) || 0);
+});
+
+// Change shadow ambient color
+PluginManager.registerCommand(pluginName, 'Set Shadow Ambient', args => {
+    $gameLighting.setShadowAmbient(args.color);
+});
+
+// Change Top Block ambient color
+PluginManager.registerCommand(pluginName, 'Set Top Block Ambient', args => {
+    $gameLighting.setTopBlockAmbient(args.color);
+});
+
+// Set light color
+PluginManager.registerCommand(pluginName, 'Set Light Parameters', function(args) {
+    let id = args.id == "" ? this._eventId : Number(args.id);
+    if ($gameMap._lighting[id]) {
+        let time = Number(args.time);
+        let type = Number(args.type);
+        let params = JSON.parse(args.parameters);
+        if (params.offset !== "") {
+            params.offset = JSON.parse(params.offset);
+            $gameLighting.setOffsetX(id, params.offset.x, time, type);
+            $gameLighting.setOffsetY(id, params.offset.y, time, type);
+        }
+        $gameLighting.setStatus(id, params.status);
+        $gameLighting.setShadow(id, params.shadow);
+        $gameLighting.setRadius(id, params.radius, time, type);
+        $gameLighting.setAngle(id, params.angle, time, type);
+        $gameLighting.setTint(id, params.tint, time, type);
+    }
+});
+
+LightingShaderGenerator = new PIXI.BatchShaderGenerator(`
+    precision highp float;
+    attribute vec2 aVertexPosition;
+    attribute vec2 aTextureCoord;
+    attribute vec4 aColor;
+    attribute float aTextureId;
+    
+    uniform mat3 projectionMatrix;
+    uniform mat3 translationMatrix;
+    uniform vec4 tint;
+    
+    varying vec2 vTextureCoord;
+    varying vec4 vColor;
+    varying float vTextureId;
+    
+    void main(void){
+        gl_Position = vec4((projectionMatrix * translationMatrix * vec3(aVertexPosition, 1.0)).xy, 0.0, 1.0);
+    
+        vTextureCoord = aTextureCoord;
+        vTextureId = aTextureId;
+        vColor = aColor * tint;
+    }
+`, `
+    varying vec2 vTextureCoord;
+    varying vec4 vColor;
+    varying float vTextureId;
+    uniform sampler2D uSamplers[%count%];
+
+    void main(void){
+        vec4 color;
+        %forloop%
+        gl_FragColor = color * vColor;
+    }
+`);
+
+LightingShaderGenerator.generateSampleSrc = function(maxTextures)
+{
+    var src = '';
+
+    src += '\n';
+    src += '\n';
+
+    maxTextures /= 2;
+
+    for (var i = 0; i < maxTextures; i++)
+    {
+        if (i > 0)
+        {
+            src += '\nelse ';
+        }
+
+        if (i < maxTextures - 1)
+        {
+            src += "if(vTextureId < " + i + ".5)";
+        }
+
+        src += '\n{';
+        src += "\n\tcolor = texture2D(uSamplers[" + i + "], vTextureCoord);";
+        src += "\n\tcolor = color * texture2D(uSamplers[" + (maxTextures * 2 - i - 1) + "], vTextureCoord);";
+        src += '\n}';
+    }
+
+    src += '\n';
+    src += '\n';
+
+    return src;
+};
+
+// ((_) => {
+//     const contextChange = _.contextChange;
+//     _.contextChange = function() {
+//         contextChange.call(this);
+//         this._lightingShader = LightingShaderGenerator.generateShader(this.MAX_TEXTURES);
+//         // this._lightingShader = this._shader;
+//         console.log(this._lightingShader.program.fragmentSrc);
+//     };
+
+//     _.render = function(element)
+//     {
+//         if (!element._texture.valid)
+//         {
+//             return;
+//         }
+
+//         if (this._vertexCount + (element.vertexData.length / 2) > this.size)
+//         {
+//             this.flush();
+//         }
+
+//         this._vertexCount += element.vertexData.length / 2;
+//         this._indexCount += element.indices.length;
+//         this._bufferedTextures[this._bufferSize] = element._texture.baseTexture;
+//         this._bufferedElements[this._bufferSize++] = element;
+//     };
+
+//     _.bindAndClearLightingTexArray = function(texArray) {
+//         var textureSystem = this.renderer.texture;
+//         var _j;
+//         for (var j = 0; j < texArray.count; j++)
+//         {
+//             textureSystem.bind(texArray.elements[j], texArray.ids[j]);
+//             textureSystem.bind(texArray.elements[j].shadow, this.MAX_TEXTURES - texArray.ids[j] - 1);
+//             texArray.elements[j] = null;
+//         }
+//         texArray.shadowTex = null;
+//         texArray.count = 0;
+//     };
+//     _.buildLightingDrawCalls = function(texArray, start, finish)
+//     {
+//         var ref = this;
+//         var elements = ref._bufferedElements;
+//         var _attributeBuffer = ref._attributeBuffer;
+//         var _indexBuffer = ref._indexBuffer;
+//         var vertexSize = ref.vertexSize;
+//         var drawCalls = PIXI.AbstractBatchRenderer._drawCallPool;
+
+//         var dcIndex = this._dcIndex;
+//         var aIndex = this._aIndex;
+//         var iIndex = this._iIndex;
+
+//         var drawCall = drawCalls[dcIndex];
+
+//         drawCall.start = this._iIndex;
+//         drawCall.texArray = texArray;
+
+//         for (var i = start; i < finish; ++i)
+//         {
+//             var sprite = elements[i];
+//             var tex = sprite._texture.baseTexture;
+//             var spriteBlendMode = PIXI.utils.premultiplyBlendMode[
+//                 tex.alphaMode ? 1 : 0][sprite.blendMode];
+//             elements[i] = null;
+//             this.packInterleavedGeometry(sprite, _attributeBuffer, _indexBuffer, aIndex, iIndex);
+//             aIndex += sprite.vertexData.length / 2 * vertexSize;
+//             iIndex += sprite.indices.length;
+//             drawCall.blend = spriteBlendMode;
+//         }
+//         drawCall.size = iIndex - drawCall.start;
+//         ++dcIndex;
+//         this._dcIndex = dcIndex;
+//         this._aIndex = aIndex;
+//         this._iIndex = iIndex;
+//     };
+//     _.buildLightingTexturesAndDrawCalls = function() {
+//         var ref = this;
+//         var textures = ref._bufferedTextures;
+//         var elements = ref._bufferedElements;
+//         var MAX_TEXTURES = ref.MAX_TEXTURES / 2;
+//         var textureArrays = PIXI.AbstractBatchRenderer._textureArrayPool;
+//         var batch = this.renderer.batch;
+//         var boundTextures = this._tempBoundTextures;
+//         var touch = this.renderer.textureGC.count;
+
+//         var TICK = ++PIXI.BaseTexture._globalBatch;
+//         var countTexArrays = 0;
+//         var texArray = textureArrays[0];
+//         var start = 0;
+
+//         batch.copyBoundTextures(boundTextures, MAX_TEXTURES);
+
+//         for (var i = 0; i < this._bufferSize; ++i)
+//         {
+//             var tex = textures[i];
+
+//             textures[i] = null;
+//             if (tex._batchEnabled === TICK)
+//             {
+//                 continue;
+//             }
+
+//             if (texArray.count >= MAX_TEXTURES)
+//             {
+//                 batch.boundArray(texArray, boundTextures, TICK, MAX_TEXTURES);
+//                 this.buildLightingDrawCalls(texArray, start, i);
+//                 start = i;
+//                 texArray = textureArrays[++countTexArrays];
+//                 ++TICK;
+//             }
+
+//             tex._batchEnabled = TICK;
+//             tex.touched = touch;
+//             texArray.elements[texArray.count] = tex;
+//             texArray.count++;
+//         }
+
+//         if (texArray.count > 0)
+//         {
+//             batch.boundArray(texArray, boundTextures, TICK, MAX_TEXTURES);
+//             this.buildLightingDrawCalls(texArray, start, this._bufferSize);
+//             ++countTexArrays;
+//             ++TICK;
+//         }
+
+//         // Clean-up
+
+//         for (var i$1 = 0; i$1 < boundTextures.length; i$1++)
+//         {
+//             boundTextures[i$1] = null;
+//         }
+//         PIXI.BaseTexture._globalBatch = TICK;
+//     };
+//     _.drawLightingBatches = function () {
+//         var dcCount = this._dcIndex;
+//         var ref = this.renderer;
+//         var gl = ref.gl;
+//         var stateSystem = ref.state;
+//         var drawCalls = PIXI.AbstractBatchRenderer._drawCallPool;
+
+//         var curTexArray = null;
+
+//         // Upload textures and do the draw calls
+//         for (var i = 0; i < dcCount; i++)
+//         {
+//             var ref$1 = drawCalls[i];
+//             var texArray = ref$1.texArray;
+//             var type = ref$1.type;
+//             var size = ref$1.size;
+//             var start = ref$1.start;
+//             var blend = ref$1.blend;
+
+//             if (curTexArray !== texArray)
+//             {
+//                 curTexArray = texArray;
+//                 this.bindAndClearLightingTexArray(texArray);
+//             }
+
+//             this.state.blendMode = blend;
+//             stateSystem.set(this.state);
+//             gl.drawElements(type, size, gl.UNSIGNED_SHORT, start * 2);
+//         }
+//     };
+//     _.flush = function() {
+//         if (this._vertexCount === 0)
+//         {
+//             return;
+//         }
+
+//         this._attributeBuffer = this.getAttributeBuffer(this._vertexCount);
+//         this._indexBuffer = this.getIndexBuffer(this._indexCount);
+//         this._aIndex = 0;
+//         this._iIndex = 0;
+//         this._dcIndex = 0;
+
+//         if (this.renderer.renderingLighting) {
+//             this.buildLightingTexturesAndDrawCalls();
+//             this.updateGeometry();
+//             this.drawLightingBatches();
+//         } else {
+//             this.buildTexturesAndDrawCalls();
+//             this.updateGeometry();
+//             this.drawBatches();
+//         }
+
+//         // reset elements buffer for the next flush
+//         this._bufferSize = 0;
+//         this._vertexCount = 0;
+//         this._indexCount = 0;
+//     };
+// })(PIXI.AbstractBatchRenderer.prototype); 
+
+// function LightingRenderer(renderer) {
+//     PIXI.ObjectRenderer.call(this, renderer);
+//     this.shaderGenerator = LightingShaderGenerator;
+//     this.geometryClass = PIXI.BatchGeometry;
+//     this.vertexSize = 6;
+//     this.state = PIXI.State.for2d();
+//     this.size = PIXI.settings.SPRITE_BATCH_SIZE * 4;
+//     this._vertexCount = 0;
+//     this._indexCount = 0;
+//     this._bufferedElements = [];
+//     this._bufferedTextures = [];
+//     this._bufferSize = 0;
+//     this._shader = null;
+//     this._packedGeometries = [];
+//     this._packedGeometryPoolSize = 2;
+//     this._flushId = 0;
+//     this._aBuffers = {};
+//     this._iBuffers = {};
+//     this.MAX_TEXTURES = 1;
+
+//     this.renderer.on('prerender', this.onPrerender, this);
+//     renderer.runners.contextChange.add(this);
+
+//     this._dcIndex = 0;
+//     this._aIndex = 0;
+//     this._iIndex = 0;
+//     this._attributeBuffer = null;
+//     this._indexBuffer = null;
+//     this._tempBoundTextures = [];
+// }
+
+// if ( PIXI.ObjectRenderer ) { LightingRenderer.__proto__ = PIXI.ObjectRenderer; }
+// LightingRenderer.prototype = Object.create( PIXI.ObjectRenderer && PIXI.ObjectRenderer.prototype );
+// LightingRenderer.prototype.constructor = LightingRenderer;
+
+// LightingRenderer._drawCallPool = [];
+// LightingRenderer._textureArrayPool = [];
+
+// /**
+//  * Handles the `contextChange` signal.
+//  *
+//  * It calculates `this.MAX_TEXTURES` and allocating the
+//  * packed-geometry object pool.
+//  */
+// LightingRenderer.prototype.contextChange = function contextChange ()
+// {
+//     var gl = this.renderer.gl;
+
+//     // step 1: first check max textures the GPU can handle.
+//     this.MAX_TEXTURES = Math.min(
+//         gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS),
+//         PIXI.settings.SPRITE_MAX_TEXTURES);
+    
+//     this._shader = this.shaderGenerator.generateShader(this.MAX_TEXTURES);
+
+//     // we use the second shader as the first one depending on your browser
+//     // may omit aTextureId as it is not used by the shader so is optimized out.
+//     for (var i = 0; i < this._packedGeometryPoolSize; i++)
+//     {
+//         /* eslint-disable max-len */
+//         this._packedGeometries[i] = new (this.geometryClass)();
+//     }
+
+//     this.initFlushBuffers();
+// };
+
+// /**
+//  * Makes sure that static and dynamic flush pooled objects have correct dimensions
+//  */
+// LightingRenderer.prototype.initFlushBuffers = function initFlushBuffers ()
+// {
+//     var _drawCallPool = LightingRenderer._drawCallPool;
+//     var _textureArrayPool = LightingRenderer._textureArrayPool;
+//     // max draw calls
+//     var MAX_SPRITES = this.size / 4;
+//     // max texture arrays
+//     var MAX_TA = Math.floor(MAX_SPRITES / this.MAX_TEXTURES) + 1;
+
+//     while (_drawCallPool.length < MAX_SPRITES)
+//     {
+//         _drawCallPool.push(new PIXI.BatchDrawCall());
+//     }
+//     while (_textureArrayPool.length < MAX_TA)
+//     {
+//         _textureArrayPool.push(new PIXI.BatchTextureArray());
+//     }
+//     for (var i = 0; i < this.MAX_TEXTURES; i++)
+//     {
+//         this._tempBoundTextures[i] = null;
+//     }
+// };
+
+// /**
+//  * Handles the `prerender` signal.
+//  *
+//  * It ensures that flushes start from the first geometry
+//  * object again.
+//  */
+// LightingRenderer.prototype.onPrerender = function onPrerender ()
+// {
+//     this._flushId = 0;
+// };
+
+// /**
+//  * Buffers the "batchable" object. It need not be rendered
+//  * immediately.
+//  *
+//  * @param {PIXI.DisplayObject} element - the element to render when
+//  *    using this renderer
+//  */
+// LightingRenderer.prototype.render = function render (element)
+// {
+//     if (!element._texture.valid)
+//     {
+//         return;
+//     }
+
+//     if (this._vertexCount + (element.vertexData.length / 2) > this.size)
+//     {
+//         this.flush();
+//     }
+
+//     this._vertexCount += element.vertexData.length / 2;
+//     this._indexCount += element.indices.length;
+//     this._bufferedTextures[this._bufferSize] = element._texture.baseTexture;
+//     this._bufferedElements[this._bufferSize++] = element;
+// };
+
+// LightingRenderer.prototype.buildTexturesAndDrawCalls = function buildTexturesAndDrawCalls ()
+// {
+//     var ref = this;
+//     var textures = ref._bufferedTextures;
+//     var MAX_TEXTURES = ref.MAX_TEXTURES;
+//     var textureArrays = LightingRenderer._textureArrayPool;
+//     var batch = this.renderer.batch;
+//     var boundTextures = this._tempBoundTextures;
+//     var touch = this.renderer.textureGC.count;
+
+//     var TICK = ++PIXI.BaseTexture._globalBatch;
+//     var countTexArrays = 0;
+//     var texArray = textureArrays[0];
+//     var start = 0;
+
+//     batch.copyBoundTextures(boundTextures, MAX_TEXTURES);
+
+//     for (var i = 0; i < this._bufferSize; ++i)
+//     {
+//         var tex = textures[i];
+
+//         textures[i] = null;
+//         if (tex._batchEnabled === TICK)
+//         {
+//             continue;
+//         }
+
+//         if (texArray.count >= MAX_TEXTURES)
+//         {
+//             batch.boundArray(texArray, boundTextures, TICK, MAX_TEXTURES);
+//             this.buildDrawCalls(texArray, start, i);
+//             start = i;
+//             texArray = textureArrays[++countTexArrays];
+//             ++TICK;
+//         }
+
+//         tex._batchEnabled = TICK;
+//         tex.touched = touch;
+//         texArray.elements[texArray.count++] = tex;
+//     }
+
+//     if (texArray.count > 0)
+//     {
+//         batch.boundArray(texArray, boundTextures, TICK, MAX_TEXTURES);
+//         this.buildDrawCalls(texArray, start, this._bufferSize);
+//         ++countTexArrays;
+//         ++TICK;
+//     }
+
+//     // Clean-up
+
+//     for (var i$1 = 0; i$1 < boundTextures.length; i$1++)
+//     {
+//         boundTextures[i$1] = null;
+//     }
+//     PIXI.BaseTexture._globalBatch = TICK;
+// };
+
+// /**
+//  * Populating drawcalls for rendering
+//  *
+//  * @param {PIXI.BatchTextureArray} texArray
+//  * @param {number} start
+//  * @param {number} finish
+//  */
+// LightingRenderer.prototype.buildDrawCalls = function buildDrawCalls (texArray, start, finish)
+// {
+//     var ref = this;
+//     var elements = ref._bufferedElements;
+//     var _attributeBuffer = ref._attributeBuffer;
+//     var _indexBuffer = ref._indexBuffer;
+//     var vertexSize = ref.vertexSize;
+//     var drawCalls = LightingRenderer._drawCallPool;
+
+//     var dcIndex = this._dcIndex;
+//     var aIndex = this._aIndex;
+//     var iIndex = this._iIndex;
+
+//     var drawCall = drawCalls[dcIndex];
+
+//     drawCall.start = this._iIndex;
+//     drawCall.texArray = texArray;
+
+//     for (var i = start; i < finish; ++i)
+//     {
+//         var sprite = elements[i];
+//         var tex = sprite._texture.baseTexture;
+//         var spriteBlendMode = PIXI.utils.premultiplyBlendMode[
+//             tex.alphaMode ? 1 : 0][sprite.blendMode];
+
+//         elements[i] = null;
+
+//         if (start < i && drawCall.blend !== spriteBlendMode)
+//         {
+//             drawCall.size = iIndex - drawCall.start;
+//             start = i;
+//             drawCall = drawCalls[++dcIndex];
+//             drawCall.texArray = texArray;
+//             drawCall.start = iIndex;
+//         }
+
+//         this.packInterleavedGeometry(sprite, _attributeBuffer, _indexBuffer, aIndex, iIndex);
+//         aIndex += sprite.vertexData.length / 2 * vertexSize;
+//         iIndex += sprite.indices.length;
+
+//         drawCall.blend = spriteBlendMode;
+//     }
+
+//     if (start < finish)
+//     {
+//         drawCall.size = iIndex - drawCall.start;
+//         ++dcIndex;
+//     }
+
+//     this._dcIndex = dcIndex;
+//     this._aIndex = aIndex;
+//     this._iIndex = iIndex;
+// };
+
+// /**
+//  * Bind textures for current rendering
+//  *
+//  * @param {PIXI.BatchTextureArray} texArray
+//  */
+//  LightingRenderer.prototype.bindAndClearTexArray = function bindAndClearTexArray (texArray)
+// {
+//     var textureSystem = this.renderer.texture;
+
+//     for (var j = 0; j < texArray.count; j++)
+//     {
+//         textureSystem.bind(texArray.elements[j], texArray.ids[j]);
+//         texArray.elements[j] = null;
+//     }
+//     texArray.count = 0;
+// };
+
+// LightingRenderer.prototype.updateGeometry = function updateGeometry ()
+// {
+//     var ref = this;
+//     var packedGeometries = ref._packedGeometries;
+//     var attributeBuffer = ref._attributeBuffer;
+//     var indexBuffer = ref._indexBuffer;
+
+//     if (!PIXI.settings.CAN_UPLOAD_SAME_BUFFER)
+//     { /* Usually on iOS devices, where the browser doesn't
+//         like uploads to the same buffer in a single frame. */
+//         if (this._packedGeometryPoolSize <= this._flushId)
+//         {
+//             this._packedGeometryPoolSize++;
+//             packedGeometries[this._flushId] = new (this.geometryClass)();
+//         }
+
+//         packedGeometries[this._flushId]._buffer.update(attributeBuffer.rawBinaryData);
+//         packedGeometries[this._flushId]._indexBuffer.update(indexBuffer);
+
+//         this.renderer.geometry.bind(packedGeometries[this._flushId]);
+//         this.renderer.geometry.updateBuffers();
+//         this._flushId++;
+//     }
+//     else
+//     {
+//         // lets use the faster option, always use buffer number 0
+//         packedGeometries[this._flushId]._buffer.update(attributeBuffer.rawBinaryData);
+//         packedGeometries[this._flushId]._indexBuffer.update(indexBuffer);
+
+//         this.renderer.geometry.updateBuffers();
+//     }
+// };
+
+// LightingRenderer.prototype.drawBatches = function drawBatches ()
+// {
+//     var dcCount = this._dcIndex;
+//     var ref = this.renderer;
+//     var gl = ref.gl;
+//     var stateSystem = ref.state;
+//     var drawCalls = LightingRenderer._drawCallPool;
+
+//     var curTexArray = null;
+
+//     // Upload textures and do the draw calls
+//     for (var i = 0; i < dcCount; i++)
+//     {
+//         var ref$1 = drawCalls[i];
+//         var texArray = ref$1.texArray;
+//         var type = ref$1.type;
+//         var size = ref$1.size;
+//         var start = ref$1.start;
+//         var blend = ref$1.blend;
+
+//         if (curTexArray !== texArray)
+//         {
+//             curTexArray = texArray;
+//             this.bindAndClearTexArray(texArray);
+//         }
+
+//         this.state.blendMode = blend;
+//         stateSystem.set(this.state);
+//         gl.drawElements(type, size, gl.UNSIGNED_SHORT, start * 2);
+//     }
+// };
+
+// /**
+//  * Renders the content _now_ and empties the current batch.
+//  */
+// LightingRenderer.prototype.flush = function flush ()
+// {
+//     if (this._vertexCount === 0)
+//     {
+//         return;
+//     }
+
+//     this._attributeBuffer = this.getAttributeBuffer(this._vertexCount);
+//     this._indexBuffer = this.getIndexBuffer(this._indexCount);
+//     this._aIndex = 0;
+//     this._iIndex = 0;
+//     this._dcIndex = 0;
+
+//     this.buildTexturesAndDrawCalls();
+//     this.updateGeometry();
+//     this.drawBatches();
+
+//     // reset elements buffer for the next flush
+//     this._bufferSize = 0;
+//     this._vertexCount = 0;
+//     this._indexCount = 0;
+// };
+
+// /**
+//  * Starts a new sprite batch.
+//  */
+// LightingRenderer.prototype.start = function start ()
+// {
+//     this.renderer.state.set(this.state);
+
+//     this.renderer.shader.bind(this._shader);
+
+//     if (PIXI.settings.CAN_UPLOAD_SAME_BUFFER)
+//     {
+//         // bind buffer #0, we don't need others
+//         this.renderer.geometry.bind(this._packedGeometries[this._flushId]);
+//     }
+// };
+
+// /**
+//  * Stops and flushes the current batch.
+//  */
+// LightingRenderer.prototype.stop = function stop ()
+// {
+//     this.flush();
+// };
+
+// LightingRenderer.prototype.destroy = function destroy ()
+// {
+//     for (var i = 0; i < this._packedGeometryPoolSize; i++)
+//     {
+//         if (this._packedGeometries[i])
+//         {
+//             this._packedGeometries[i].destroy();
+//         }
+//     }
+
+//     this.renderer.off('prerender', this.onPrerender, this);
+
+//     this._aBuffers = null;
+//     this._iBuffers = null;
+//     this._packedGeometries = null;
+//     this._attributeBuffer = null;
+//     this._indexBuffer = null;
+
+//     if (this._shader)
+//     {
+//         this._shader.destroy();
+//         this._shader = null;
+//     }
+
+//     ObjectRenderer.prototype.destroy.call(this);
+// };
+
+// /**
+//  * Fetches an attribute buffer from `this._aBuffers` that
+//  * can hold atleast `size` floats.
+//  *
+//  * @param {number} size - minimum capacity required
+//  * @return {ViewableBuffer} - buffer than can hold atleast `size` floats
+//  * @private
+//  */
+// LightingRenderer.prototype.getAttributeBuffer = function getAttributeBuffer (size)
+// {
+//     // 8 vertices is enough for 2 quads
+//     var roundedP2 = PIXI.utils.nextPow2(Math.ceil(size / 8));
+//     var roundedSizeIndex = PIXI.utils.log2(roundedP2);
+//     var roundedSize = roundedP2 * 8;
+
+//     if (this._aBuffers.length <= roundedSizeIndex)
+//     {
+//         this._iBuffers.length = roundedSizeIndex + 1;
+//     }
+
+//     var buffer = this._aBuffers[roundedSize];
+
+//     if (!buffer)
+//     {
+//         this._aBuffers[roundedSize] = buffer = new PIXI.ViewableBuffer(roundedSize * this.vertexSize * 4);
+//     }
+
+//     return buffer;
+// };
+
+// /**
+//  * Fetches an index buffer from `this._iBuffers` that can
+//  * has atleast `size` capacity.
+//  *
+//  * @param {number} size - minimum required capacity
+//  * @return {Uint16Array} - buffer that can fit `size`
+//  *    indices.
+//  * @private
+//  */
+// LightingRenderer.prototype.getIndexBuffer = function getIndexBuffer (size)
+// {
+//     // 12 indices is enough for 2 quads
+//     var roundedP2 = PIXI.utils.nextPow2(Math.ceil(size / 12));
+//     var roundedSizeIndex = PIXI.utils.log2(roundedP2);
+//     var roundedSize = roundedP2 * 12;
+
+//     if (this._iBuffers.length <= roundedSizeIndex)
+//     {
+//         this._iBuffers.length = roundedSizeIndex + 1;
+//     }
+
+//     var buffer = this._iBuffers[roundedSizeIndex];
+
+//     if (!buffer)
+//     {
+//         this._iBuffers[roundedSizeIndex] = buffer = new Uint16Array(roundedSize);
+//     }
+
+//     return buffer;
+// };
+
+// /**
+//  * Takes the four batching parameters of `element`, interleaves
+//  * and pushes them into the batching attribute/index buffers given.
+//  *
+//  * It uses these properties: `vertexData` `uvs`, `textureId` and
+//  * `indicies`. It also uses the "tint" of the base-texture, if
+//  * present.
+//  *
+//  * @param {PIXI.Sprite} element - element being rendered
+//  * @param {PIXI.ViewableBuffer} attributeBuffer - attribute buffer.
+//  * @param {Uint16Array} indexBuffer - index buffer
+//  * @param {number} aIndex - number of floats already in the attribute buffer
+//  * @param {number} iIndex - number of indices already in `indexBuffer`
+//  */
+// LightingRenderer.prototype.packInterleavedGeometry = function packInterleavedGeometry (element, attributeBuffer, indexBuffer, aIndex, iIndex)
+// {
+//     var uint32View = attributeBuffer.uint32View;
+//     var float32View = attributeBuffer.float32View;
+
+//     var packedVertices = aIndex / this.vertexSize;
+//     var uvs = element.uvs;
+//     var indicies = element.indices;
+//     var vertexData = element.vertexData;
+//     var textureId = element._texture.baseTexture._batchLocation;
+
+//     var alpha = Math.min(element.worldAlpha, 1.0);
+//     var argb = (alpha < 1.0
+//         && element._texture.baseTexture.alphaMode)
+//         ? PIXI.utils.premultiplyTint(element._tintRGB, alpha)
+//         : element._tintRGB + (alpha * 255 << 24);
+
+//     // lets not worry about tint! for now..
+//     for (var i = 0; i < vertexData.length; i += 2)
+//     {
+//         float32View[aIndex++] = vertexData[i];
+//         float32View[aIndex++] = vertexData[i + 1];
+//         float32View[aIndex++] = uvs[i];
+//         float32View[aIndex++] = uvs[i + 1];
+//         uint32View[aIndex++] = argb;
+//         float32View[aIndex++] = textureId;
+//     }
+
+//     for (var i$1 = 0; i$1 < indicies.length; i$1++)
+//     {
+//         indexBuffer[iIndex++] = packedVertices + indicies[i$1];
+//     }
+// };
+
+class LightingRenderer extends PIXI.AbstractBatchRenderer {
+    constructor(renderer) {
+        super(renderer);
+        this.vertexSize = 6;
+        this.geometryClass = PIXI.BatchGeometry;
+        this.shaderGenerator = LightingShaderGenerator;
+    }
+
+    initFlushBuffers() {
+        // shared the same pool with abstract renderer
+        return;
+    }
+    contextChange() {
+        super.contextChange();
+        console.log(this._shader.program.fragmentSrc);
+    };  
+    render(element) {
+        if (!element._texture.valid)
+            return;
+
+        if (this._vertexCount + (element.vertexData.length / 2) > this.size)
+            this.flush();
+
+        this._vertexCount += element.vertexData.length / 2;
+        this._indexCount += element.indices.length;
+        this._bufferedTextures[this._bufferSize] = element._texture.baseTexture;
+        this._bufferedElements[this._bufferSize++] = element;
+    };
+
+    bindAndClearTexArray(texArray) {
+        var textureSystem = this.renderer.texture;
+        for (var j = 0; j < texArray.count; j++)
+        {
+            textureSystem.bind(texArray.elements[j], texArray.ids[j]);
+            textureSystem.bind(texArray.elements[j].shadow, this.MAX_TEXTURES - texArray.ids[j] - 1);
+            texArray.elements[j] = null;
+        }
+        texArray.count = 0;
+    };
+    buildDrawCalls(texArray, start, finish)
+    {
+        var ref = this;
+        var elements = ref._bufferedElements;
+        var _attributeBuffer = ref._attributeBuffer;
+        var _indexBuffer = ref._indexBuffer;
+        var vertexSize = ref.vertexSize;
+        var drawCalls = PIXI.AbstractBatchRenderer._drawCallPool;
+
+        var dcIndex = this._dcIndex;
+        var aIndex = this._aIndex;
+        var iIndex = this._iIndex;
+
+        var drawCall = drawCalls[dcIndex];
+
+        drawCall.start = this._iIndex;
+        drawCall.texArray = texArray;
+
+        for (var i = start; i < finish; ++i)
+        {
+            var sprite = elements[i];
+            var tex = sprite._texture.baseTexture;
+            var spriteBlendMode = PIXI.utils.premultiplyBlendMode[
+                tex.alphaMode ? 1 : 0][sprite.blendMode];
+            elements[i] = null;
+            this.packInterleavedGeometry(sprite, _attributeBuffer, _indexBuffer, aIndex, iIndex);
+            aIndex += sprite.vertexData.length / 2 * vertexSize;
+            iIndex += sprite.indices.length;
+            drawCall.blend = spriteBlendMode;
+        }
+        drawCall.size = iIndex - drawCall.start;
+        ++dcIndex;
+        this._dcIndex = dcIndex;
+        this._aIndex = aIndex;
+        this._iIndex = iIndex;
+    };
+    buildTexturesAndDrawCalls() {
+        var ref = this;
+        var textures = ref._bufferedTextures;
+        var elements = ref._bufferedElements;
+        var MAX_TEXTURES = ref.MAX_TEXTURES / 2;
+        var textureArrays = PIXI.AbstractBatchRenderer._textureArrayPool;
+        var batch = this.renderer.batch;
+        var boundTextures = this._tempBoundTextures;
+        var touch = this.renderer.textureGC.count;
+
+        var TICK = ++PIXI.BaseTexture._globalBatch;
+        var countTexArrays = 0;
+        var texArray = textureArrays[0];
+        var start = 0;
+
+        batch.copyBoundTextures(boundTextures, MAX_TEXTURES);
+
+        for (var i = 0; i < this._bufferSize; ++i)
+        {
+            var tex = textures[i];
+
+            textures[i] = null;
+            if (tex._batchEnabled === TICK)
+            {
+                continue;
+            }
+
+            if (texArray.count >= MAX_TEXTURES)
+            {
+                batch.boundArray(texArray, boundTextures, TICK, MAX_TEXTURES);
+                this.buildDrawCalls(texArray, start, i);
+                start = i;
+                texArray = textureArrays[++countTexArrays];
+                ++TICK;
+            }
+
+            tex._batchEnabled = TICK;
+            tex.touched = touch;
+            texArray.elements[texArray.count] = tex;
+            texArray.count++;
+        }
+
+        if (texArray.count > 0)
+        {
+            batch.boundArray(texArray, boundTextures, TICK, MAX_TEXTURES);
+            this.buildDrawCalls(texArray, start, this._bufferSize);
+            ++countTexArrays;
+            ++TICK;
+        }
+
+        // Clean-up
+
+        for (var i$1 = 0; i$1 < boundTextures.length; i$1++)
+        {
+            boundTextures[i$1] = null;
+        }
+        PIXI.BaseTexture._globalBatch = TICK;
+    };
+    drawBatches() {
+        var dcCount = this._dcIndex;
+        var ref = this.renderer;
+        var gl = ref.gl;
+        var stateSystem = ref.state;
+        var drawCalls = PIXI.AbstractBatchRenderer._drawCallPool;
+
+        var curTexArray = null;
+
+        // Upload textures and do the draw calls
+        for (var i = 0; i < dcCount; i++)
+        {
+            var ref$1 = drawCalls[i];
+            var texArray = ref$1.texArray;
+            var type = ref$1.type;
+            var size = ref$1.size;
+            var start = ref$1.start;
+            var blend = ref$1.blend;
+
+            if (curTexArray !== texArray)
+            {
+                curTexArray = texArray;
+                this.bindAndClearTexArray(texArray);
+            }
+
+            this.state.blendMode = blend;
+            stateSystem.set(this.state);
+            gl.drawElements(type, size, gl.UNSIGNED_SHORT, start * 2);
+        }
+    };
+    flush() {
+        if (this._vertexCount === 0)
+            return;
+
+        this._attributeBuffer = this.getAttributeBuffer(this._vertexCount);
+        this._indexBuffer = this.getIndexBuffer(this._indexCount);
+        this._aIndex = 0;
+        this._iIndex = 0;
+        this._dcIndex = 0;
+
+        this.buildTexturesAndDrawCalls();
+        this.updateGeometry();
+        this.drawBatches();
+
+        // reset elements buffer for the next flush
+        this._bufferSize = 0;
+        this._vertexCount = 0;
+        this._indexCount = 0;
+    };
+};
+
+Shora.LightingRenderer = LightingRenderer;
+
+}
+PIXI.Renderer.registerPlugin("light", Shora.LightingRenderer);
+
+
+// remove engine shadow
 if (JSON.parse(Shora.Lighting.PARAMETERS.helper).disableEngineShadow === 'true') {
     Tilemap.prototype._addShadow = function() {}; 
-    if (Shora.EngineVersion === 'MV')
+    if (Shora.isMV)
         ShaderTilemap.prototype._addShadow = function() {}; 
 }
 
@@ -1038,6 +1962,7 @@ if (JSON.parse(Shora.Lighting.PARAMETERS.helper).disableEngineShadow === 'true')
     const createGameObjects = _.createGameObjects;
     _.createGameObjects = function() {
         $gameLighting = new GameLighting();
+        $shoraLayer = new Layer();
         createGameObjects();
         $shoraLayer.reset();
     }
@@ -1052,7 +1977,8 @@ if (JSON.parse(Shora.Lighting.PARAMETERS.helper).disableEngineShadow === 'true')
     _.extractSaveContents = function(contents) {
         extractSaveContents(contents);
         $gameLighting = contents.lighting;
-        if (!gameLighting) $gameLighting = new GameLighting();
+        if (!contents.lighting) 
+            $gameLighting = new GameLighting();
     }
 
 })(DataManager); 
@@ -1175,22 +2101,20 @@ if (JSON.parse(Shora.Lighting.PARAMETERS.helper).disableEngineShadow === 'true')
         this.scanLighting();
     }
     _.scanLighting = function() {
-        let note = '', command = '';
+        let note = '';
         let lightingParams = {id: 0};
         if ($gameParty.leader())
             note = $gameParty.leader().actor().note.split('\n');
         for (let line of note)
-            command += line;   
-        Shora.CallCommand(lightingParams, command);
+            Shora.CallCommand(lightingParams, line);
         if (lightingParams.name) {
             this.setLighting(lightingParams);
         } else {
-        	lightingParams = {id: 0}, command = '';
+        	lightingParams = {id: 0};
             for (const item of $gameParty.items()) {
                 const note = item.note.split('\n');
                 for (let line of note)
-                    command += line;   
-                Shora.CallCommand(lightingParams, command);
+                    Shora.CallCommand(lightingParams, line);
                 if (lightingParams.name) 
                     return this.setLighting(lightingParams);
             }
@@ -1230,13 +2154,11 @@ if (JSON.parse(Shora.Lighting.PARAMETERS.helper).disableEngineShadow === 'true')
     }
     
     _.setupLighting = function() {
-        let command = '';
+        this.lightingParams = {};
         this.page().list.forEach((comment) => {
             if (comment.code === 108 || comment.code === 408) 
-                command += comment.parameters.join('');
+                Shora.CallCommand(this.lightingParams, comment.parameters.join(''));
         });
-        this.lightingParams = {};
-        Shora.CallCommand(this.lightingParams, command);
         this.lightingParams.id = this._eventId;
         this.hasLight = !!this.lightingParams.name;
     }
@@ -1245,32 +2167,41 @@ if (JSON.parse(Shora.Lighting.PARAMETERS.helper).disableEngineShadow === 'true')
 
 class Layer {
     constructor() {
-        this.baseTextureCache = {}; // TODO: Wait for texture to load
-        this.textureCache = {}; // TODO: Sprite Cache
+        this.baseTextureCache = {};
+        this.textureCache = {}; 
+        this._renderTexturesPool = [];
+        this._rtpCount = [];
         this.mapId = 0;
 
         this.LIGHTING = {};
         this._colorFilter = JSON.parse(Shora.Lighting.PARAMETERS.filter || '{}') ;
 
-        this.preload();
         this.loadParameters();
         this.loadLighting();
+        this.createRenderTexturesPool();
         
         this.lighting = null;
     }
     
-    preload() {
-        const fs = require('fs');
-        const path = require('path');
-        Shora.DIR_PATH = path.join(path.dirname(process.mainModule.filename));
-        let cache = this.baseTextureCache;
-        let dirPath = path.join(Shora.DIR_PATH, 'img', 'lights');
-        if (!fs.existsSync(dirPath)) 
-            fs.mkdirSync(dirPath)
-        fs.readdir(dirPath, function (err, files) {
-            if (err) return Shora.warn('Unable to scan directory: ' + err);
-            files.forEach(file => cache[file] = ImageManager.loadLight(file))
-        });
+    createRenderTexturesPool() {
+        return;
+        this.MAX_SIZE = 1024;
+        for (let i = 1; i <= this.MAX_SIZE; ++i) {
+            this._rtpCount = -1;
+            this._renderTexturesPool[i] = [];
+            for (let j = 0; j < 8; ++j) 
+                this._renderTexturesPool[i][j] = PIXI.RenderTexture.create(i, i);
+        }
+    }
+
+    renderTexturesPool(w) {
+        this._rtpCount++;
+        if (this._rtpCount === 8) this._rtpCount = 0;
+        return this._renderTexturesPool[Math.min(Math.round(w), this.MAX_SIZE)][this._rtpCount];
+    }
+
+    preload(filename) {
+        this.baseTextureCache[filename] = ImageManager.loadLight(filename + '.png');
     }
 
     loadParameters() {
@@ -1294,13 +2225,13 @@ class Layer {
      * @param {String} name 
      */
     load(name) {
-        if (!this.baseTextureCache[name + '.png']) {
+        if (!this.baseTextureCache[name]) {
             if (name == undefined)
                 throw new Error("Please don't change default lighting reference and set it back to 'default'");
             else
                 throw new Error('Please add + ' + name + '.png light image to /img/lights/.');
         }
-        return this.baseTextureCache[name + '.png']._baseTexture;
+        return this.baseTextureCache[name]._baseTexture;
     }
 
     loadLighting() {
@@ -1328,6 +2259,8 @@ class Layer {
         if (name == "<-- CHANGE_THIS -->") 
             return console.warn('Please set the reference of light, aka it name when adding new custom light. Register progress canceled.'); 
         
+        this.preload(settings.filename);
+
         settings.radius = Number(settings.radius || 100) / 100;
         settings.angle = Number(settings.angle) || 0; 
         settings.status = settings.status !== 'false';
@@ -1378,12 +2311,12 @@ class Layer {
 
     updateIntensityFilter(spriteset, disable) {
         if (!disable && this._colorFilter.status == 'true') {
-            if (Shora.EngineVersion == 'MV')
+            if (Shora.isMV)
                 spriteset._baseSprite.filters[0].brightness(Number(this._colorFilter.brightness));
             else
                 spriteset._baseSprite.filters[0].setBrightness(Number(this._colorFilter.brightness) * 255);
         } else {
-            if (Shora.EngineVersion == 'MV')
+            if (Shora.isMV)
                 spriteset._baseSprite.filters[0].brightness(1);
             else
                 spriteset._baseSprite.filters[0].setBrightness(255);
@@ -1533,7 +2466,10 @@ class LightingLayer {
         for (const child of this.layer.children) {
             if (child.update) child.update();
         }
-        Graphics.app.renderer.render(this.layer, this.texture, false);
+
+        const renderer = Graphics.app.renderer;
+
+        renderer.render(this.layer, this.texture, false);
     }
 
     updateDisplay() {
@@ -1585,20 +2521,17 @@ class LightingSprite extends PIXI.Sprite {
     }
 
     constructor(options) {
-        let baseSprite = TextureManager.filter(options);
-        super();
-
-        this._baseSprite = baseSprite;
-        this._baseSprite.anchor.set(0.5);
+        super(TextureManager.filter(options));
+        this.pluginName = 'light';
 
         this.renderable = false;
         this.id = options.id;
         this.fileName = options.filename;
         this.colorFilter = options.colorfilter;
 
+        this.status = options.status;
         this.radius = new ScaleAnimation(this, options);
         this.rotate = new AngleAnimation(this, options);
-        this.status = options.status;
 
         this.offset = new OffsetAnimation(options.offset);
         this.setPostion(options);
@@ -1606,30 +2539,20 @@ class LightingSprite extends PIXI.Sprite {
 
         this.flicker = new FlickerAnimation(this, options.animation.flicker);
         this.color = new TintAnimation(this, options);
-
-        this.texture = PIXI.RenderTexture.create(this._baseSprite.width, this._baseSprite.height);
         this.blendMode = PIXI.BLEND_MODES.ADD;
 
-        this._baseSprite.position.set(this._baseSprite.width / 2, this._baseSprite.height / 2);
-        Graphics.app.renderer.render(this._baseSprite, this.texture);
-
         this._shadow = options.shadow;
-        this.bwall = options.bwall;
         this.shadowOffsetX = options.shadowoffsetx || 0;
         this.shadowOffsetY = options.shadowoffsety || 0; 
-        if (!this.bwall) // 54.00001; tw * h + 6 + eps
-            this.shadowOffsetY += $gameShadow.getWallHeight(this.worldX(), this.worldY());
-        this.shadow = new Shadow(this.worldX(), this.worldY(), this.worldBound(), options.shadowambient, this.shadowOffsetX, this.shadowOffsetY);
-        if (this._shadow) 
-            this.shadow.render(this.texture);
+        this.bwall = options.bwall;
+        // if (!this.bwall) // 54.00001; tw * h + 6 + eps
+        //     this.shadowOffsetY += $gameShadow.getWallHeight(this.worldX(), this.worldY());
+        this.shadow = new Shadow(this.worldX(), this.worldY(), this.worldBounds(), options.shadowambient, this.width, this.height, this.rotation);
 
         this.updateDisplay();
         this._justMoving = 2;
     }
     destroy() {
-        this._baseSprite.destroy(); // don't destroy texture
-        this._baseSprite = null;
-
         this.radius.destroy();
         this.flicker.destroy();
         this.offset.destroy();
@@ -1643,7 +2566,7 @@ class LightingSprite extends PIXI.Sprite {
         this.rotate = null;
         this.shadow = null;
 
-        super.destroy(true);
+        super.destroy();
     }
 
     update() {
@@ -1651,10 +2574,21 @@ class LightingSprite extends PIXI.Sprite {
             return this.renderable = false;
         this.updateAnimation();
         this.updatePostion();
-        this.updateTexture();
+        this.updateShadow();
+    }
+
+    _render(renderer) {
+        this.calculateVertices();
+        //this.shadowTexture = PIXI.Texture.WHITE;
+        this.texture.baseTexture.shadow = this._shadow ? this.shadow.texture : PIXI.Texture.WHITE;
+
+        renderer.batch.setObjectRenderer(renderer.plugins[this.pluginName]);
+        renderer.plugins[this.pluginName].render(this);
     }
 
     needRecalculateShadow() {
+        if (!this._shadow) 
+            return false;
         if (this.offset.updating()) 
             return true;
         if (this.character.isStopping()) {
@@ -1665,22 +2599,16 @@ class LightingSprite extends PIXI.Sprite {
         return this._justMoving = 0, true;
     }
 
-    needRerender() {
-        return this.needRecalculateShadow() || this.radius.updating() || this.rotate.updating();
+    needRerenderShadow() {
+        return this.needRecalculateShadow() || !this.shadow._rendered || 
+        this.radius.updating() || this.rotate.updating();
     }
 
-    updateTexture() {
-        if (!this.renderable || !this.needRerender()) return;
-        this.__render();
-    }
-
-    __render() {
-        Graphics.app.renderer.render(this._baseSprite, this.texture);
-        if (this._shadow) {
-            if (this.needRecalculateShadow()) 
-                this.shadow.update(this.worldX(), this.worldY(), this.worldBound(), this.shadowOffsetX, this.shadowOffsetY);
-            this.shadow.render(this.texture);
-        }
+    updateShadow() {
+        if (!this._shadow || !this.needRerenderShadow()) return;
+        if (this.needRecalculateShadow())
+            this.shadow.calculate(this.sourceX(), this.sourceY(), this.worldBounds());
+        this.shadow.render(this.worldX(), this.worldY(), this.width, this.height, this.rotation);
     }
 
     updatePostion() {
@@ -1700,25 +2628,33 @@ class LightingSprite extends PIXI.Sprite {
     updateDisplay() {
         // TODO: Better culling
         let [x, y] = [this.x, this.y];
-        let minX = x - (this._baseSprite.width / 2),
-            minY = y - (this._baseSprite.height / 2),
-            maxX = x + (this._baseSprite.width / 2),
-            maxY = y + (this._baseSprite.height / 2);
+        let minX = x - (this.width / 2),
+            minY = y - (this.height / 2),
+            maxX = x + (this.width / 2),
+            maxY = y + (this.height / 2);
         this.renderable = $gameLighting.inDisplay(minX, minY, maxX, maxY);
     }
 
     worldX() {
-        return this.x + $gameMap.displayX() * $gameMap.tileWidth() + this.shadowOffsetX;
+        return this.x + $gameMap.displayX() * $gameMap.tileWidth();
+    }
+
+    sourceX() {
+        return this.worldX() + this.shadowOffsetX;
     }
 
     worldY() {
-        return this.y + $gameMap.displayY() * $gameMap.tileHeight() + this.shadowOffsetY;
+        return this.y + $gameMap.displayY() * $gameMap.tileHeight();
     }
 
-    worldBound() {
+    sourceY() {
+        return this.worldY() + this.shadowOffsetY;
+    }
+
+    worldBounds() {
         let bounds = this.getBounds();
-        bounds.x += $gameMap.displayX() * $gameMap.tileWidth() + this.shadowOffsetX;
-        bounds.y += $gameMap.displayY() * $gameMap.tileHeight() + this.shadowOffsetY;
+        bounds.x += $gameMap.displayX() * $gameMap.tileWidth();
+        bounds.y += $gameMap.displayY() * $gameMap.tileHeight();
         return bounds;
     }
 
@@ -1735,11 +2671,12 @@ class LightingSprite extends PIXI.Sprite {
 
     setAngle(angle, time, type) {
         // update .rotation instead of .angle for pixiv4 support
-        this.rotate.set(angle / 57.6, time || 1, type);
+        this.rotate.set(angle, time || 1, type);
     }
 
-    setColor(color, time) {
-        this.color.set(color, time || 1);
+    setTint(color, time, type) {
+        console.log(color, time);
+        this.color.set(color, time || 1, type);
     }
 
     setOffsetX(x, time, type) {
@@ -1756,7 +2693,6 @@ class LightingSprite extends PIXI.Sprite {
     }
     setShadow(shadow) {
         $gameMap._lighting[this.id].shadow = this._shadow = shadow;
-        this.__render();
     }
 }
 
@@ -1764,49 +2700,49 @@ class LightingSprite extends PIXI.Sprite {
 // using vertex shader to calculate those geometry.
 // Currently it draw those into temporary sprite then into light texture
 class Shadow {
-    constructor(ox, oy, bounds, shadowAmbient, offsetx, offsety) {
+    constructor(ox, oy, b, s, width, height, rotation) {
         this.graphics = new PIXI.Graphics();
-        // todo: remove those
-        this.texture = PIXI.RenderTexture.create(bounds.width, bounds.height);
-        this.sprite = new PIXI.Sprite(this.texture);
-        this.sprite.blendMode = PIXI.BLEND_MODES.MULTIPLY;
+        this.texture = PIXI.RenderTexture.create(width, height);
 
-        this.shadowAmbient = shadowAmbient;
-        this.update(ox, oy, bounds, offsetx, offsety);
+        this.shadowAmbient = s;
+        this.calculate(ox, oy, b);
+        
+        this._rendered = false;
     }
 
     destroy() {
         this.polygon = this.bounds = 
         this._parallelSegments = this.shadowAmbient = null;
-
-        this.graphics.destroy(true);
         this.graphics = null;
-
-        this.sprite.destroy(true);
-        this.sprite = null;
     }
 
-    update(ox, oy, bounds, offsetx, offsety) {
-        this.bounds = bounds;
+    calculate(ox, oy, b) {
+        this.bounds = b;
         this.polygon = ShadowSystem.computeViewport([ox, oy], $gameShadow.segments, [this.bounds.left, this.bounds.top], [this.bounds.right, this.bounds.bottom]);
         this._parallelSegments = {};
         this.graphics.clear();
-
-        if (bounds.width != this.texture.width || bounds.height != this.texture.height)
-            this.texture.resize(bounds.width, bounds.height);
-
         this.draw(oy, $gameShadow.lowerWalls);
-
-        // todo
-        this.graphics.x = $gameShadow.upperWalls.x = -this.bounds.x + offsetx;
-        this.graphics.y = $gameShadow.upperWalls.y = -this.bounds.y + offsety;
-        Graphics.app.renderer.render(this.graphics, this.texture);
-        Graphics.app.renderer.render($gameShadow.upperWalls, this.texture, false);
     }
 
-    render(texture) {
-        // to do
-        Graphics.app.renderer.render(this.sprite, texture, false);
+    render(ox, oy, width, height, rotation) {
+        width = Math.ceil(width), height = Math.ceil(height);
+        if (width > this.texture.width || height > this.texture.height) 
+            this.texture.resize(width, height);
+            
+        // todo: apply ALL transforms at gpu level
+        // Shora.tempMatrix.setTransform(this.texture.width / 2, this.texture.height / 2,
+        //     ox, oy, this.texture.width / width, this.texture.height / height, 2 * Math.PI - rotation, 0, 0);
+        // Graphics.app.renderer.render(this.graphics, this.texture, false, Shora.tempMatrix, true);
+        
+        // old way
+        this.graphics.pivot.set(ox, oy);
+        this.graphics.position.set(this.texture.width / 2, this.texture.height / 2);
+        this.graphics.scale.set(this.texture.width / width);
+        this.graphics.rotation = 2 * Math.PI - rotation;
+        Graphics.app.renderer.render(this.graphics, this.texture, false);
+
+        this._rendered = true;
+        // Graphics.app.renderer.render($gameShadow.upperWalls, this.texture, false);
     }
 
     drawWall(index, oy, lowerWalls) {
@@ -1846,57 +2782,77 @@ class Shadow {
         return false;
 	}
 
-    draw(oy, lowerWalls) {
+    draw() {
+        this.graphics.beginFill(this.shadowAmbient)
+        .drawRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height).endFill();
+
+        this.graphics.beginFill(0xffffff).startPoly();
+        this.graphics.currentPath.points = this.polygon;
+        this.graphics.endFill();
+
+
+        const tw = $gameMap.tileWidth(),
+              th = $gameMap.tileHeight(),
+              width = $gameMap.width(),
+              height = $gameMap.height(),
+              top = Math.max(0, Math.floor(this.bounds.top / 48)),
+              bottom = Math.min(height - 1, Math.ceil(this.bounds.bottom / 48)),
+              left = Math.max(0, Math.floor(this.bounds.left / 48)),
+              right = Math.min(width - 1, Math.ceil(this.bounds.right / 48));
+
         this.graphics.beginFill(this.shadowAmbient);
-		this.graphics.drawRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height);
-		this.graphics.endFill();
-
-		this.graphics.beginFill(0xffffff);
-		this.graphics.moveTo(this.polygon[0][0], this.polygon[0][1]);
-		for (let i = 1; i < this.polygon.length; ++i) {
-			this.drawWall(i, oy, lowerWalls);
-            this.graphics.lineTo(this.polygon[i][0], this.polygon[i][1]);
-        }
-        this.graphics.lineTo(this.polygon[0][0], this.polygon[0][1]);
-		this.drawWall(0, oy, lowerWalls);
-		if (this.polygon[0][1] == this.polygon[this.polygon.length - 1][1]) {
-			if (!this._parallelSegments[this.polygon[0][1]]) this._parallelSegments[this.polygon[0][1]] = [];
-			this._parallelSegments[this.polygon[0][1]].push([this.polygon[0][0], this.polygon[this.polygon.length - 1][0]]);
-		}
-		this.graphics.endFill(); 
-
-		for (let y in this._parallelSegments) {
-			for (let i in this._parallelSegments[y]) {
-				if (this._parallelSegments[y][i][0] > this._parallelSegments[y][i][1])
-				[this._parallelSegments[y][i][0], this._parallelSegments[y][i][1]] = [this._parallelSegments[y][i][1], this._parallelSegments[y][i][0]];
-			}
-			this._parallelSegments[y].sort((a, b) => a[0] - b[0]);
-		}
-
-		//drawing lower-walls
-        this.graphics.beginFill(this.shadowAmbient); 
-        let tw = $gameMap.tileWidth();
-		for (let i = 0; i < lowerWalls.length; ++i) {
-			let [x2, y2, x1, y1, height] = lowerWalls[i];
-            if (y1 >= oy || !this.containParallelSegment(y1, x1, x2)) {
-                this.graphics.moveTo(x1, y1);
-                this.graphics.lineTo(x1, y1-tw*height);
-                this.graphics.lineTo(x2, y2-tw*height);
-                this.graphics.lineTo(x2, y2);
-            }
-		}
+        for (let i = top; i <= bottom; ++i) 
+            for (let j = left; j <= right; ++j) if ($gameShadow.upper[i][j]) 
+                this.graphics.drawRect((j + 1) * tw, (i + 2) * th, tw, th);
         this.graphics.endFill();
+
+
+		// this.graphics.moveTo(this.polygon[0][0], this.polygon[0][1]);
+		// for (let i = 1; i < this.polygon.length; ++i) {
+		// 	this.drawWall(i, oy, lowerWalls);
+        //     this.graphics.lineTo(this.polygon[i][0], this.polygon[i][1]);
+        // }
+        // this.graphics.lineTo(this.polygon[0][0], this.polygon[0][1]);
+		// this.drawWall(0, oy, lowerWalls);
+        // this.graphics.endFill();
+
+		// if (this.polygon[0][1] == this.polygon[this.polygon.length - 1][1]) {
+		// 	if (!this._parallelSegments[this.polygon[0][1]]) this._parallelSegments[this.polygon[0][1]] = [];
+		// 	this._parallelSegments[this.polygon[0][1]].push([this.polygon[0][0], this.polygon[this.polygon.length - 1][0]]);
+		// }
+
+		// for (let y in this._parallelSegments) {
+		// 	for (let i in this._parallelSegments[y]) {
+		// 		if (this._parallelSegments[y][i][0] > this._parallelSegments[y][i][1])
+		// 		[this._parallelSegments[y][i][0], this._parallelSegments[y][i][1]] = [this._parallelSegments[y][i][1], this._parallelSegments[y][i][0]];
+		// 	}
+		// 	this._parallelSegments[y].sort((a, b) => a[0] - b[0]);
+		// }
+
+		// //drawing lower-walls
+        // this.graphics.beginFill(this.shadowAmbient); 
+        // let tw = $gameMap.tileWidth();
+		// for (let i = 0; i < lowerWalls.length; ++i) {
+		// 	let [x2, y2, x1, y1, height] = lowerWalls[i];
+        //     if (y1 >= oy || !this.containParallelSegment(y1, x1, x2)) {
+        //         this.graphics.moveTo(x1, y1);
+        //         this.graphics.lineTo(x1, y1-tw*height);
+        //         this.graphics.lineTo(x2, y2-tw*height);
+        //         this.graphics.lineTo(x2, y2);
+        //     }
+		// }
+        // this.graphics.endFill();
         
-        // ignore shadows 
-        this.graphics.beginFill(0xffffff); 
-        for (let i = 0; i < $gameShadow.ignoreShadows.length; ++i) {
-            let [x, y] = $gameShadow.ignoreShadows[i];
-            this.graphics.moveTo(x, y);
-            this.graphics.lineTo(x, y+tw);
-            this.graphics.lineTo(x+tw, y+tw);
-            this.graphics.lineTo(x+tw, y);
-        }
-        this.graphics.endFill();
+        // // ignore shadows 
+        // this.graphics.beginFill(0xffffff); 
+        // for (let i = 0; i < $gameShadow.ignoreShadows.length; ++i) {
+        //     let [x, y] = $gameShadow.ignoreShadows[i];
+        //     this.graphics.moveTo(x, y);
+        //     this.graphics.lineTo(x, y+tw);
+        //     this.graphics.lineTo(x+tw, y+tw);
+        //     this.graphics.lineTo(x+tw, y);
+        // }
+        // this.graphics.endFill();
         
         /* drawing top-walls
         this.graphics.beginFill(0x333333);
@@ -2085,6 +3041,18 @@ class Shadow {
         }
     };
 
+    const push = (poly, x, y) => {
+        if (x >= 48 && y >= 48 && x % 48 === 0 && y % 48 === 0
+            && y / 48 - 1 < $gameShadow.lower.length && x / 48 - 2 < $gameShadow.lower[y / 48 - 1].length
+            && poly.length >= 2 && poly[poly.length - 1] === y) {
+            let h = $gameShadow.lower[y / 48 - 1][x / 48 - 2], 
+                lx = poly[poly.length - 2], 
+                uy = y - h * $gameMap.tileHeight();
+            if (h) poly.push(lx, uy, x, uy);
+        }
+        poly.push(x, y);
+    }
+
     const compute = (position, segments) => {
         let bounded = [];
         let minX = position[0];
@@ -2148,12 +3116,14 @@ class Shadow {
             } while (sorted[i][2] < sorted[orig][2] + epsilon());
 
             if (extend) {
-                polygon.push(vertex);
+                push(polygon, vertex[0], vertex[1]);
                 let cur = intersectLines(bounded[heap[0]][0], bounded[heap[0]][1], position, vertex);
-                if (!equal(cur, vertex)) polygon.push(cur);
+                if (!equal(cur, vertex)) push(polygon, cur[0], cur[1]);
             } else if (shorten) {
-                polygon.push(intersectLines(bounded[old_segment][0], bounded[old_segment][1], position, vertex));
-                polygon.push(intersectLines(bounded[heap[0]][0], bounded[heap[0]][1], position, vertex));
+                let u = intersectLines(bounded[old_segment][0], bounded[old_segment][1], position, vertex),
+                    v = intersectLines(bounded[heap[0]][0], bounded[heap[0]][1], position, vertex);
+                push(polygon, u[0], u[1]);
+                push(polygon, v[0], v[1]);
             } 
         }
         return polygon;
@@ -2365,11 +3335,11 @@ class FlickerAnimation extends Shora.Animation {
 
 class ScaleAnimation extends Shora.Animation {
     constructor(light, ref) {
-        super(light._baseSprite, ref);
+        super(light, ref);
         this.s0 = this.s1 = ref.radius; 
         this.delta = this.tick = 0; this.time = -1;
         this.originalScale = ref.radius;
-        this._sprite.scale.set(ref.radius);
+        this._sprite.scale.set(Math.round(ref.radius));
 
     }
 
@@ -2398,7 +3368,7 @@ class ScaleAnimation extends Shora.Animation {
 
 class AngleAnimation extends Shora.Animation {
     constructor(light, ref) {
-        super(light._baseSprite, ref);
+        super(light, ref);
         this.a0 = this.a1 = ref.angle; 
         this.delta = this.tick = 0; this.time = -1;
 
@@ -2451,8 +3421,8 @@ class AngleAnimation extends Shora.Animation {
 }
 
 class TintAnimation extends Shora.Animation {
-    constructor(light, ref) {
-        super(light, ref);
+    constructor(sprite, ref) {
+        super(sprite, ref);
         this._sprite.tint = ref.tint || Math.round(Math.random() * 0xfffff);
 
         this.ocolor = Shora.ColorManager.hexToRGB(ref.tint);
@@ -2543,8 +3513,8 @@ const TextureManager = {
      * @param {Object} colorFilter 
      */
     filter: function(options) {
-        if ($shoraLayer.textureCache[options.filename])
-            return new PIXI.Sprite($shoraLayer.textureCache[options.filename]);
+        // if ($shoraLayer.textureCache[options.filename])
+        //     return $shoraLayer.textureCache[options.filename];
         let baseTexture = $shoraLayer.load(options.filename);
         let sprite = new PIXI.Sprite(new PIXI.Texture(baseTexture));
         let colorFilter = options.colorfilter;
@@ -2557,8 +3527,7 @@ const TextureManager = {
         let renderedTexture = Graphics.app.renderer.generateTexture(sprite, 1, 1, sprite.getBounds());
         sprite.filters = null;
 		sprite.destroy({texture: true});
-        $shoraLayer.textureCache[options.filename] = renderedTexture;
-		return new PIXI.Sprite(renderedTexture);
+        return $shoraLayer.textureCache[options.filename] = renderedTexture;
     }
 }
 
@@ -2649,45 +3618,45 @@ GameLighting.prototype.height = function() {
 }
 
 GameLighting.prototype.setStatus = function(id, status) {
-    if (!$shoraLayer.lighting.lights[id]) return;
+    if (!$shoraLayer.lighting.lights[id] || status === '') return;
     $gameMap._lighting[id].status = 
-    $shoraLayer.lighting.lights[id].status = status;
+    $shoraLayer.lighting.lights[id].status = status === 'true' || status === 'on';
     $shoraLayer.lighting.lights[id].renderable = true;
 }
 
 GameLighting.prototype.setRadius = function(id, radius, time, type) {
-    if (!$shoraLayer.lighting.lights[id]) return;
-    $shoraLayer.lighting.lights[id].setRadius(radius, time, type);
+    if (!$shoraLayer.lighting.lights[id] || radius === '') return;
+    $shoraLayer.lighting.lights[id].setRadius(Number(radius) / 100, Number(time), Number(type));
 }
 
 GameLighting.prototype.setAngle = function(id, angle, time, type) {
-    if (!$shoraLayer.lighting.lights[id]) return;
-    $shoraLayer.lighting.lights[id].setAngle(angle, time, type);
+    if (!$shoraLayer.lighting.lights[id] || angle === '') return;
+    $shoraLayer.lighting.lights[id].setAngle(Number(angle) / 57.6, Number(time), Number(type));
 }
 
 GameLighting.prototype.setShadow = function(id, status) {
-    if (!$shoraLayer.lighting.lights[id]) return;
-    $shoraLayer.lighting.lights[id].setShadow(status);
+    if (!$shoraLayer.lighting.lights[id] || status === '') return;
+    $shoraLayer.lighting.lights[id].setShadow(status === 'true' || status === 'on');
 }
 
 GameLighting.prototype.setOffset = function(id, x, y, time, type) {
     if (!$shoraLayer.lighting.lights[id]) return;
-    $shoraLayer.lighting.lights[id].setOffset(x, y, time, type);
+    $shoraLayer.lighting.lights[id].setOffset(Number(x), Number(y), Number(time), Number(type));
 }
 
 GameLighting.prototype.setOffsetX = function(id, x, time, type) {
-    if (!$shoraLayer.lighting.lights[id]) return;
-    $shoraLayer.lighting.lights[id].setOffsetX(x, time, type);
+    if (!$shoraLayer.lighting.lights[id] || x === '') return;
+    $shoraLayer.lighting.lights[id].setOffsetX(Number(x), Number(time), Number(type));
 }
 
 GameLighting.prototype.setOffsetY = function(id, y, time, type) {
-    if (!$shoraLayer.lighting.lights[id]) return;
-    $shoraLayer.lighting.lights[id].setOffsetY(y, time, type);
+    if (!$shoraLayer.lighting.lights[id] || y === '') return;
+    $shoraLayer.lighting.lights[id].setOffsetY(Number(y), Number(time), Number(type));
 }
 
-GameLighting.prototype.setColor = function(id, color, time) {
-    if (!$shoraLayer.lighting.lights[id]) return;
-    $shoraLayer.lighting.lights[id].setColor(color, time);
+GameLighting.prototype.setTint = function(id, color, time, type) {
+    if (!$shoraLayer.lighting.lights[id] || color === '') return;
+    $shoraLayer.lighting.lights[id].setTint(color.toHexValue(), Number(time), Number(type));
 }
 
 GameLighting.prototype.addStaticLight = function(x, y, name) {
@@ -2739,146 +3708,82 @@ GameLighting.prototype.disable = function() {
         $shoraLayer.removeScene(SceneManager._scene._spriteset);
 }
 
-class ShadowCaster {
-    constructor(p, height) {
-        this.height = height;
-        this.segments = [];
-        for (let i = 0; i < p.length - 1; ++i)
-            this.segments.push([p[i], p[i + 1]]);
-        this.segments.push([p[p.length - 1], p[0]]);
-    }
-}
 
 class GameShadow {
     constructor() {
         this.segments = [];
-        this.originalSegments = [];
-        this.horizontalSegments = [];
-        this.verticalSegments = [];
-        this.lowerWalls = [];
-        this.originalLowerWalls = [];
-        this.ignoreShadows = [];
-        this.topWalls = []; // for fallback to draw each top wall
-        this.customCasters = [];
 
-        this._upperWalls = new PIXI.Graphics();
-        this._upperWallsTexture = PIXI.RenderTexture.create();
-        this.upperWalls = new PIXI.Sprite(this._upperWallsTexture);
-        // this._upperWalls.blendMode = PIXI.BLEND_MODES.MULTIPLY;
+        this.map = null;
+        this.lower = null;
+        this.ignore = null;
+        this.upper = null;
     }
 
     refresh() {
         this.segments = [];
-        this.originalSegments = [];
-        this.horizontalSegments = [];
-        this.verticalSegments = [];
-        this.lowerWalls = [];
-        this.originalLowerWalls = [];
-        this._upperWalls.clear();
-        this._upperWallsTexture.resize($gameLighting.width(), $gameLighting.height());
         this.scanMapCaster();
 		this.createSegments();
     }
     
     scanMapCaster() {
-        this.map = new Array($gameMap.height())
-            .fill(0)
-            .map(() => new Array($gameMap.width()).fill(0));
+        const width = $gameMap.width(),
+              height = $gameMap.height(),
+              regionStart = $shoraLayer._regionStart,
+              regionEnd = $shoraLayer._regionEnd,
+              topRegionId = $shoraLayer._topRegionId,
+              ignoreShadowsId = $shoraLayer._ignoreShadowsId;
 
-        let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
-        let regionStart = $shoraLayer._regionStart;
-        let regionEnd = $shoraLayer._regionEnd;
-        let topRegionId = $shoraLayer._topRegionId;
-        let ignoreShadowsId = $shoraLayer._ignoreShadowsId;
+
+        this.map = new Array(height)
+            .fill(0)
+            .map(() => new Array(width).fill(0));
+        this.lower = new Array(height)
+            .fill(0)
+            .map(() => new Array(width).fill(0));
+        this.upper = new Array(height)
+            .fill(0)
+            .map(() => new Array(width).fill(0));
+        this.ignore = new Array(height)
+            .fill(0)
+            .map(() => new Array(width).fill(0));
+
+        let id, h;
         
-        this._upperWalls.beginFill($gameLighting.topBlockAmbient);
-        let flag = false, begin = 0, width = 0;
-        for (var i = 0; i < $gameMap.height(); ++i) {
-            this.topWalls.push([]);
-            for (var j = 0; j < $gameMap.width(); ++j) {
-                if (regionStart <= $gameMap.regionId(j, i) && $gameMap.regionId(j, i) <= regionEnd) {
-                    this.map[i][j] = $gameMap.regionId(j, i) - regionStart + 1; 
+        for (var i = 0; i < height; ++i) {
+            for (var j = 0; j < width; ++j) {
+                id = $gameMap.regionId(j + 1, i + 1);
+                if (regionStart <= id && id <= regionEnd) {
+                    h = id - regionStart + 1;
+                    this.map[i][j] = h; 
+                    if (i + h < height) this.lower[i + h][j] = 1;
+                    if (i - h + 1 >= 0) this.upper[i - h + 1][j] = 1;
                 }
-                if ((regionStart <= $gameMap.regionId(j, i) && $gameMap.regionId(j, i) <= regionEnd) || $gameMap.regionId(j, i) == topRegionId) {
-                    this._upperWalls.drawRect(j * tw, i * th, tw, th);
-                    /*
-                    if (!flag) {
-                        flag = true;
-                        begin = j * 48;
-                    }
-                    width += 48;
-                } else if (flag) {
-                    flag = false;
-                    this.topWalls[i].push([begin, begin+width]);
-                    width = 0;
-                    */
-                }
-                if ($gameMap.regionId(j, i) == ignoreShadowsId) 
-                    this.ignoreShadows.push([j * tw, i * tw]);
+                if (id === topRegionId) 
+                    this.upper[i][j] = 1;
+                if (id === ignoreShadowsId) 
+                    this.ignore[i][j] = 1;
             }
         }
-        this._upperWalls.endFill();
-        Graphics.app.renderer.render(this._upperWalls, this._upperWallsTexture);
     }
 
     outOfBound(x, y) {
 		return x < 0 || y < 0 || y >= this.map.length || x >= this.map[y].length;
     }
     
-    addUpperSegment(x, y, height) {
-		let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
-		this.horizontalSegments.push([x * tw, (y + height) * th, (x + 1) * tw, (y + height) * th]);
-    }
-    
-    addLowerSegment(x, y, height) {
-		let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
-		this.horizontalSegments.push([(x + 1) * tw, (y + height + 1) * th, x * tw, (y + height + 1) * th]);
-		this.lowerWalls.push([(x + 1) * tw, (y + height + 1) * th, x * tw, (y + height + 1) * th, height]);
-    }
-    
-    addRightSegment(x, y, height) {
-		let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
-		this.verticalSegments.push([(x + 1) * tw, (y + height) * th, (x + 1) * tw, (y + height + 1) * th]);
-    }
-    
-    addLeftSegment(x, y, height) {
-		let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
-		this.verticalSegments.push([x * tw, (y + height) * th, x * tw, (y + height + 1) * th]);
-    }
-    
-    addCaster(x, y, height) {
-		// Check left of this postion.
+    addCaster(x, y, h, vert, horz) {
+        const tw = $gameMap.tileWidth(), th = $gameMap.tileHeight();
 		if (!this.outOfBound(x, y - 1) && this.map[y - 1][x]) {
-			// Check upper of this postion.
-			if (!this.outOfBound(x - 1, y)) {
-				if (!this.map[y][x - 1]) {
-					this.addLeftSegment(x, y, height);
-				} 
-			}
-		} else {
-			// Check upper of this postion.
-			if (!this.outOfBound(x - 1, y)) {
-				this.addUpperSegment(x, y, height);
-				// Check left of this postion.
-				if (!this.map[y][x - 1]) {
-					this.addLeftSegment(x, y, height);
-				} 
-			} 
+			if (!this.outOfBound(x - 1, y) && !this.map[y][x - 1]) 
+				vert.push([(x + 1) * tw, (y + h) * th, (x + 1) * tw, (y + h + 1) * th]);
+		} else if (!this.outOfBound(x - 1, y)) {
+            horz.push([(x + 1) * tw, (y + h) * th, (x + 2) * tw, (y + h) * th]);
+            if (!this.map[y][x - 1]) 
+                vert.push([(x + 1) * tw, (y + h) * th, (x + 1) * tw, (y + h + 1) * th]);
 		} 
-
-		// Check right of this postion.
-		if (!this.outOfBound(x + 1, y)) {
-			if (!this.map[y][x + 1]) {
-				this.addRightSegment(x, y, height);
-			}
-		}
-
-		// Check lower of this postion.
-		if (!this.outOfBound(x, y + 1)) {
-			if (!this.map[y + 1][x]) {
-				this.addLowerSegment(x, y, height);
-			}
-		}
+		if (!this.outOfBound(x + 1, y) && !this.map[y][x + 1]) 
+				vert.push([(x + 2) * tw, (y + h) * th, (x + 2) * tw, (y + h + 1) * th]);
+		if (!this.outOfBound(x, y + 1) && !this.map[y + 1][x]) 
+				horz.push([(x + 2) * tw, (y + h + 1) * th, (x + 1) * tw, (y + h + 1) * th]);
     }
     
     mergeHorizontalSegments(a) {
@@ -2946,27 +3851,14 @@ class GameShadow {
     }
     
     createSegments() {
-		for (var y = 0; y < this.map.length; y++) {
-			for (var x = 0; x < this.map[y].length; x++) {
-				if (this.map[y][x]) {
-					this.addCaster(x, y, this.map[y][x] - 1);
-				}
-			}
-		}
+        let vert = [], horz = [];
+		for (var y = 0; y < this.map.length; y++) 
+			for (var x = 0; x < this.map[y].length; x++) if (this.map[y][x]) 
+					this.addCaster(x, y, this.map[y][x], vert, horz);
 
-		// Shadow Casters
-        this.verticalSegments = this.mergeVerticalSegments(this.verticalSegments);
-        this.horizontalSegments = this.mergeHorizontalSegments(this.horizontalSegments);
-
-        // this.segments = this.horizontalSegments.concat(this.verticalSegments);
-        // for (const caster of this.customCasters)
-        //     this.segments = this.segments.concat(caster.segments);
-
-		this.segments = ShadowSystem.getSegments(this.horizontalSegments.concat(this.verticalSegments));
-
-		// Lower walls
-        this.lowerWalls = this.mergeLowerWalls(this.lowerWalls);
-        this.lowerWalls.sort((a, b) => b[0] - a[0]);
+		this.segments = ShadowSystem.getSegments(
+            this.mergeVerticalSegments(vert).concat(
+            this.mergeHorizontalSegments(horz)));
     }
     
     worldToScreenX(x) {
@@ -2978,6 +3870,7 @@ class GameShadow {
     }
 
     getWallHeight(x, y) {
+        return;
         let tw = $gameMap.tileWidth(), eps = 0.0001; // tw * h + 6 + eps
         for (const [x2, y2, x1, y1, h] of this.lowerWalls) {
             if (x >= x1 && x <= x2 && y <= y1 && y >= y2-tw*h) {
@@ -2988,5 +3881,5 @@ class GameShadow {
     }
 }
 
-$shoraLayer = new Layer();
+// $shoraLayer = new Layer();
 $gameShadow = new GameShadow();
