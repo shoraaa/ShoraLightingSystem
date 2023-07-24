@@ -1,5 +1,7 @@
 Shora Lighting & Shadow System
+
 ―――――――――――――――――――――
+
 A Lighting Plugin for RPG Maker MV/MZ made by Shora.
 
 [itch.io page](https://shoraaa.itch.io/shora-lighting-plugin)
