@@ -1,6 +1,6 @@
-### Shora Lighting & Shadow System
+![slss](https://github.com/shoraaa/ShoraLightingSystem/assets/24241275/f64759e0-da16-4a1e-8255-63b12ddbdbe7)
 
-―――――――――――――――――――――
+# Shora Lighting & Shadow System
 
 A Lighting Plugin for RPG Maker MV/MZ made by Shora.
 
@@ -8,7 +8,9 @@ A Lighting Plugin for RPG Maker MV/MZ made by Shora.
 
 [forums post](https://forums.rpgmakerweb.com/index.php?threads/mz-mv-v1-9-1-shora-lighting-shadow-system.131410/)
 
-Term of Use:
+[wiki](https://github.com/shoraaa/ShoraLightingSystem/wiki)
+
+## Term of Use:
 If you want to use this plugin with a free RPG Maker game, you can do it for free and there's no need to contact me. I only ask you to give credit to "Shora" or "Shora Lighting System" somewhere in your game.
 
 This plugin is NOT FREE for COMMERCIAL use. If you want to use it on a commercial title, you may buy the plugin's commercial license via itch.io. This license covers commercial use only for one of your project.
