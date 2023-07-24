@@ -1,9 +1,5 @@
 EventLabel.js
 MZPlusQuickStart.js
 PluginCommonBase.js
-README.md
-ShoraLighting.js
-ShoraLighting.rb
-.gitattributes
-.gitignore
--ShoraLighting- backup.js
+-ShoraLighting-.rb
+Galv_ImageCache.js

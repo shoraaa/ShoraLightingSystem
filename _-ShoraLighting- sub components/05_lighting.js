@@ -505,18 +505,6 @@ var ShadowSystem = (function() {
         }
     };
 
-    const push = (poly, x, y) => {
-        if (x >= 48 && y >= 48 && x % 48 === 0 && y % 48 === 0
-            && y / 48 - 1 < $gameShadow.lower.length && x / 48 - 2 < $gameShadow.lower[y / 48 - 1].length
-            && poly.length >= 2 && poly[poly.length - 1] === y) {
-            let h = $gameShadow.lower[y / 48 - 1][x / 48 - 2], 
-                lx = poly[poly.length - 2], 
-                uy = y - h * $gameMap.tileHeight();
-            if (h) poly.push(lx, uy, x, uy);
-        }
-        poly.push(x, y);
-    }
-
     const compute = (position, segments) => {
         let bounded = [];
         let minX = position[0];
@@ -579,17 +567,15 @@ var ShadowSystem = (function() {
                 if (i == sorted.length) break;
             } while (sorted[i][2] < sorted[orig][2] + epsilon());
 
-            if (extend) {
-                push(polygon, vertex[0], vertex[1]);
-                let cur = intersectLines(bounded[heap[0]][0], bounded[heap[0]][1], position, vertex);
-                if (!equal(cur, vertex)) push(polygon, cur[0], cur[1]);
-            } else if (shorten) {
-                let u = intersectLines(bounded[old_segment][0], bounded[old_segment][1], position, vertex),
-                    v = intersectLines(bounded[heap[0]][0], bounded[heap[0]][1], position, vertex);
-                push(polygon, u[0], u[1]);
-                push(polygon, v[0], v[1]);
-            } 
-        }
+            if (extend) {	
+                polygon.push(vertex);	
+                let cur = intersectLines(bounded[heap[0]][0], bounded[heap[0]][1], position, vertex);	
+                if (!equal(cur, vertex)) polygon.push(cur);	
+            } else if (shorten) {	
+                polygon.push(intersectLines(bounded[old_segment][0], bounded[old_segment][1], position, vertex));	
+                polygon.push(intersectLines(bounded[heap[0]][0], bounded[heap[0]][1], position, vertex));	
+            } 	
+        }	
         return polygon;
     };
 
