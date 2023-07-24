@@ -7,95 +7,21 @@ function GameLighting() {
 GameLighting.prototype.constructor = GameLighting;
 
 GameLighting.prototype.initialize = function() {
-    /* MV ONLY */
-    if (Shora.Lighting.PARAMETERS.version.toUpperCase() == 'MV')
-        Shora.MVOverload();
-    
-
-    this.LIGHTING = {};
     this.loadParameters();
-    this.loadLighting();
 }
 
 GameLighting.prototype.loadParameters = function() {
+    this._disabled = false;
+
     let PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Map']);
     this.ambient = PARAMETERS.ambient.toHexValue();
     this.shadowAmbient = PARAMETERS.shadowAmbient.toHexValue();
     this.topBlockAmbient = PARAMETERS.topBlockAmbient.toHexValue();
-    
-    let GAME_PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['Game']);
-    this.regionStart = Number(GAME_PARAMETERS.regionStart);
-    this.regionEnd = Number(GAME_PARAMETERS.regionEnd);
-    this.topRegionId = Number(GAME_PARAMETERS.topRegionId);
-    this.ignoreShadowsId = Number(GAME_PARAMETERS.ignoreShadowsId);
-}
 
-GameLighting.prototype.loadLighting = function() {
-    // add default light
-    this.addLighting(Shora.Lighting.PARAMETERS['default']);
-    // add custom light
-    this.addCustomLighting(Shora.Lighting.PARAMETERS['LightList']);
-}
-
-GameLighting.prototype.addCustomLighting = function(list) {
-    list = JSON.parse(list);
-    for (let i = 0; i < list.length; ++i) {
-        this.addLighting(list[i]);
-    }
-}
-
-/**
- * Register new lighting type.
- * @param {String} name 
- * @param {Object} settings 
- */
-GameLighting.prototype.addLighting = function(settings) {
-    const parameters = JSON.parse(settings);
-    let name = parameters.name;
-    if (name == "") {
-        console.warn('Lighting name field cannot be left empty. Cancelling register process.'); 
-        return;
-    }
-    console.log('Lighting ' + name + ' is having registered');
-
-    parameters.status = parameters.status !== 'false';
-
-    parameters.direction = parameters.direction === 'true';
-    parameters.tint = parameters.tint.toHexValue();
-    parameters.bwall = parameters.bwall === 'true';
-    parameters.shadow = parameters.shadow === 'true';
-    parameters.static = parameters.static === 'true';
-    
-    parameters.shadowambient = 
-        parameters.shadowambient == "" ?  
-        this.shadowAmbient :
-        parameters.shadowambient.toHexValue();
-
-    parameters.offset = JSON.parse(parameters.offset);
-    for (const p in parameters.offset) {
-        parameters.offset[p] = Number(parameters.offset[p]);
-    }
-
-    parameters.shadowoffsetx = Number(parameters.shadowoffsetx);
-    parameters.shadowoffsety = Number(parameters.shadowoffsety);
-    
-    parameters.colorfilter = JSON.parse(parameters.colorfilter);
-    parameters.colorfilter.hue = Number(parameters.colorfilter.hue);
-    parameters.colorfilter.brightness = Number(parameters.colorfilter.brightness);
-    parameters.colorfilter.colortone = parameters.colorfilter.colortone.toRGBA();
-    parameters.colorfilter.blendcolor = parameters.colorfilter.blendcolor.toRGBA();
-
-    parameters.animation = JSON.parse(parameters.animation);
-    for (const p in parameters.animation) {
-        if (p[0] === '.') continue;
-        parameters.animation[p] = JSON.parse(parameters.animation[p]);
-        for (let a in parameters.animation[p]) {
-            parameters.animation[p][a] = JSON.parse(parameters.animation[p][a]);
-        }
-    }
-
-    parameters.name = name;
-    this.LIGHTING[name] = parameters;
+    PARAMETERS = JSON.parse(Shora.Lighting.PARAMETERS['filter']);
+    this.softShadow = PARAMETERS.softShadow !== 'false';
+    this.softShadowStr = Number(PARAMETERS.softShadowStr) || 1;
+    this.softShadowQlt = Number(PARAMETERS.softShadowQlt) || 1;
 }
 
 /**
@@ -105,14 +31,14 @@ GameLighting.prototype.addLighting = function(settings) {
  * @param {Object} options 
  */
 GameLighting.prototype.add = function(options) {
-    if (!this.LIGHTING[options.name]) {
+    if (!$shoraLayer.LIGHTING[options.name]) {
         Shora.warn('Cannot find light named [' + options.name + '].\nPlease register lighting before use.\nDefault Lighting used instead');
         options.name = 'default';
     }
-    const params = {...this.LIGHTING[options.name], ...options};
+    const params = {...$shoraLayer.LIGHTING[options.name], ...options};
     this.remove(params.id);
     $gameMap._lighting[params.id] = params;
-    return $shoraLayer.lighting.addLight(params);
+    $shoraLayer.lighting.addLight(params);
 }
 
 /**
@@ -159,24 +85,93 @@ GameLighting.prototype.height = function() {
 }
 
 GameLighting.prototype.setStatus = function(id, status) {
+    if (!$shoraLayer.lighting.lights[id] || status === '') return;
     $gameMap._lighting[id].status = 
-    $shoraLayer.lighting.lights[id].status = status;
+    $shoraLayer.lighting.lights[id].status = status === 'true' || status === 'on';
     $shoraLayer.lighting.lights[id].renderable = true;
 }
 
+GameLighting.prototype.setRadius = function(id, radius, time, type) {
+    if (!$shoraLayer.lighting.lights[id] || radius === '') return;
+    $shoraLayer.lighting.lights[id].setRadius(Number(radius) / 100, Number(time), Number(type));
+}
+
+GameLighting.prototype.setAngle = function(id, angle, time, type) {
+    if (!$shoraLayer.lighting.lights[id] || angle === '') return;
+    $shoraLayer.lighting.lights[id].setAngle(Number(angle) / 57.6, Number(time), Number(type));
+}
+
+GameLighting.prototype.setShadow = function(id, status) {
+    if (!$shoraLayer.lighting.lights[id] || status === '') return;
+    $shoraLayer.lighting.lights[id].setShadow(status === 'true' || status === 'on');
+}
+
 GameLighting.prototype.setOffset = function(id, x, y, time, type) {
-    $shoraLayer.lighting.lights[id].setOffset(x, y, time, type);
+    if (!$shoraLayer.lighting.lights[id]) return;
+    $shoraLayer.lighting.lights[id].setOffset(Number(x), Number(y), Number(time), Number(type));
 }
 
 GameLighting.prototype.setOffsetX = function(id, x, time, type) {
-    $shoraLayer.lighting.lights[id].setOffsetX(x, time, type);
+    if (!$shoraLayer.lighting.lights[id] || x === '') return;
+    $shoraLayer.lighting.lights[id].setOffsetX(Number(x), Number(time), Number(type));
 }
 
 GameLighting.prototype.setOffsetY = function(id, y, time, type) {
-    $shoraLayer.lighting.lights[id].setOffsetY(y, time, type);
+    if (!$shoraLayer.lighting.lights[id] || y === '') return;
+    $shoraLayer.lighting.lights[id].setOffsetY(Number(y), Number(time), Number(type));
 }
 
-GameLighting.prototype.setColor = function(id, color, time) {
-    $shoraLayer.lighting.lights[id].setColor(color, time);
+GameLighting.prototype.setTint = function(id, color, time, type) {
+    if (!$shoraLayer.lighting.lights[id] || color === '') return;
+    $shoraLayer.lighting.lights[id].setTint(color.toHexValue(), Number(time), Number(type));
+}
+
+GameLighting.prototype.addStaticLight = function(x, y, name) {
+    return; // TODO
+    let options = {
+        name: name || 'default',
+        fileName: 'lights', 
+        x: x, 
+        y: y, 
+        id: 'static'
+    };
+    if (!$shoraLayer.LIGHTING[options.name]) {
+        Shora.warn('Cannot find light named [' + options.name + '].\nPlease register lighting before use.\nDefault Lighting used instead');
+        options.name = 'default';
+    }
+    const params = {...$shoraLayer.LIGHTING[options.name], ...options};
+    $gameMap._staticLighting.push(params);
+    $shoraLayer.lighting.addStaticLight(params);
+}
+
+GameLighting.prototype.setColorFilter = function(status) {
+    $shoraLayer._colorFilter.status = status ? 'true' : 'false';
+    $shoraLayer.updateColorFilter();
+}
+
+GameLighting.prototype.setBrightness = function(brightness) {
+    $shoraLayer._colorFilter.brightness = brightness;
+    $shoraLayer.updateColorFilter();
+}
+
+GameLighting.prototype.setPluginState = function(status) {
+    if (status && this._disabled) 
+        this.enable();
+    if (!status && !this._disabled) 
+        this.disable();
+}
+
+GameLighting.prototype.enable = function() {
+    if (!this._disabled) return;
+    this._disabled = false;
+    if (SceneManager._scene._spriteset)
+        $shoraLayer.loadScene(SceneManager._scene._spriteset);
+}
+
+GameLighting.prototype.disable = function() {
+    if (this._disabled) return;
+    this._disabled = true;
+    if (SceneManager._scene._spriteset)
+        $shoraLayer.removeScene(SceneManager._scene._spriteset);
 }
 

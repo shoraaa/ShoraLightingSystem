@@ -16,11 +16,12 @@ const TextureManager = {
      * @param {PIXI.BaseTexture} baseTexture 
      * @param {Object} colorFilter 
      */
-    filter: function(baseTexture, colorFilter, name) {
-        //return new PIXI.Texture(baseTexture);
-        if (!colorFilter) return baseTexture;
-        if ($shoraLayer.textureCache(name)) return $shoraLayer.textureCache(name);
+    filter: function(options) {
+        // if ($shoraLayer.textureCache[options.filename])
+        //     return $shoraLayer.textureCache[options.filename];
+        let baseTexture = $shoraLayer.load(options.filename);
         let sprite = new PIXI.Sprite(new PIXI.Texture(baseTexture));
+        let colorFilter = options.colorfilter;
         let filter = new ColorFilter();
 		filter.setBrightness(colorFilter.brightness || 255);
 		filter.setHue(colorFilter.hue === -1 ? Math.random() * 360 : colorFilter.hue);
@@ -30,44 +31,7 @@ const TextureManager = {
         let renderedTexture = Graphics.app.renderer.generateTexture(sprite, 1, 1, sprite.getBounds());
         sprite.filters = null;
 		sprite.destroy({texture: true});
-		return $shoraLayer.lightingCache[name] = renderedTexture;
-    },
-
-    snapshot: function(sprite) {
-        // todo: rotation angle correcting, no need filter when rotate        
-        let region = sprite.shadow.bounds;
-        let [x, y, rotation, scale] = [sprite.x, sprite.y, sprite.rotation, sprite.scale.x];
-		sprite.x = 0;
-		sprite.y = 0;
-		sprite.anchor.set(0);
-        sprite.mask = null;
-        sprite.rotation = 0;
-        sprite.renderable = true;
-        sprite.filters = null;
-        
-        sprite.shadow.mask.renderable = true;
-        Shora.maskTexture.resize(sprite.width, sprite.height);
-
-        Shora.tempMatrix.tx = -region.x + sprite.shadowOffsetX;
-        Shora.tempMatrix.ty = -region.y + sprite.shadowOffsetY;
-        
-        Graphics.app.renderer.render(sprite.shadow.mask, Shora.maskTexture, false, Shora.tempMatrix, true);
-        let maskSprite = new PIXI.Sprite(Shora.maskTexture);
-        Shora.MASK = maskSprite;
-
-        sprite.filters = [new PIXI.SpriteMaskFilter(maskSprite)];
-
-		//sprite.renderTexture.resize(sprite.width, sprite.height);
-        Graphics.app.renderer.render(sprite, sprite.renderTexture);
-        sprite.filters = null;
-        maskSprite.destroy(1);
-
-        sprite.x = x; 
-        sprite.y = y; 
-        sprite.anchor.set(0.5);
-        sprite.rotation = rotation; 
-        sprite.pulse.set(1, 1);
-        sprite.texture = sprite.renderTexture;
-    } 
+        return $shoraLayer.textureCache[options.filename] = renderedTexture;
+    }
 }
 

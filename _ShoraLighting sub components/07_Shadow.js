@@ -1,53 +1,50 @@
+// TODO: Directly draw darken geometry into light texture
+// using vertex shader to calculate those geometry.
+// Currently it draw those into temporary sprite then into light texture
 class Shadow {
-    get mask() {
-        return this.shadowMask;
-    }
-    constructor(ox, oy, bounds, shadowAmbient) {
-        // TODO: Calculate Transform.
-        this._shadowMask = new PIXI.Graphics();
-        this._shadowTexture = PIXI.RenderTexture.create($gameLighting.width(), $gameLighting.height());
-        this.shadowMask = new PIXI.Sprite(this._shadowTexture);
-        this.shadowAmbient = shadowAmbient;
-        this.updateGlobal(ox, oy, bounds);
+    constructor(ox, oy, b, s, width, height, rotation) {
+        this.graphics = new PIXI.Graphics();
+        this.texture = PIXI.RenderTexture.create(width, height);
+
+        this.shadowAmbient = s;
+        this.calculate(ox, oy, b);
+        
+        this._rendered = false;
     }
 
     destroy() {
-        this.polygon = null; this.bounds = null; this._parallelSegments = null;
-        this._shadowMask.destroy(true); this._shadowMask = null;
-        this._shadowTexture = null; this.shadowMask = null;
-        /* this will get destroyed by layer call
-        this._shadowTexture.destroy(true); 
-        this.shadowMask.destroy(true); 
-        */
-        this.bounds = null;
+        this.polygon = this.bounds = 
+        this._parallelSegments = this.shadowAmbient = null;
+        this.graphics = null;
     }
 
-    update(x, y, bounds) {
-        //console.log("update x =" + x + " y = " + y);
-        this.bounds = bounds;
-        this.polygon = ShadowSystem.computeViewport([x, y], $gameShadow.segments, [this.bounds.left, this.bounds.top], [this.bounds.right, this.bounds.bottom]);
-        //this.bounds = bounds;
+    calculate(ox, oy, b) {
+        this.bounds = b;
+        this.polygon = ShadowSystem.computeViewport([ox, oy], $gameShadow.segments, [this.bounds.left, this.bounds.top], [this.bounds.right, this.bounds.bottom]);
         this._parallelSegments = {};
-        this._shadowMask.clear();
-        this.draw(y, $gameShadow.lowerWalls);
-        Graphics.app.renderer.render(this._shadowMask, this._shadowTexture);
-        // top-wall
-        Graphics.app.renderer.render($gameShadow.upperWalls, this._shadowTexture, false);
+        this.graphics.clear();
+        this.draw(oy, $gameShadow.lowerWalls);
     }
 
-    updateGlobal(ox, oy, bounds) {
-        //console.log("update global x =" + ox + " y = " + oy);
-        this.bounds = bounds;
-        this.polygon = ShadowSystem.computeViewport([ox, oy], $gameShadow.globalSegments, [this.bounds.left, this.bounds.top], [this.bounds.right, this.bounds.bottom]);
-        this._parallelSegments = {};
-        this._shadowMask.clear();
-        this.draw(oy, $gameShadow.globalLowerWalls);
-        Graphics.app.renderer.render(this._shadowMask, this._shadowTexture);
-        // top-wall
-        let {x, y} = $gameShadow.upperWalls;
-        $gameShadow.upperWalls.x = $gameShadow.upperWalls.y = 0;
-        Graphics.app.renderer.render($gameShadow.upperWalls, this._shadowTexture, false);
-        $gameShadow.upperWalls.x = x; $gameShadow.upperWalls.y = y;
+    render(ox, oy, width, height, rotation) {
+        width = Math.ceil(width), height = Math.ceil(height);
+        if (width > this.texture.width || height > this.texture.height) 
+            this.texture.resize(width, height);
+            
+        // todo: apply ALL transforms at gpu level
+        // Shora.tempMatrix.setTransform(this.texture.width / 2, this.texture.height / 2,
+        //     ox, oy, this.texture.width / width, this.texture.height / height, 2 * Math.PI - rotation, 0, 0);
+        // Graphics.app.renderer.render(this.graphics, this.texture, false, Shora.tempMatrix, true);
+        
+        // old way
+        this.graphics.pivot.set(ox, oy);
+        this.graphics.position.set(this.texture.width / 2, this.texture.height / 2);
+        this.graphics.scale.set(this.texture.width / width);
+        this.graphics.rotation = 2 * Math.PI - rotation;
+        Graphics.app.renderer.render(this.graphics, this.texture, false);
+
+        this._rendered = true;
+        // Graphics.app.renderer.render($gameShadow.upperWalls, this.texture, false);
     }
 
     drawWall(index, oy, lowerWalls) {
@@ -62,7 +59,7 @@ class Shadow {
 		for (let i = 0; i < lowerWalls.length; ++i) {
 			let [x2, y2, x1, y1, height] = lowerWalls[i];
 			if (y == ny && y == y1 && x >= x1 && x <= x2 && nx >= x1 && nx <= x2 && oy >= y1) {
-				this._shadowMask.lineTo(nx, ny - tw * height)
+				this.graphics.lineTo(nx, ny - tw * height)
 							    .lineTo(x, y - tw * height);
 			}
 		}
@@ -87,71 +84,89 @@ class Shadow {
         return false;
 	}
 
-    draw(oy, lowerWalls) {
-        this._shadowMask.beginFill(this.shadowAmbient);
-		this._shadowMask.drawRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height);
-		this._shadowMask.endFill();
+    draw() {
+        this.graphics.beginFill(this.shadowAmbient)
+        .drawRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height).endFill();
 
-		this._shadowMask.beginFill(0xffffff);
-		this._shadowMask.moveTo(this.polygon[0][0], this.polygon[0][1]);
-		for (let i = 1; i < this.polygon.length; ++i) {
-			this.drawWall(i, oy, lowerWalls);
-            this._shadowMask.lineTo(this.polygon[i][0], this.polygon[i][1]);
-        }
-        this._shadowMask.lineTo(this.polygon[0][0], this.polygon[0][1]);
-		this.drawWall(0, oy, lowerWalls);
-		if (this.polygon[0][1] == this.polygon[this.polygon.length - 1][1]) {
-			if (!this._parallelSegments[this.polygon[0][1]]) this._parallelSegments[this.polygon[0][1]] = [];
-			this._parallelSegments[this.polygon[0][1]].push([this.polygon[0][0], this.polygon[this.polygon.length - 1][0]]);
-		}
-		this._shadowMask.endFill(); 
+        this.graphics.beginFill(0xffffff).startPoly();
+        this.graphics.currentPath.points = this.polygon;
+        this.graphics.endFill();
 
-		for (let y in this._parallelSegments) {
-			for (let i in this._parallelSegments[y]) {
-				if (this._parallelSegments[y][i][0] > this._parallelSegments[y][i][1])
-				[this._parallelSegments[y][i][0], this._parallelSegments[y][i][1]] = [this._parallelSegments[y][i][1], this._parallelSegments[y][i][0]];
-			}
-			this._parallelSegments[y].sort((a, b) => a[0] - b[0]);
-		}
 
-		//drawing lower-walls
-        this._shadowMask.beginFill(this.shadowAmbient); 
-        let tw = $gameMap.tileWidth();
-		for (let i = 0; i < lowerWalls.length; ++i) {
-			let [x2, y2, x1, y1, height] = lowerWalls[i];
-            if (y1 >= oy || !this.containParallelSegment(y1, x1, x2)) {
-                this._shadowMask.moveTo(x1, y1);
-                this._shadowMask.lineTo(x1, y1-tw*height);
-                this._shadowMask.lineTo(x2, y2-tw*height);
-                this._shadowMask.lineTo(x2, y2);
-            }
-		}
-        this._shadowMask.endFill();
+        const tw = $gameMap.tileWidth(),
+              th = $gameMap.tileHeight(),
+              width = $gameMap.width(),
+              height = $gameMap.height(),
+              top = Math.max(0, Math.floor(this.bounds.top / 48)),
+              bottom = Math.min(height - 1, Math.ceil(this.bounds.bottom / 48)),
+              left = Math.max(0, Math.floor(this.bounds.left / 48)),
+              right = Math.min(width - 1, Math.ceil(this.bounds.right / 48));
+
+        this.graphics.beginFill(this.shadowAmbient);
+        for (let i = top; i <= bottom; ++i) 
+            for (let j = left; j <= right; ++j) if ($gameShadow.upper[i][j]) 
+                this.graphics.drawRect((j + 1) * tw, (i + 2) * th, tw, th);
+        this.graphics.endFill();
+
+
+		// this.graphics.moveTo(this.polygon[0][0], this.polygon[0][1]);
+		// for (let i = 1; i < this.polygon.length; ++i) {
+		// 	this.drawWall(i, oy, lowerWalls);
+        //     this.graphics.lineTo(this.polygon[i][0], this.polygon[i][1]);
+        // }
+        // this.graphics.lineTo(this.polygon[0][0], this.polygon[0][1]);
+		// this.drawWall(0, oy, lowerWalls);
+        // this.graphics.endFill();
+
+		// if (this.polygon[0][1] == this.polygon[this.polygon.length - 1][1]) {
+		// 	if (!this._parallelSegments[this.polygon[0][1]]) this._parallelSegments[this.polygon[0][1]] = [];
+		// 	this._parallelSegments[this.polygon[0][1]].push([this.polygon[0][0], this.polygon[this.polygon.length - 1][0]]);
+		// }
+
+		// for (let y in this._parallelSegments) {
+		// 	for (let i in this._parallelSegments[y]) {
+		// 		if (this._parallelSegments[y][i][0] > this._parallelSegments[y][i][1])
+		// 		[this._parallelSegments[y][i][0], this._parallelSegments[y][i][1]] = [this._parallelSegments[y][i][1], this._parallelSegments[y][i][0]];
+		// 	}
+		// 	this._parallelSegments[y].sort((a, b) => a[0] - b[0]);
+		// }
+
+		// //drawing lower-walls
+        // this.graphics.beginFill(this.shadowAmbient); 
+        // let tw = $gameMap.tileWidth();
+		// for (let i = 0; i < lowerWalls.length; ++i) {
+		// 	let [x2, y2, x1, y1, height] = lowerWalls[i];
+        //     if (y1 >= oy || !this.containParallelSegment(y1, x1, x2)) {
+        //         this.graphics.moveTo(x1, y1);
+        //         this.graphics.lineTo(x1, y1-tw*height);
+        //         this.graphics.lineTo(x2, y2-tw*height);
+        //         this.graphics.lineTo(x2, y2);
+        //     }
+		// }
+        // this.graphics.endFill();
         
-        // ignore shadows 
-        this._shadowMask.beginFill(0xffffff); 
-        for (let i = 0; i < $gameShadow.ignoreShadows.length; ++i) {
-            let [x, y] = $gameShadow.ignoreShadows[i];
-            this._shadowMask.moveTo(x, y);
-            this._shadowMask.lineTo(x, y+tw);
-            this._shadowMask.lineTo(x+tw, y+tw);
-            this._shadowMask.lineTo(x+tw, y);
-        }
-        this._shadowMask.endFill();
+        // // ignore shadows 
+        // this.graphics.beginFill(0xffffff); 
+        // for (let i = 0; i < $gameShadow.ignoreShadows.length; ++i) {
+        //     let [x, y] = $gameShadow.ignoreShadows[i];
+        //     this.graphics.moveTo(x, y);
+        //     this.graphics.lineTo(x, y+tw);
+        //     this.graphics.lineTo(x+tw, y+tw);
+        //     this.graphics.lineTo(x+tw, y);
+        // }
+        // this.graphics.endFill();
         
         /* drawing top-walls
-        this._shadowMask.beginFill(0x333333);
+        this.graphics.beginFill(0x333333);
         for (let i = Math.max(0, Math.floor(this.bounds.top / 48));
             i <= Math.min($gameShadow.topWalls.length - 1, Math.ceil(this.bounds.bottom / 48)); ++i) {
             let j = $gameShadow.topWalls[i].pair_floor_search(this.bounds.left, 1) + 1;
             for (; j < $gameShadow.topWalls[i].length && $gameShadow.topWalls[i][j][0] < this.bounds.right; ++j) {
                 let [begin, end] = $gameShadow.topWalls[i][j];
-                this._shadowMask.drawRect(begin, i*48, end-begin, 48);
+                this.graphics.drawRect(begin, i*48, end-begin, 48);
             }
         }
-        this._shadowMask.endFill();
+        this.graphics.endFill();
         */
     }
 }
-
-let _shadowMask = new PIXI.Graphics();

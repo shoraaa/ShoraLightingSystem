@@ -1,3 +1,340 @@
+
+/* The lighting itself, with its shadow and shadow's compute algorithm. */
+
+class LightingSprite extends PIXI.Sprite {
+
+    get character() {
+        return this.id ? $gameMap._events[this.id] : $gamePlayer;
+    }
+
+    constructor(options) {
+        super();
+
+        let baseSprite = TextureManager.filter(options);
+        this._baseSprite = baseSprite;
+        this._baseSprite.anchor.set(0.5);
+
+        this.renderable = true;
+        this.id = options.id;
+        this.fileName = options.filename;
+        this.colorFilter = options.colorfilter;
+        this.status = options.status;
+        this.anchor.set(0.5);
+
+        this.radius = new ScaleAnimation(this, options); // default radius = 100%
+        this.setRadius(options.radius);
+        this.pulse = new PulseAnimation(this, options.animation.pulse, options.radius);
+        
+        this.rotate = new AngleAnimation(this, options);
+        this.setAngle(options.direction ? this.rotate.angle() : options.angle);
+
+        this.offset = new OffsetAnimation(options.offset);
+        this.setPostion(options);
+
+        this.flicker = new FlickerAnimation(this, options.animation.flicker);
+        this.color = new TintAnimation(this, options);
+
+        this.texture = PIXI.RenderTexture.create(this._baseSprite.width, this._baseSprite.height);
+        this.blendMode = PIXI.BLEND_MODES.ADD;
+
+        this._baseSprite.position.set(this._baseSprite.width / 2, this._baseSprite.height / 2);
+        Graphics.app.renderer.render(this._baseSprite, this.texture);
+
+        this._shadow = options.shadow;
+        this.bwall = options.bwall;
+        this.shadowOffsetX = options.shadowoffsetx || 0;
+        this.shadowOffsetY = options.shadowoffsety || 0; 
+        if (!this.bwall) // 54.00001; tw * h + 6 + eps
+            this.shadowOffsetY += $gameShadow.getWallHeight(this.sourceX(), this.sourceY());
+        this.shadow = new Shadow(this, options.shadowambient);
+        if (this._shadow) 
+            this.shadow.render(this);
+        this.forceRecalculateShadow = false;
+
+        this._justMoving = 2;
+
+    }
+
+
+    destroy() {
+        this._baseSprite.destroy(); // don't destroy texture
+        this._baseSprite = null;
+
+        this.radius.destroy();
+        this.flicker.destroy();
+        this.offset.destroy();
+        this.color.destroy();
+        this.rotate.destroy();
+        this.shadow.destroy();
+        this.pulse.destroy();
+        this.radius = null;
+        this.flicker = null;
+        this.color = null;
+        this.offset = null;
+        this.rotate = null;
+        this.shadow = null;
+        this.pulse = null;
+
+        super.destroy(true);
+    }
+
+    update() {
+        if (!this.status) 
+            return this.renderable = false;
+        this.updateAnimation();
+        this.updatePostion();
+        this.updateTexture();
+    }
+
+    needRecalculateShadow() {
+        if (this.forceRecalculateShadow) {
+            return true;
+        }
+        if (this.offset._changed) 
+            return true;
+        if (this.character.isStopping()) {
+            if (this._justMoving < 2) 
+                return ++this._justMoving;
+            return false;
+        }
+        return this._justMoving = 0, true;
+    }
+
+    needRerender() {
+        return this.needRecalculateShadow() || this.radius._changed || this.rotate._changed;
+    }
+
+    updateTexture() {
+        if (!this.renderable || !this.needRerender()) return;
+        Graphics.app.renderer.render(this._baseSprite, this.texture);
+        if (this._shadow) {
+            if (this.needRecalculateShadow()) {
+                this.forceRecalculateShadow = false;
+                this.shadow.calculate(this);
+            }
+            this.shadow.render(this);
+        }
+    }
+
+    updatePostion() {
+        this.x = Math.round(this.character.screenX() + this.offset.x);
+        this.y = Math.round(this.character.screenY() + this.offset.y);
+    }
+
+    updateAnimation() {
+        this.offset.update();
+        if (!this.renderable) return;
+        this.flicker.update();
+        this.color.update();
+        this.pulse.update();
+        this.radius.update();
+        this.rotate.update();
+    }
+
+    updateDisplay() {
+        let bounds = this.getBounds();
+        this.renderable = $gameLighting.inDisplay(bounds.left, bounds.top, bounds.right, bounds.bottom);
+    }
+
+    sourceX() {
+        return this.x + $gameMap.displayX() * $gameMap.tileWidth() + this.shadowOffsetX;
+    }
+
+    sourceY() {
+        return this.y + $gameMap.displayY() * $gameMap.tileHeight() + this.shadowOffsetY;
+    }
+
+    sourceBound() {
+        let bounds = this.getBounds();
+        bounds.x += $gameMap.displayX() * $gameMap.tileWidth() + this.shadowOffsetX;
+        bounds.y += $gameMap.displayY() * $gameMap.tileHeight() + this.shadowOffsetY;
+        return bounds;
+    }
+
+    setPostion(options) {
+        this.x = options.x != undefined ? $gameShadow.worldToScreenX(options.x)
+         : this.character.screenX() + this.offset.x;
+        this.y = options.y != undefined ? $gameShadow.worldToScreenY(options.y)
+         : this.character.screenY() + this.offset.y;
+    }
+
+    setRadius(radius, time, type) {
+        this.radius.set(radius, time || 1, type || 1);
+    }
+
+    setAngle(angle, time, type) {
+        // update .rotation instead of .angle for pixiv4 support
+        this.rotate.set(angle, time || 1, type || 1);
+    }
+
+    setColor(color, time) {
+        this.color.set(color, time || 1);
+    }
+
+    setOffsetX(x, time, type) {
+        this.offset.setX(x, time || 1, type || 1);
+    }
+
+    setOffsetY(y, time, type) {
+        this.offset.setY(y, time || 1, type || 1);
+    }
+
+    setOffset(x, y, time, type) {
+        this.offset.setX(x, time || 1, type || 1);
+        this.offset.setY(y, time || 1, type || 1);
+    }
+    setShadow(shadow) {
+        $gameMap._lighting[this.id].shadow = this._shadow = shadow;
+        this.updateTexture();
+    }
+
+    setTint(color, time, type) {	
+        this.color.set(color, time || 1, type || 1);	
+    }	
+}
+
+class BattleLightingSprite extends PIXI.Sprite {
+
+    get character() {
+        
+    }
+
+    constructor(options) {
+        super();
+
+
+    }
+
+}
+
+
+/// TODO: Directly draw darken geometry into light texture
+// using vertex shader to calculate those geometry.
+// Currently it draw those into temporary sprite then into light texture
+class Shadow {
+    constructor(lighting, shadowAmbient) {
+        this.graphics = new PIXI.Graphics();
+        // todo: remove those
+        let bounds = lighting.sourceBound();
+        this.texture = PIXI.RenderTexture.create(bounds.width, bounds.height);
+        this.sprite = new PIXI.Sprite(this.texture);
+        this.sprite.blendMode = PIXI.BLEND_MODES.MULTIPLY;
+
+        this.ox = this.oy = 0;
+        this.shadowAmbient = shadowAmbient;
+        this.calculate(lighting);
+        this.render(lighting);
+    }
+
+    destroy() {
+        this.polygon = this.bounds = 
+        this._parallelSegments = this.shadowAmbient = null;
+
+        this.graphics.destroy(true);
+        this.graphics = null;
+
+        this.sprite.destroy(true);
+        this.sprite = null;
+    }
+
+    calculate(lighting) {
+        this.ox = lighting.sourceX(), this.oy = lighting.sourceY(), this.bounds = lighting.sourceBound();
+        this.polygon = ShadowSystem.computeViewport(
+                        [this.ox, this.oy], 
+                        $gameShadow.segments, 
+                        [this.bounds.left, this.bounds.top], 
+                        [this.bounds.right, this.bounds.bottom]);
+        this.draw(); 
+    }
+
+    render(lighting) {
+        let ox = lighting.sourceX() - lighting.shadowOffsetX, 
+            oy = lighting.sourceY() - lighting.shadowOffsetY, 
+            rotation = lighting.rotation;
+
+        // render the shadow mask
+        this.graphics.pivot.set(ox, oy);
+        this.graphics.position.set(this.texture.width / 2, this.texture.height / 2);
+        this.graphics.scale.set(1 / lighting.scale.x);
+        this.graphics.rotation = 2 * Math.PI - rotation;
+        Graphics.app.renderer.render(this.graphics, this.texture);
+
+        //  render the upper shadow mask
+        $gameShadow.upper.pivot.set(ox, oy);
+        $gameShadow.upper.position.set(this.texture.width / 2, this.texture.height / 2);
+        $gameShadow.upper.scale.set(1 / lighting.scale.x);
+        $gameShadow.upper.rotation = 2 * Math.PI - rotation;
+        Graphics.app.renderer.render($gameShadow.upper, this.texture, false);
+
+        // render the ignore shadow mask (not do if not nessecary)
+        if ($gameShadow.haveIgnoreShadow) {
+            $gameShadow.ignore.pivot.set(ox, oy);
+            $gameShadow.ignore.position.set(this.texture.width / 2, this.texture.height / 2);
+            $gameShadow.ignore.scale.set(1 / lighting.scale.x);
+            $gameShadow.ignore.rotation = 2 * Math.PI - rotation;
+            Graphics.app.renderer.render($gameShadow.ignore, this.texture, false);
+        }
+
+        // render everything to the light texture
+        Graphics.app.renderer.render(this.sprite, lighting.texture, false);
+    }
+
+    drawWall(index) {
+		let [x, y] = this.polygon[index], last = (index == 0 ? this.polygon.length - 1 : index - 1);
+		let [nx, ny] = this.polygon[last]; 
+
+        if (y != ny || y > this.oy) return;
+
+		let tw = $gameMap.tileWidth();
+
+        // 2 possiblities: nx to x is 1 height, or multiple height
+        let h = $gameShadow.check(y, nx, x);
+        if (h === 0) return;
+        if (h !== -1) {
+            this.graphics.lineTo(nx, ny - tw * h)
+		 				 .lineTo(x, y - tw * h);
+        } else {
+            // TODO: walking through mutiple height
+
+        }
+        
+	}; 
+
+    draw() {
+        this.graphics.clear();
+
+        // BOTTLE NECK
+        this.graphics.beginFill(this.shadowAmbient);
+		this.graphics.drawRect(this.bounds.x, this.bounds.y, this.bounds.width, this.bounds.height);
+		this.graphics.endFill();
+
+		this.graphics.beginFill(0xffffff);
+		this.graphics.moveTo(this.polygon[0][0], this.polygon[0][1]);
+		for (let i = 1; i < this.polygon.length; ++i) {
+			this.drawWall(i);
+            this.graphics.lineTo(this.polygon[i][0], this.polygon[i][1]);
+        }
+        this.graphics.lineTo(this.polygon[0][0], this.polygon[0][1]);
+		this.drawWall(0);
+		this.graphics.endFill(); 
+
+		//drawing lower-walls
+        this.graphics.beginFill(this.shadowAmbient); 
+        let tw = $gameMap.tileWidth(), leftBound = this.bounds.left, rightBound = this.bounds.right, downBound = this.bounds.bottom, topBound = this.bounds.top;
+		for (let i = 0; i < $gameShadow.lowerWalls.length; ++i) {
+			let [x2, y2, x1, y1, height] = $gameShadow.lowerWalls[i];
+            if (y1 >= this.oy && y1-tw*height <= downBound && x1 <= rightBound && x2 >= leftBound) {
+                this.graphics.moveTo(x1, y1);
+                this.graphics.lineTo(x1, y1-tw*height);
+                this.graphics.lineTo(x2, y2-tw*height);
+                this.graphics.lineTo(x2, y2);
+            }
+		}
+        this.graphics.endFill();   
+
+    }
+}
+
 var ShadowSystem = (function() {
 
     const epsilon = () => 0.0000001;
@@ -20,9 +357,7 @@ var ShadowSystem = (function() {
     };
 
     const angle2 = (a, b, c) => {
-        let a1 = angle(a,b);
-        let a2 = angle(b,c);
-        let a3 = a1 - a2;
+        let a3 = angle(a,b) - angle(b,c);
         if (a3 < 0) a3 += 360;
         if (a3 > 360) a3 -= 360;
         return a3;
@@ -31,10 +366,8 @@ var ShadowSystem = (function() {
     const sortPoints = (position, segments) => {
         let points = new Array(segments.length * 2);
         for (let i = 0; i < segments.length; ++i) {
-            for (let j = 0; j < 2; ++j) {
-                let a = angle(segments[i][j], position);
-                points[2*i+j] = [i, j, a];
-            }
+            points[2*i] = [i, 0, angle(segments[i][0], position)];
+            points[2*i+1] = [i, 1, angle(segments[i][1], position)];
         }
         points.sort(function(a,b) {return a[2]-b[2];});
         return points;
@@ -172,6 +505,18 @@ var ShadowSystem = (function() {
         }
     };
 
+    const push = (poly, x, y) => {
+        if (x >= 48 && y >= 48 && x % 48 === 0 && y % 48 === 0
+            && y / 48 - 1 < $gameShadow.lower.length && x / 48 - 2 < $gameShadow.lower[y / 48 - 1].length
+            && poly.length >= 2 && poly[poly.length - 1] === y) {
+            let h = $gameShadow.lower[y / 48 - 1][x / 48 - 2], 
+                lx = poly[poly.length - 2], 
+                uy = y - h * $gameMap.tileHeight();
+            if (h) poly.push(lx, uy, x, uy);
+        }
+        poly.push(x, y);
+    }
+
     const compute = (position, segments) => {
         let bounded = [];
         let minX = position[0];
@@ -235,12 +580,14 @@ var ShadowSystem = (function() {
             } while (sorted[i][2] < sorted[orig][2] + epsilon());
 
             if (extend) {
-                polygon.push(vertex);
+                push(polygon, vertex[0], vertex[1]);
                 let cur = intersectLines(bounded[heap[0]][0], bounded[heap[0]][1], position, vertex);
-                if (!equal(cur, vertex)) polygon.push(cur);
+                if (!equal(cur, vertex)) push(polygon, cur[0], cur[1]);
             } else if (shorten) {
-                polygon.push(intersectLines(bounded[old_segment][0], bounded[old_segment][1], position, vertex));
-                polygon.push(intersectLines(bounded[heap[0]][0], bounded[heap[0]][1], position, vertex));
+                let u = intersectLines(bounded[old_segment][0], bounded[old_segment][1], position, vertex),
+                    v = intersectLines(bounded[heap[0]][0], bounded[heap[0]][1], position, vertex);
+                push(polygon, u[0], u[1]);
+                push(polygon, v[0], v[1]);
             } 
         }
         return polygon;
@@ -255,7 +602,7 @@ var ShadowSystem = (function() {
             if (segments[i][0][0] > viewportMaxCorner[0] && segments[i][1][0] > viewportMaxCorner[0]) continue;
             if (segments[i][0][1] > viewportMaxCorner[1] && segments[i][1][1] > viewportMaxCorner[1]) continue;
             let intersections = [];
-            for (let j = 0; j < viewport.length; ++j) {
+            for (let j = 0; j < viewport.length; ++j) { // ?
                 let k = j + 1;
                 if (k == viewport.length) k = 0;
                 if (doLineSegmentsIntersect(segments[i][0][0], segments[i][0][1], segments[i][1][0], segments[i][1][1], viewport[j][0], viewport[j][1], viewport[k][0], viewport[k][1])) {

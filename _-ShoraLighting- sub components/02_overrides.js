@@ -1,13 +1,35 @@
-// RPGM Override
+<<<<<<< HEAD:_-ShoraLighting- sub components/02_overrides.js
+=======
+PIXI.Renderer.registerPlugin("light", Shora.LightingRenderer);
+
+
+// remove engine shadow
+if (JSON.parse(Shora.Lighting.PARAMETERS.helper).disableEngineShadow === 'true') {
+    Tilemap.prototype._addShadow = function() {}; 
+    if (Shora.isMV)
+        ShaderTilemap.prototype._addShadow = function() {}; 
+}
+>>>>>>> 19329612b556c9ef53d70496d90e386be2feed6d:_ShoraLighting sub components/02_overrides.js
+
+/* Override MV/MZ functions. */
+
+// Sprite
+((_) => {
+    _.addFilter = function(filter) {
+        if (!this.filters) this.filters = [filter];
+        else this.filters.push(filter);
+    }
+})(Sprite.prototype); 
+
 
 // DataManger
-
 ((_) => {
     const createGameObjects = _.createGameObjects;
     _.createGameObjects = function() {
-        createGameObjects();
-        $shoraLayer.mapId = 0;
         $gameLighting = new GameLighting();
+        $shoraLayer = new Layer();
+        createGameObjects();
+        $shoraLayer.reset();
     }
     const makeSaveContents = _.makeSaveContents;
     _.makeSaveContents = function() {
@@ -20,6 +42,8 @@
     _.extractSaveContents = function(contents) {
         extractSaveContents(contents);
         $gameLighting = contents.lighting;
+        if (!contents.lighting) 
+            $gameLighting = new GameLighting();
     }
 
 })(DataManager); 
@@ -28,35 +52,52 @@
 // Spriteset_Map
 ((_) => {
     _.type = () => 'map';
-
     const destroy = _.destroy;
     _.destroy = function(options) {
         if ($shoraLayer.lighting) 
-            this.removeChild($shoraLayer.lighting.lightSprite);
+            $shoraLayer.removeScene(this);
         destroy.call(this, options);
     }
-
     const createUpperLayer = _.createUpperLayer;
     _.createUpperLayer = function() {
+        if (!$gameLighting._disabled)
+            $shoraLayer.loadScene(this);
         createUpperLayer.call(this);
-        this.createShoraLayer();
-    }
-
-    _.createShoraLayer = function() {
-        $shoraLayer.createLayer(this);
-        $shoraLayer.loadScene();
     }
 
     const update = _.update;
     _.update = function() {
         update.call(this);
-        this.updateShoraLayer();
-    }
-
-    _.updateShoraLayer = function() {
-        $shoraLayer.update();
+        if (!$gameLighting._disabled)
+            $shoraLayer.update();
     }
 })(Spriteset_Map.prototype);
+
+
+// Spriteset_Battle
+((_) => {
+    _.type = () => 'battle';
+    const destroy = _.destroy;
+    _.destroy = function(options) {
+        if ($shoraLayer.lighting) 
+            $shoraLayer.removeScene(this);
+        destroy.call(this, options);
+    }
+    const createUpperLayer = _.createUpperLayer;
+    _.createUpperLayer = function() {
+        if (!$gameLighting._disabled && !$gameLighting._battleLightingDisabled)
+            $shoraLayer.loadScene(this);
+        createUpperLayer.call(this);
+    }
+
+    const update = _.update;
+    _.update = function() {
+        update.call(this);
+        if (!$gameLighting._disabled && !$gameLighting._battleLightingDisabled)
+            $shoraLayer.update();
+    }
+})(Spriteset_Battle.prototype);
+
 
 // Game_Map
 ((_) => {
@@ -64,6 +105,7 @@
     _.setup = function(mapId) {
         setup.call(this, mapId);
         this._lighting = [];
+        this._staticLighting = [];
         if ($dataMap) {
             this.scanNoteTags($dataMap.note.split('\n'));
             this.scanTileNoteTag(this.tileset().note.split('\n'));
@@ -71,9 +113,23 @@
     }
 
     _.scanNoteTags = function(lines) {
+
+        this.lightingState = !$gameLighting._disabled, 
+        this.lightingAmbient = $gameLighting.ambient;
+
         for (command of lines) {
-            
+            command = command.match(Shora.REGEX.COMMAND);
+            if (!command) continue;
+            switch (command[1].toLowerCase()) {
+                case 'lighting':
+                    this.lightingState = command[2] === 'on';
+                    break;
+                case 'ambient': 
+                    this.lightingAmbient = command[2].toHexValue();;
+                    break;
+            }
         }
+
     }
 
     _.scanTileNoteTag = function() {
@@ -84,6 +140,7 @@
 
 // Game_Character
 ((_) => {
+    // NEED REWORK
     const initialize = _.initialize;
     _.initialize = function() {
         initialize.call(this);
@@ -134,30 +191,26 @@
     }
     _.scanLighting = function() {
         let note = '';
-        if ($gameParty.leader()){
+        let lightingParams = {id: 0};
+        if ($gameParty.leader())
             note = $gameParty.leader().actor().note.split('\n');
-        }
-        let lightingParams = { id: 0, auto: true };
-        for (let line of note) {
+        for (let line of note)
             Shora.CallCommand(lightingParams, line);
-        }
         if (lightingParams.name) {
             this.setLighting(lightingParams);
         } else {
-        	let lightingParams = { id: 0, auto: true };
+        	lightingParams = {id: 0};
             for (const item of $gameParty.items()) {
                 const note = item.note.split('\n');
-                for (let line of note) {
+                for (let line of note)
                     Shora.CallCommand(lightingParams, line);
-                }
+                if (lightingParams.name) 
+                    return this.setLighting(lightingParams);
             }
-            if (lightingParams.name) {
-                this.setLighting(lightingParams);
-        	} else this.hasLight = false;
+        	this.hasLight = false;
         }
     }
     _.setLighting = function(params) {
-        params.static = false;
         if (this.hasLight) {
             this.hasLight = false;
             this.updateLighting();
@@ -190,19 +243,11 @@
     }
     
     _.setupLighting = function() {
-        let lightParams = [];
-        let static = true;
-        this.page().list.forEach((comment) => {
-            if (comment.code === 205) static = false;
-            if (comment.code === 108 || comment.code === 408) {
-                lightParams.push(comment.parameters.join());
-            }
-        });
         this.lightingParams = {};
-        for (line of lightParams) {
-            Shora.CallCommand(this.lightingParams, line);
-        }
-        if (!static) this.lightingParams.static = static;
+        this.page().list.forEach((comment) => {
+            if (comment.code === 108 || comment.code === 408) 
+                Shora.CallCommand(this.lightingParams, comment.parameters.join(''));
+        });
         this.lightingParams.id = this._eventId;
         this.hasLight = !!this.lightingParams.name;
     }
