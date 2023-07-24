@@ -1,5 +1,9 @@
-# ShoraLighiting_MZ
- Dynamical Lighting Plugin for RPG Maker MZ made by Shora.
+Shora Lighting & Shadow System
+―――――――――――――――――――――
+A Lighting Plugin for RPG Maker MV/MZ made by Shora.
+
+[itch.io page](https://shoraaa.itch.io/shora-lighting-plugin)
+[forums post](https://forums.rpgmakerweb.com/index.php?threads/mz-mv-v1-9-1-shora-lighting-shadow-system.131410/)
 
 Term of Use:
 If you want to use this plugin with a free RPG Maker game, you can do it for free and there's no need to contact me. I only ask you to give credit to "Shora" or "Shora Lighting Plugin" somewhere in your game. 
