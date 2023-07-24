@@ -53,21 +53,9 @@ class FlickerAnimation extends Shora.Animation {
 class ScaleAnimation extends Shora.Animation {
     constructor(light, ref) {
         super(light, ref);
-<<<<<<< HEAD:_-ShoraLighting- sub components/06_animation.js
         this.s0 = this.s1 = this.maxRadius = 1;
         this.delta = this.tick = 0; 
         this.time = -1; 
-=======
-        this.s0 = this.s1 = ref.radius; 
-        this.delta = this.tick = 0; this.time = -1;
-        this.originalScale = ref.radius;
-        this._sprite.scale.set(Math.round(ref.radius));
-
-    }
-
-    updating() {
-        return this.tick <= this.time;
->>>>>>> 19329612b556c9ef53d70496d90e386be2feed6d:_ShoraLighting sub components/09_Animation.js
     }
 
     update() {
@@ -129,11 +117,7 @@ class PulseAnimation extends Shora.Animation {
 class AngleAnimation extends Shora.Animation {
     constructor(light, ref) {
         super(light, ref);
-<<<<<<< HEAD:_-ShoraLighting- sub components/06_animation.js
         this.a0 = this.a1 = 0; 
-=======
-        this.a0 = this.a1 = ref.angle; 
->>>>>>> 19329612b556c9ef53d70496d90e386be2feed6d:_ShoraLighting sub components/09_Animation.js
         this.delta = this.tick = 0; this.time = -1;
 
         this._character = light.character;

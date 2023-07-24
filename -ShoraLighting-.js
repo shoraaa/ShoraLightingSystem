@@ -1,10 +1,6 @@
 /*:
  * @plugindesc 
-<<<<<<< HEAD:_-ShoraLighting- sub components/00_parameters.js
  * [v2.0] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
-=======
- * [v1.8.1] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
->>>>>>> 19329612b556c9ef53d70496d90e386be2feed6d:_ShoraLighting sub components/00_parameters.js
  * @author Shora
  * @url https://forums.rpgmakerweb.com/index.php?members/shora.158648/
  * @help
@@ -2593,18 +2589,6 @@ class LightingRenderer extends PIXI.AbstractBatchRenderer {
 Shora.LightingRenderer = LightingRenderer;
 
 }
-<<<<<<< HEAD:_-ShoraLighting- sub components/02_overrides.js
-=======
-PIXI.Renderer.registerPlugin("light", Shora.LightingRenderer);
-
-
-// remove engine shadow
-if (JSON.parse(Shora.Lighting.PARAMETERS.helper).disableEngineShadow === 'true') {
-    Tilemap.prototype._addShadow = function() {}; 
-    if (Shora.isMV)
-        ShaderTilemap.prototype._addShadow = function() {}; 
-}
->>>>>>> 19329612b556c9ef53d70496d90e386be2feed6d:_ShoraLighting sub components/02_overrides.js
 
 /* Override MV/MZ functions. */
 
@@ -3959,21 +3943,9 @@ class FlickerAnimation extends Shora.Animation {
 class ScaleAnimation extends Shora.Animation {
     constructor(light, ref) {
         super(light, ref);
-<<<<<<< HEAD:_-ShoraLighting- sub components/06_animation.js
         this.s0 = this.s1 = this.maxRadius = 1;
         this.delta = this.tick = 0; 
         this.time = -1; 
-=======
-        this.s0 = this.s1 = ref.radius; 
-        this.delta = this.tick = 0; this.time = -1;
-        this.originalScale = ref.radius;
-        this._sprite.scale.set(Math.round(ref.radius));
-
-    }
-
-    updating() {
-        return this.tick <= this.time;
->>>>>>> 19329612b556c9ef53d70496d90e386be2feed6d:_ShoraLighting sub components/09_Animation.js
     }
 
     update() {
@@ -4035,11 +4007,7 @@ class PulseAnimation extends Shora.Animation {
 class AngleAnimation extends Shora.Animation {
     constructor(light, ref) {
         super(light, ref);
-<<<<<<< HEAD:_-ShoraLighting- sub components/06_animation.js
         this.a0 = this.a1 = 0; 
-=======
-        this.a0 = this.a1 = ref.angle; 
->>>>>>> 19329612b556c9ef53d70496d90e386be2feed6d:_ShoraLighting sub components/09_Animation.js
         this.delta = this.tick = 0; this.time = -1;
 
         this._character = light.character;

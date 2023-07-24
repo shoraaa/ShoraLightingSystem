@@ -1,10 +1,6 @@
 /*:
  * @plugindesc 
-<<<<<<< HEAD:_-ShoraLighting- sub components/00_parameters.js
  * [v2.0] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
-=======
- * [v1.8.1] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
->>>>>>> 19329612b556c9ef53d70496d90e386be2feed6d:_ShoraLighting sub components/00_parameters.js
  * @author Shora
  * @url https://forums.rpgmakerweb.com/index.php?members/shora.158648/
  * @help

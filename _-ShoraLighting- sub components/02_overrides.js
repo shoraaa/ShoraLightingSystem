@@ -1,15 +1,3 @@
-<<<<<<< HEAD:_-ShoraLighting- sub components/02_overrides.js
-=======
-PIXI.Renderer.registerPlugin("light", Shora.LightingRenderer);
-
-
-// remove engine shadow
-if (JSON.parse(Shora.Lighting.PARAMETERS.helper).disableEngineShadow === 'true') {
-    Tilemap.prototype._addShadow = function() {}; 
-    if (Shora.isMV)
-        ShaderTilemap.prototype._addShadow = function() {}; 
-}
->>>>>>> 19329612b556c9ef53d70496d90e386be2feed6d:_ShoraLighting sub components/02_overrides.js
 
 /* Override MV/MZ functions. */
 
