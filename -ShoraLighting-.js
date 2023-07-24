@@ -364,7 +364,11 @@
  * @text [Advanced: Animation]
  * @type struct<AnimationSettings>
  * @desc The animation setting for default light.
+<<<<<<< HEAD:_-ShoraLighting- sub components/00_parameters.js
  * @default {".Static":"=====================","flicker":"{\"status\":\"true\",\"flickintensity\":\"1\",\"flickspeed\":\"1\"}",".Dynamic":"=====================","pulse":"{\"status\":\"false\",\"pulsefactor\":\"5\",\"pulsespeed\":\"1\"}","rotation":"{\"rotatespeed\":\"1\"}"}
+=======
+ * @default {".Static":"=====================","flicker":"{\"status\":\"true\",\"flickintensity\":\"1\",\"flickspeed\":\"1\"}",".Dynamic":"=====================","pulse":"{\"status\":\"false\",\"pulsefactor\":\"1\",\"pulsespeed\":\"1\"}","rotation":"{\"rotatespeed\":\"1\"}"}
+>>>>>>> 19329612b556c9ef53d70496d90e386be2feed6d:_ShoraLighting sub components/00_parameters.js
  * 
  * @param sep4
  * @text ==================================
