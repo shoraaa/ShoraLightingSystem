@@ -4,6 +4,8 @@
 
 A Lighting Plugin for RPG Maker MV/MZ made by Shora.
 
+The latest, most up-to-date lighting plugin for RPG Maker MV/MZ. Easy to use, and packed with tons of advanced features for your needs. Completely free to use for non-commercial projects! If you wish to use the plugin for your commercial project, simple buy the commercial license via itch.io.
+
 [itch.io page](https://shoraaa.itch.io/shora-lighting-plugin)
 
 [forums post](https://forums.rpgmakerweb.com/index.php?threads/mz-mv-v1-9-1-shora-lighting-shadow-system.131410/)
