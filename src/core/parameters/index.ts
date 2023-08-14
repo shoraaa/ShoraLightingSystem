@@ -1,3 +1,4 @@
+
 /*:
  * @plugindesc 
  * [v2.0] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
@@ -448,3 +449,59 @@
  * @default #ffffff
 */
 
+import { PluginManager, PIXI } from 'rmmz';
+
+import ShadowParameters from './ShadowParameters';
+import LightParameters from './LightParameters';
+
+// TODO: create color interface
+interface Parameters {
+    pluginName: string,
+    engineName: string,
+
+    light: LightParameters,
+    shadow: ShadowParameters,
+    // colors: Array<number>,
+};
+
+export const pluginName: string = 'ShoraLighting';
+
+const engineParameters: any = PluginManager.parameters(pluginName);
+
+const mapParameter: any = JSON.parse(engineParameters['Map']);
+const gameParameters: any = JSON.parse(engineParameters['Game']);
+const helperParameters: any = JSON.parse(engineParameters['helper']);
+const filterParameters: any = JSON.parse(engineParameters['filter']);
+
+export const engineName: string = PIXI.VERSION[0] < 5 ? 'MV' : 'MZ';
+
+export const lightParameters: LightParameters = {
+    ambient: mapParameter.ambient,
+    intensity: {
+        status: true,
+        strength: 1,
+    },
+
+};
+
+export const shadowParameters: ShadowParameters = {
+    engineShadow: helperParameters.disableEngineShadow !== 'true',
+    regionId: {
+        start: Number(gameParameters.regionStart),
+        end: Number(gameParameters.regionEnd),
+        top: Number(gameParameters.topRegionId),
+        ignore: Number(gameParameters.ignoreShadowsId),
+    },
+    terrainTags: {
+        wall: Number(gameParameters.wallID),
+        topWall: Number(gameParameters.topID),
+    },
+    ambient: mapParameter.shadowAmbient,
+    topAmbient: mapParameter.topBlockAmbient,
+    soft: {
+        status: filterParameters.softShadow === 'true',
+        strength: Number(filterParameters.softShadowStr),
+        quality: Number(filterParameters.softShadowQlt),
+    }
+
+};
