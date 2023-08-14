@@ -6,15 +6,15 @@ export default {
   input: 'src/index.ts',
   output: [
     {
-      file: 'D:/Projects/Shora Lighting Project/ShoraLightingSystemDemoMZ.v.2.0/js/plugins/ShoraLighting.js',
+      file: 'D:/Projects/Shora Lighting Project/ShoraLightingSystemDemoMZ.v.2.0/js/plugins/ShoraLightingSystem.js',
       format: 'iife',
     },
     {
-      file: 'D:/Projects/Shora Lighting Project/ShoraLightingSystemDemoMV.v.2.0/js/plugins/ShoraLighting.js',
+      file: 'D:/Projects/Shora Lighting Project/ShoraLightingSystemDemoMV.v.2.0/js/plugins/ShoraLightingSystem.js',
       format: 'iife',
     },
     {
-      file: 'ShoraLighting.js',
+      file: 'ShoraLightingSystem.js',
       format: 'iife',
     },
   ],

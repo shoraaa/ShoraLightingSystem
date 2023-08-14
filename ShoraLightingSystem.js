@@ -1,22 +1,9 @@
 (function () {
     'use strict';
 
-    function stringToHex(color) {
-        if (color.length == 6) {
-            return parseInt(this, 16);
-        }
-        return parseInt(color.substr(1), 16);
-    }
-    function toHex(color) {
-        if (defaultColors[color]) {
-            return defaultColors[color];
-        }
-        return stringToHex(color);
-    }
-
     /*:
      * @plugindesc
-     * [v2.0] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced!
+     * [v2.0TS] A Lighting and Shadow plugin for RPG Maker MV/MZ, written in Typescript, powered by pixi.js library.
      * @author Shora
      * @url https://forums.rpgmakerweb.com/index.php?members/shora.158648/
      * @help
@@ -457,8 +444,26 @@
      * @param color
      * @default #ffffff
     */
+    var pluginName = 'ShoraLightingSystem';
+    var pluginVersion = '2.0TS';
+    console.log(pluginName + ' v' + pluginVersion);
 
-    var pluginName = 'ShoraLighting';
+    function toHex(color) {
+        if (defaultColors[color]) {
+            return defaultColors[color];
+        }
+        if (color.length == 6) {
+            return parseInt(this, 16);
+        }
+        return parseInt(color.substr(1), 16);
+    }
+
+    function stringToHex(color) {
+        if (color.length == 6) {
+            return parseInt(this, 16);
+        }
+        return parseInt(color.substr(1), 16);
+    }
     var engineParameters = window.PluginManager.parameters(pluginName);
     var mapParameter = JSON.parse(engineParameters['Map']);
     var gameParameters = JSON.parse(engineParameters['Game']);
@@ -479,7 +484,6 @@
             strength: 1,
         },
     };
-    console.log(filterParameters);
     var shadowParameters = {
         engineShadow: helperParameters.disableEngineShadow !== 'true',
         regionId: {

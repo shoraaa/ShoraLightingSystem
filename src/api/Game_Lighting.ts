@@ -1,5 +1,5 @@
-import { pluginName, lightParameters, shadowParameters } from "../core/parameters";
-
+import { pluginName } from "../core/parameters/header";
+import { lightParameters, shadowParameters } from "../core/parameters";
 interface Game_LightingData {
     _disabled: boolean,
 
