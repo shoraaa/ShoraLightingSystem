@@ -122,7 +122,7 @@
  * @text [Advanced: Filters]
  * @type struct<FilterSettings>
  * @desc Apply filter to the whole map for better light intensity and blending. Can be called using $shoraLayer.colorFilter
- * @default {"status":"false","sep0":"","brightness":"1.5"}
+ * @default {"il":"","status":"false","brightness":"1.5","sep":"","ss":"","softShadow":"true","softShadowStr":"1","softShadowQlt":"2"}
  */
 
 /*~struct~GameSettings:
@@ -453,16 +453,7 @@ import { PluginManager, PIXI } from 'rmmz';
 
 import ShadowParameters from './ShadowParameters';
 import LightParameters from './LightParameters';
-
-// TODO: create color interface
-interface Parameters {
-    pluginName: string,
-    engineName: string,
-
-    light: LightParameters,
-    shadow: ShadowParameters,
-    // colors: Array<number>,
-};
+import { stringToHex } from '../color';
 
 export const pluginName: string = 'ShoraLighting';
 
@@ -475,14 +466,27 @@ const filterParameters: any = JSON.parse(engineParameters['filter']);
 
 export const engineName: string = PIXI.VERSION[0] < 5 ? 'MV' : 'MZ';
 
+export const defaultColors: Object = {};
+
+const colors = JSON.parse(helperParameters.colors);
+
+for (const colorJSON of colors) {
+    const color = JSON.parse(colorJSON);
+    defaultColors[color.name] = stringToHex(color.color);
+}
+
+import { toHex } from '../color';
+
 export const lightParameters: LightParameters = {
-    ambient: mapParameter.ambient,
+    ambient: stringToHex(mapParameter.ambient),
     intensity: {
         status: true,
         strength: 1,
     },
 
 };
+
+console.log(filterParameters);
 
 export const shadowParameters: ShadowParameters = {
     engineShadow: helperParameters.disableEngineShadow !== 'true',
@@ -496,8 +500,8 @@ export const shadowParameters: ShadowParameters = {
         wall: Number(gameParameters.wallID),
         topWall: Number(gameParameters.topID),
     },
-    ambient: mapParameter.shadowAmbient,
-    topAmbient: mapParameter.topBlockAmbient,
+    ambient: toHex(mapParameter.shadowAmbient),
+    topAmbient: toHex(mapParameter.topBlockAmbient),
     soft: {
         status: filterParameters.softShadow === 'true',
         strength: Number(filterParameters.softShadowStr),

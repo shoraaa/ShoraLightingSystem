@@ -1,6 +1,19 @@
 (function () {
     'use strict';
 
+    function stringToHex(color) {
+        if (color.length == 6) {
+            return parseInt(this, 16);
+        }
+        return parseInt(color.substr(1), 16);
+    }
+    function toHex(color) {
+        if (defaultColors[color]) {
+            return defaultColors[color];
+        }
+        return stringToHex(color);
+    }
+
     /*:
      * @plugindesc
      * [v2.0] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced!
@@ -124,7 +137,7 @@
      * @text [Advanced: Filters]
      * @type struct<FilterSettings>
      * @desc Apply filter to the whole map for better light intensity and blending. Can be called using $shoraLayer.colorFilter
-     * @default {"status":"false","sep0":"","brightness":"1.5"}
+     * @default {"il":"","status":"false","brightness":"1.5","sep":"","ss":"","softShadow":"true","softShadowStr":"1","softShadowQlt":"2"}
      */
     /*~struct~GameSettings:
      * @param regionStart
@@ -452,14 +465,22 @@
     var helperParameters = JSON.parse(engineParameters['helper']);
     var filterParameters = JSON.parse(engineParameters['filter']);
     window.PIXI.VERSION[0] < 5 ? 'MV' : 'MZ';
-    ({
-        ambient: mapParameter.ambient,
+    var defaultColors = {};
+    var colors = JSON.parse(helperParameters.colors);
+    for (var _i = 0, colors_1 = colors; _i < colors_1.length; _i++) {
+        var colorJSON = colors_1[_i];
+        var color = JSON.parse(colorJSON);
+        defaultColors[color.name] = stringToHex(color.color);
+    }
+    var lightParameters = {
+        ambient: stringToHex(mapParameter.ambient),
         intensity: {
             status: true,
             strength: 1,
         },
-    });
-    ({
+    };
+    console.log(filterParameters);
+    var shadowParameters = {
         engineShadow: helperParameters.disableEngineShadow !== 'true',
         regionId: {
             start: Number(gameParameters.regionStart),
@@ -471,41 +492,69 @@
             wall: Number(gameParameters.wallID),
             topWall: Number(gameParameters.topID),
         },
-        ambient: mapParameter.shadowAmbient,
-        topAmbient: mapParameter.topBlockAmbient,
+        ambient: toHex(mapParameter.shadowAmbient),
+        topAmbient: toHex(mapParameter.topBlockAmbient),
         soft: {
             status: filterParameters.softShadow === 'true',
             strength: Number(filterParameters.softShadowStr),
             quality: Number(filterParameters.softShadowQlt),
         }
-    });
+    };
 
     var Game_Lighting = /** @class */ (function () {
         function Game_Lighting() {
-            console.log(pluginName);
+            console.log(pluginName + " API had been construted. Use the method provided by $gameLighting to get started.");
+            this.data = {
+                _disabled: false,
+                ambient: lightParameters.ambient,
+                shadowAmbient: shadowParameters.ambient,
+                topBlockAmbient: shadowParameters.topAmbient,
+                softShadow: shadowParameters.soft.status,
+                softShadowQlt: shadowParameters.soft.quality,
+                softShadowStr: shadowParameters.soft.strength,
+            };
         }
+        Game_Lighting.prototype.setPluginState = function (state) {
+        };
+        Game_Lighting.prototype.enable = function () {
+        };
+        Game_Lighting.prototype.disable = function () {
+        };
+        Game_Lighting.prototype.setStatus = function (id, status) {
+        };
+        Game_Lighting.prototype.setRadius = function (id) {
+        };
+        Game_Lighting.prototype.setAngle = function (id) {
+        };
+        Game_Lighting.prototype.setShadow = function (id) {
+        };
+        Game_Lighting.prototype.setOffset = function (id) {
+        };
+        Game_Lighting.prototype.setOffsetX = function (id) {
+        };
+        Game_Lighting.prototype.setOffsetY = function (id) {
+        };
+        Game_Lighting.prototype.setTint = function (id) {
+        };
         return Game_Lighting;
     }());
 
-    var createGameObjects = window.DataManager.createGameObjects;
-    window.DataManager.createGameObjects = function () {
-        window.$gameLighting = new Game_Lighting();
-        createGameObjects();
-    };
+    window.$gameLighting = new Game_Lighting();
+    // const createGameObjects: () => void = DataManager.createGameObjects;
+    // DataManager.createGameObjects = function() {
+    //     window.$gameLighting = new Game_Lighting();
+    //     createGameObjects();
+    // }
     var makeSaveContents = window.DataManager.makeSaveContents;
     window.DataManager.makeSaveContents = function () {
         var contents = makeSaveContents();
-        contents.lighting = window.$gameLighting;
-        console.log(contents);
+        contents.lighting = window.$gameLighting.data;
         return contents;
     };
     var extractSaveContents = window.DataManager.extractSaveContents;
     window.DataManager.extractSaveContents = function (contents) {
         extractSaveContents(contents);
-        console.log(contents);
-        window.$gameLighting = contents.lighting;
-        if (!contents.lighting)
-            window.$gameLighting = new Game_Lighting();
+        window.$gameLighting.data = contents.lighting;
     };
 
 })();

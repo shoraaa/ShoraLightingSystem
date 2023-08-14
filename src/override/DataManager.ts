@@ -7,25 +7,23 @@ declare global {
     }
 }
 
-const createGameObjects: () => void = DataManager.createGameObjects;
-DataManager.createGameObjects = function() {
-    window.$gameLighting = new Game_Lighting();
-    createGameObjects();
-}
+window.$gameLighting = new Game_Lighting();
+
+// const createGameObjects: () => void = DataManager.createGameObjects;
+// DataManager.createGameObjects = function() {
+//     window.$gameLighting = new Game_Lighting();
+//     createGameObjects();
+// }
 
 const makeSaveContents: () => void = DataManager.makeSaveContents;
 DataManager.makeSaveContents = function() {
     const contents: any = makeSaveContents();
-    contents.lighting = window.$gameLighting;
-    console.log(contents);
+    contents.lighting = window.$gameLighting.data;
     return contents;
 }
 
 const extractSaveContents: (contents: any) => void = DataManager.extractSaveContents;
 DataManager.extractSaveContents = function(contents: any) {
     extractSaveContents(contents);
-    console.log(contents)
-    window.$gameLighting = contents.lighting;
-    if (!contents.lighting) 
-        window.$gameLighting = new Game_Lighting();
+    window.$gameLighting.data = contents.lighting;
 }
