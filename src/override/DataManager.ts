@@ -1,29 +1,19 @@
 import { DataManager } from "rmmz";
-import Game_Lighting from "../api/Game_Lighting";
+import Game_Lighting from "../lighting/Game_Lighting";
+(window as any).$gameLighting = new Game_Lighting();
 
-declare global {
-    interface Window { 
-        $gameLighting: Game_Lighting;
-    }
-}
-
-window.$gameLighting = new Game_Lighting();
-
-// const createGameObjects: () => void = DataManager.createGameObjects;
-// DataManager.createGameObjects = function() {
-//     window.$gameLighting = new Game_Lighting();
-//     createGameObjects();
-// }
+declare var $gameLighting: Game_Lighting;
 
 const makeSaveContents: () => void = DataManager.makeSaveContents;
+const extractSaveContents: (contents: any) => void = DataManager.extractSaveContents;
+
 DataManager.makeSaveContents = function() {
     const contents: any = makeSaveContents();
-    contents.lighting = window.$gameLighting.data;
+    contents.lighting = $gameLighting.data;
     return contents;
 }
 
-const extractSaveContents: (contents: any) => void = DataManager.extractSaveContents;
 DataManager.extractSaveContents = function(contents: any) {
     extractSaveContents(contents);
-    window.$gameLighting.data = contents.lighting;
+    $gameLighting.data = contents.lighting;
 }

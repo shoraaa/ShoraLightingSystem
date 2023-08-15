@@ -448,37 +448,39 @@
     var pluginVersion = '2.0TS';
     console.log(pluginName + ' v' + pluginVersion);
 
-    function toHex(color) {
-        if (defaultColors[color]) {
-            return defaultColors[color];
+    var Color = /** @class */ (function () {
+        function Color() {
         }
-        if (color.length == 6) {
-            return parseInt(this, 16);
-        }
-        return parseInt(color.substr(1), 16);
-    }
+        Color.register = function (name, color) {
+            Color.customColors[name] = Color.toHex(color);
+        };
+        Color.toHex = function (color) {
+            if (Color.customColors[color]) {
+                return Color.customColors[color];
+            }
+            if (color.length == 6) {
+                return parseInt(color, 16);
+            }
+            return parseInt(color.substr(1), 16);
+        };
+        Color.customColors = [];
+        return Color;
+    }());
 
-    function stringToHex(color) {
-        if (color.length == 6) {
-            return parseInt(this, 16);
-        }
-        return parseInt(color.substr(1), 16);
-    }
     var engineParameters = window.PluginManager.parameters(pluginName);
     var mapParameter = JSON.parse(engineParameters['Map']);
     var gameParameters = JSON.parse(engineParameters['Game']);
     var helperParameters = JSON.parse(engineParameters['helper']);
     var filterParameters = JSON.parse(engineParameters['filter']);
     window.PIXI.VERSION[0] < 5 ? 'MV' : 'MZ';
-    var defaultColors = {};
     var colors = JSON.parse(helperParameters.colors);
     for (var _i = 0, colors_1 = colors; _i < colors_1.length; _i++) {
         var colorJSON = colors_1[_i];
         var color = JSON.parse(colorJSON);
-        defaultColors[color.name] = stringToHex(color.color);
+        Color.register(color.name, color.color);
     }
     var lightParameters = {
-        ambient: stringToHex(mapParameter.ambient),
+        ambient: Color.toHex(mapParameter.ambient),
         intensity: {
             status: true,
             strength: 1,
@@ -496,8 +498,8 @@
             wall: Number(gameParameters.wallID),
             topWall: Number(gameParameters.topID),
         },
-        ambient: toHex(mapParameter.shadowAmbient),
-        topAmbient: toHex(mapParameter.topBlockAmbient),
+        ambient: Color.toHex(mapParameter.shadowAmbient),
+        topAmbient: Color.toHex(mapParameter.topBlockAmbient),
         soft: {
             status: filterParameters.softShadow === 'true',
             strength: Number(filterParameters.softShadowStr),
@@ -507,6 +509,8 @@
 
     var Game_Lighting = /** @class */ (function () {
         function Game_Lighting() {
+            this.layer = new PIXI.Sprite();
+            this.characterLights = [];
             console.log(pluginName + " API had been construted. Use the method provided by $gameLighting to get started.");
             this.data = {
                 _disabled: false,
@@ -518,6 +522,17 @@
                 softShadowStr: shadowParameters.soft.strength,
             };
         }
+        Game_Lighting.prototype.update = function () {
+        };
+        /*! Indirect API Functions (called by others plugins) */
+        Game_Lighting.prototype.loadScene = function (spriteset /* Spriteset_Map | Spriteset_Battle */) {
+            this.layer = new PIXI.Sprite();
+            spriteset._baseSprite.addChild(this.layer);
+        };
+        Game_Lighting.prototype.removeScene = function (spriteset /* Spriteset_Map | Spriteset_Battle */) {
+            spriteset._baseSprite.removeChild(this.layer);
+        };
+        /*! Direct API Functions (called by script command) */
         Game_Lighting.prototype.setPluginState = function (state) {
         };
         Game_Lighting.prototype.enable = function () {
@@ -544,21 +559,17 @@
     }());
 
     window.$gameLighting = new Game_Lighting();
-    // const createGameObjects: () => void = DataManager.createGameObjects;
-    // DataManager.createGameObjects = function() {
-    //     window.$gameLighting = new Game_Lighting();
-    //     createGameObjects();
-    // }
     var makeSaveContents = window.DataManager.makeSaveContents;
+    var extractSaveContents = window.DataManager.extractSaveContents;
     window.DataManager.makeSaveContents = function () {
         var contents = makeSaveContents();
-        contents.lighting = window.$gameLighting.data;
+        contents.lighting = $gameLighting.data;
         return contents;
     };
-    var extractSaveContents = window.DataManager.extractSaveContents;
     window.DataManager.extractSaveContents = function (contents) {
         extractSaveContents(contents);
-        window.$gameLighting.data = contents.lighting;
+        $gameLighting.data = contents.lighting;
     };
 
 })();
+//# sourceMappingURL=ShoraLightingSystem.js.map
