@@ -1,6 +1,6 @@
 /*:
  * @plugindesc 
- * [v2.0] Provide dynamic lighting to RPG Maker MV/MZ engine, intended to be easiest to start and most flexible when advanced! 
+ * [v2.0TS] A Lighting and Shadow plugin for RPG Maker MV/MZ, written in Typescript, powered by pixi.js library.
  * @author Shora
  * @url https://forums.rpgmakerweb.com/index.php?members/shora.158648/
  * @help
@@ -121,7 +121,7 @@
  * @text [Advanced: Filters]
  * @type struct<FilterSettings>
  * @desc Apply filter to the whole map for better light intensity and blending. Can be called using $shoraLayer.colorFilter
- * @default {"status":"false","sep0":"","brightness":"1.5"}
+ * @default {"il":"","status":"false","brightness":"1.5","sep":"","ss":"","softShadow":"true","softShadowStr":"1","softShadowQlt":"2"}
  */
 
 /*~struct~GameSettings:
@@ -448,3 +448,7 @@
  * @default #ffffff
 */
 
+export const pluginName: string = 'ShoraLightingSystem';
+export const pluginVersion: string = '2.0TS';
+
+console.log(pluginName + ' v' + pluginVersion);

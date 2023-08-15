@@ -467,9 +467,9 @@ Shora.tempGraphics = new PIXI.Graphics();
 
 // Regex
 Shora.REGEX = {
-    TAG: /\[([\w_\d]+)\]/,
-    COMMAND: /\[([\w_\d]+)\s(-?[\w_\d]+)\]/,
-    DOUBLE_COMMAND: /\[([\w_\d]+)\s(-?[\w_\d]+)\s(-?[\w_\d]+)\]/
+    tag: /\[([\w_\d]+)\]/,
+    command: /\[([\w_\d]+)\s(-?[\w_\d]+)\]/,
+    double_command: /\[([\w_\d]+)\s(-?[\w_\d]+)\s(-?[\w_\d]+)\]/
 }; 
 
 // Color Helper
@@ -1112,6 +1112,7 @@ if (!Shora.isMV) {
         createGameObjects();
         $shoraLayer.reset();
     }
+    
     const makeSaveContents = _.makeSaveContents;
     _.makeSaveContents = function() {
         const contents = makeSaveContents();
