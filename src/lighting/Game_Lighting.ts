@@ -1,7 +1,9 @@
 import { pluginName } from "../parameters/header";
 import { lightParameters, shadowParameters } from "../parameters";
-import { Sprite } from "pixi.js";
-// import { Spriteset_Map, Spriteset_Battle } from "rmmz/lib/sprites";
+import { Sprite, BLEND_MODES } from "pixi.js";
+
+import { ImageManager, $gameMap } from 'rmmz';
+import { Spriteset_Battle, Spriteset_Map } from 'rmmz/lib/sprites';
 
 interface Game_LightingData {
     _disabled: boolean,
@@ -19,7 +21,7 @@ interface Game_LightingData {
 export default class Game_Lighting {
 
     public data: Game_LightingData;
-    private layer: Sprite = new Sprite();
+    private layer: PIXI.Sprite = new PIXI.Sprite();
     private characterLights: Array<PIXI.Sprite> = [];
 
     public constructor() {
@@ -35,6 +37,19 @@ export default class Game_Lighting {
             softShadowQlt: shadowParameters.soft.quality,
             softShadowStr: shadowParameters.soft.strength,
         };
+
+        this.layer.blendMode = BLEND_MODES.MULTIPLY;
+
+    }
+
+    private loadLights(): void {
+        for (const light of ($gameMap as any)._lighting) {
+            if (!light) {
+                continue;
+            }
+            const lightSprite = new (window as any).Sprite(ImageManager.loadPicture('Actor1_1'));
+            this.layer.addChild(lightSprite);
+        }
     }
 
     public update(): void {
@@ -42,15 +57,14 @@ export default class Game_Lighting {
     }
 
     /*! Indirect API Functions (called by others plugins) */
-    public loadScene(spriteset: any /* Spriteset_Map | Spriteset_Battle */): void {
-        this.layer = new Sprite();
-
-
+    public loadScene(spriteset: Spriteset_Map | Spriteset_Battle | any): void {
+        
         spriteset._baseSprite.addChild(this.layer);
     }
 
-    public removeScene(spriteset: any /* Spriteset_Map | Spriteset_Battle */): void {
+    public removeScene(spriteset: Spriteset_Map | Spriteset_Battle | any): void {
         spriteset._baseSprite.removeChild(this.layer);
+        this.layer.removeChildren();
     }
 
     /*! Direct API Functions (called by script command) */

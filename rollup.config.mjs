@@ -6,17 +6,14 @@ export default {
   input: 'src/index.ts',
   output: [
     {
-      sourcemap: true,
       file: 'D:/Projects/Shora Lighting Project/ShoraLightingSystemDemoMZ.v.2.0/js/plugins/ShoraLightingSystem.js',
       format: 'iife',
     },
     {
-      sourcemap: true,
       file: 'D:/Projects/Shora Lighting Project/ShoraLightingSystemDemoMV.v.2.0/js/plugins/ShoraLightingSystem.js',
       format: 'iife',
     },
     {
-      sourcemap: true,
       file: 'ShoraLightingSystem.js',
       format: 'iife',
     },
@@ -25,7 +22,8 @@ export default {
     typescript(),
     json(),
     externalGlobals({
-      rmmz: "window",
+      'rmmz': "window",
+      "rmmz/lib/sprites": "window",
       'pixi.js': 'PIXI',
     }),
   ],

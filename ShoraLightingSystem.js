@@ -472,7 +472,7 @@
     var gameParameters = JSON.parse(engineParameters['Game']);
     var helperParameters = JSON.parse(engineParameters['helper']);
     var filterParameters = JSON.parse(engineParameters['filter']);
-    window.PIXI.VERSION[0] < 5 ? 'MV' : 'MZ';
+    Number(PIXI.VERSION[0]) < 5 ? 'MV' : 'MZ';
     var colors = JSON.parse(helperParameters.colors);
     for (var _i = 0, colors_1 = colors; _i < colors_1.length; _i++) {
         var colorJSON = colors_1[_i];
@@ -521,16 +521,27 @@
                 softShadowQlt: shadowParameters.soft.quality,
                 softShadowStr: shadowParameters.soft.strength,
             };
+            this.layer.blendMode = PIXI.BLEND_MODES.MULTIPLY;
         }
+        Game_Lighting.prototype.loadLights = function () {
+            for (var _i = 0, _a = window.$gameMap._lighting; _i < _a.length; _i++) {
+                var light = _a[_i];
+                if (!light) {
+                    continue;
+                }
+                var lightSprite = new window.Sprite(window.ImageManager.loadPicture('Actor1_1'));
+                this.layer.addChild(lightSprite);
+            }
+        };
         Game_Lighting.prototype.update = function () {
         };
         /*! Indirect API Functions (called by others plugins) */
-        Game_Lighting.prototype.loadScene = function (spriteset /* Spriteset_Map | Spriteset_Battle */) {
-            this.layer = new PIXI.Sprite();
+        Game_Lighting.prototype.loadScene = function (spriteset) {
             spriteset._baseSprite.addChild(this.layer);
         };
-        Game_Lighting.prototype.removeScene = function (spriteset /* Spriteset_Map | Spriteset_Battle */) {
+        Game_Lighting.prototype.removeScene = function (spriteset) {
             spriteset._baseSprite.removeChild(this.layer);
+            this.layer.removeChildren();
         };
         /*! Direct API Functions (called by script command) */
         Game_Lighting.prototype.setPluginState = function (state) {
@@ -571,5 +582,33 @@
         $gameLighting.data = contents.lighting;
     };
 
+    var destroy = window.Spriteset_Map.prototype.destroy;
+    var createUpperLayer = window.Spriteset_Map.prototype.createUpperLayer;
+    var update = window.Spriteset_Map.prototype.update;
+    window.Spriteset_Map.prototype.destroy = function (options) {
+        destroy.call(this, options);
+        $gameLighting.removeScene(this);
+    };
+    window.Spriteset_Map.prototype.createUpperLayer = function () {
+        createUpperLayer.call(this);
+        $gameLighting.loadScene(this);
+    };
+    window.Spriteset_Map.prototype.update = function () {
+        update.call(this);
+        $gameLighting.update();
+    };
+
+    // TODO: Fork the rmmz.d.ts typescript declaration file.
+    var initialize = window.Game_Character.prototype.initialize;
+    window.Game_Character.prototype.initialize = function () {
+        initialize.call(this);
+        this._lightParameters = {};
+    };
+
+    var setup = window.Game_Map.prototype.setup;
+    window.Game_Map.prototype.setup = function (mapId) {
+        setup.call(this, mapId);
+        this._lighting = [];
+    };
+
 })();
-//# sourceMappingURL=ShoraLightingSystem.js.map

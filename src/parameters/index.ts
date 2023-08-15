@@ -1,5 +1,6 @@
 
-import { PluginManager, PIXI } from 'rmmz';
+import { PluginManager } from 'rmmz';
+import { VERSION } from 'pixi.js';
 
 import { pluginName } from './header';
 import { Color } from '../core/color';
@@ -14,7 +15,7 @@ const gameParameters: any = JSON.parse(engineParameters['Game']);
 const helperParameters: any = JSON.parse(engineParameters['helper']);
 const filterParameters: any = JSON.parse(engineParameters['filter']);
 
-export const engineName: string = PIXI.VERSION[0] < 5 ? 'MV' : 'MZ';
+export const engineName: string = Number(VERSION[0]) < 5 ? 'MV' : 'MZ';
 
 const colors = JSON.parse(helperParameters.colors);
 

@@ -1,4 +1,4 @@
-import { DataManager } from "rmmz";
+import { DataManager } from 'rmmz';
 import Game_Lighting from "../lighting/Game_Lighting";
 (window as any).$gameLighting = new Game_Lighting();
 
