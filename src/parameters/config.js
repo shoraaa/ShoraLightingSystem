@@ -8,8 +8,6 @@ const gameConfig = JSON.parse(engineParameters['Game']);
 const helperConfig = JSON.parse(engineParameters['helper']);
 const filterConfig = JSON.parse(engineParameters['filter']);
 
-export const engineName = Number(PIXI.VERSION[0]) < 5 ? 'MV' : 'MZ';
-
 const colors = JSON.parse(helperConfig.colors);
 
 for (const colorJSON of colors) {

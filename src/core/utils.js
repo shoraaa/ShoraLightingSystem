@@ -1,38 +1,45 @@
 
-export var ColorManager = ColorManager || {};
 
-ColorManager.registered = {};
 
-ColorManager.stringToHex = function(color) {
-    if (ColorManager.registered[color]) {
-        return ColorManager.registered[color];
-    }
-    if (color.length == 6) {
-        return parseInt(color, 16);
-    }
-    return parseInt(color.substr(1), 16);
-}
+export const ColorManager = {
+    registered: {},
+    register: function(name, color) {
+        ColorManager.registered[name] = ColorManager.stringToHex(color);
+    },
 
-ColorManager.register = function(name, color) {
-    ColorManager.registered[name] = ColorManager.stringToHex(color);
-}
 
-ColorManager.toRGBA = function(color) {
-    let s = color.substr(5, color.length - 6);
-    let a = s.split(",");
-    return a.map(x => Number(x.trim()));
+    stringToHex: function(color) {
+        if (ColorManager.registered[color]) {
+            return ColorManager.registered[color];
+        }
+        if (color.length == 6) {
+            return parseInt(color, 16);
+        }
+        return parseInt(color.substr(1), 16);
+    },
+
+    toRGBA: function(color) {
+        let s = color.substr(5, color.length - 6);
+        let a = s.split(",");
+        return a.map(x => Number(x.trim()));
+    },
+
+
 };
 
-
 export const TextureManager = {
-    /**
-     * Return a filtered texture.
-     */
-    filter: function(options) {
-        if ($gameLighting.filteredTexture[options.name])
-            return $shoraLayer.filteredTexture[options.name];
+    bitmapCache: {},
+    filteredCache: {},
 
-        let baseTexture = ImageManager.loadLighting(options.name)._baseTexture;
+    load: function(filename) {
+        TextureManager.bitmapCache[filename] = ImageManager.loadLight(filename);
+    },
+
+    filter: function(options) {
+        if (TextureManager.filteredCache[options.name]) {
+            return TextureManager.filteredCache[options.name];
+        }
+        let baseTexture = TextureManager.bitmapCache[options.filename]._baseTexture;
         let sprite = new PIXI.Sprite(new PIXI.Texture(baseTexture));
         let colorFilter = options.colorfilter;
         let filter = new ColorFilter();
@@ -41,11 +48,10 @@ export const TextureManager = {
 		filter.setColorTone(colorFilter.colortone || [0, 0, 0, 0]); // 8, 243, 242, 194
 		filter.setBlendColor(colorFilter.blendcolor || [0, 0, 0, 0]); // 96, 151, 221, 229
 		sprite.filters = [filter];
-        let renderedTexture = Graphics.app.renderer.generateTexture(sprite);
+        let renderedTexture = Graphics.app.renderer.generateTexture(sprite, 1, 1, sprite.getBounds());
         sprite.filters = null;
-		sprite.destroy({texture: true});
-        $shoraLayer.textureCache[options.name] = renderedTexture;
-		return new PIXI.Sprite(renderedTexture);
+		sprite.destroy({ texture: true });
+		return TextureManager.filteredCache[options.name] = renderedTexture;
     }
 };
 

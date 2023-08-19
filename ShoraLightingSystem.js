@@ -1,6 +1,20 @@
 (function () {
     'use strict';
 
+    const makeSaveContents = DataManager.makeSaveContents;
+    const extractSaveContents = DataManager.extractSaveContents;
+
+    DataManager.makeSaveContents = function() {
+        const contents = makeSaveContents();
+        contents.lighting = $gameLighting.data;
+        return contents;
+    };
+
+    DataManager.extractSaveContents = function(contents) {
+        extractSaveContents(contents);
+        $gameLighting.data = contents.lighting;
+    };
+
     /*:
      * @plugindesc 
      * [v2.0TS] A Lighting and Shadow plugin for RPG Maker MV/MZ, written in Typescript, powered by pixi.js library.
@@ -453,32 +467,101 @@
 
     const pluginName = 'ShoraLightingSystem';
     const pluginVersion = '2.0';
+    const engineName = Number(PIXI.VERSION[0]) < 5 ? 'MV' : 'MZ';
 
     console.log(pluginName + ' v' + pluginVersion);
 
-    var ColorManager = ColorManager || {};
+    if (engineName === 'MV') {
+        ImageManager.loadLight = function(filename) {
+            return this.loadBitmap('img/lights/', filename.substring(0, filename.length), true);
+        };
+    } else {
+        ImageManager.loadLight = function(filename) {
+            const url = 'img/lights/' + Utils.encodeURI(filename + '.png');
+            return Bitmap.load(url);
+        };
+    }
 
-    ColorManager.registered = {};
+    const initialize = Game_Character.prototype.initialize;
 
-    ColorManager.stringToHex = function(color) {
-        if (ColorManager.registered[color]) {
-            return ColorManager.registered[color];
+    Game_Character.prototype.initialize = function() {
+        initialize.call(this);
+        this._lightConfig = {};
+        this.lighting = false;
+    };
+
+    const update$1 = Game_Character.prototype.update;
+
+    Game_Character.prototype.update = function() {
+        update$1.call(this);
+        this.updateLighting();
+    };
+
+    Game_Character.prototype.updateLighting = function() {
+        if (!!this._lightConfig.status && !this.lighting) {
+            this.lighting = true;
+            $gameLighting.add(this._lightConfig);
         }
-        if (color.length == 6) {
-            return parseInt(color, 16);
+        if (!this._lightConfig.status && this.lighting) {
+            this.lighting = false;
+            $gameLighting.remove(this._lightConfig);
         }
-        return parseInt(color.substr(1), 16);
     };
 
-    ColorManager.register = function(name, color) {
-        ColorManager.registered[name] = ColorManager.stringToHex(color);
+    const ColorManager = {
+        registered: {},
+        register: function(name, color) {
+            ColorManager.registered[name] = ColorManager.stringToHex(color);
+        },
+
+
+        stringToHex: function(color) {
+            if (ColorManager.registered[color]) {
+                return ColorManager.registered[color];
+            }
+            if (color.length == 6) {
+                return parseInt(color, 16);
+            }
+            return parseInt(color.substr(1), 16);
+        },
+
+        toRGBA: function(color) {
+            let s = color.substr(5, color.length - 6);
+            let a = s.split(",");
+            return a.map(x => Number(x.trim()));
+        },
+
+
     };
 
-    ColorManager.toRGBA = function(color) {
-        let s = color.substr(5, color.length - 6);
-        let a = s.split(",");
-        return a.map(x => Number(x.trim()));
+    const TextureManager = {
+        bitmapCache: {},
+        filteredCache: {},
+
+        load: function(filename) {
+            TextureManager.bitmapCache[filename] = ImageManager.loadLight(filename);
+        },
+
+        filter: function(options) {
+            if (TextureManager.filteredCache[options.name]) {
+                return TextureManager.filteredCache[options.name];
+            }
+            let baseTexture = TextureManager.bitmapCache[options.filename]._baseTexture;
+            let sprite = new PIXI.Sprite(new PIXI.Texture(baseTexture));
+            let colorFilter = options.colorfilter;
+            let filter = new ColorFilter();
+    		filter.setBrightness(colorFilter.brightness || 255);
+    		filter.setHue(colorFilter.hue === -1 ? Math.random() * 360 : colorFilter.hue);
+    		filter.setColorTone(colorFilter.colortone || [0, 0, 0, 0]); // 8, 243, 242, 194
+    		filter.setBlendColor(colorFilter.blendcolor || [0, 0, 0, 0]); // 96, 151, 221, 229
+    		sprite.filters = [filter];
+            let renderedTexture = Graphics.app.renderer.generateTexture(sprite, 1, 1, sprite.getBounds());
+            sprite.filters = null;
+    		sprite.destroy({ texture: true });
+    		return TextureManager.filteredCache[options.name] = renderedTexture;
+        }
     };
+
 
     function parseNotes(config, notes) {
         if (!notes || notes.length <= 2 || notes[0] !== '[' || notes[notes.length - 1] !== ']') return;
@@ -550,14 +633,64 @@
 
     }
 
+    const setupPageSettings = Game_Event.prototype.setupPageSettings;
+
+    Game_Event.prototype.setupPageSettings = function() {
+        setupPageSettings.call(this);
+        if (!this._erased) {
+            this.setupLighting();
+        }
+    };
+
+    Game_Event.prototype.setupLighting = function() {
+        this._lightConfig = {};
+        this.page().list.forEach((comment) => {
+            if (comment.code === 108 || comment.code === 408) 
+                parseNotes(this._lightConfig, comment.parameters.join(''));
+        });
+        this._lightConfig.id = this._eventId;
+    };
+
+    const setup = Game_Map.prototype.setup;
+
+    Game_Map.prototype.setup = function(mapId) {
+        setup.call(this, mapId);
+        this._lighting = [];
+    };
+
+    if (engineName === 'MV') {
+        const _createRenderer = Graphics._createRenderer;
+        Graphics._createRenderer = function() {
+            _createRenderer.call(this);
+            this.app = { renderer: this._renderer };
+        };
+    }
+
+    const destroy = Spriteset_Map.prototype.destroy;
+    const createUpperLayer = Spriteset_Map.prototype.createUpperLayer;
+    const update = Spriteset_Map.prototype.update;
+
+    Spriteset_Map.prototype.destroy = function(options) {
+        destroy.call(this, options);
+        $gameLighting.removeScene(this);
+    };
+
+    Spriteset_Map.prototype.createUpperLayer = function() {
+        createUpperLayer.call(this);
+        $gameLighting.loadScene(this);
+    };
+
+    Spriteset_Map.prototype.update = function() {
+        update.call(this);
+        $gameLighting.update();
+    };
+
     const engineParameters$1 = PluginManager.parameters(pluginName);
 
     const mapConfig = JSON.parse(engineParameters$1['Map']);
     const gameConfig = JSON.parse(engineParameters$1['Game']);
     const helperConfig = JSON.parse(engineParameters$1['helper']);
     const filterConfig = JSON.parse(engineParameters$1['filter']);
-
-    const engineName = Number(PIXI.VERSION[0]) < 5 ? 'MV' : 'MZ';
 
     const colors = JSON.parse(helperConfig.colors);
 
@@ -648,6 +781,7 @@
 
         config.name = name;
         baseLightingConfig[name] = config;
+        TextureManager.load(config.filename);
 
         console.log('Shora Lighting: ' + name + ' registered');
     }
@@ -657,126 +791,23 @@
         registerLight(config);
     }
 
-    const makeSaveContents = DataManager.makeSaveContents;
-    const extractSaveContents = DataManager.extractSaveContents;
-
-    DataManager.makeSaveContents = function() {
-        const contents = makeSaveContents();
-        contents.lighting = $gameLighting.data;
-        return contents;
-    };
-
-    DataManager.extractSaveContents = function(contents) {
-        extractSaveContents(contents);
-        $gameLighting.data = contents.lighting;
-    };
-
-    const initialize = Game_Character.prototype.initialize;
-
-    Game_Character.prototype.initialize = function() {
-        initialize.call(this);
-        this._lightConfig = {};
-        this.lighting = false;
-    };
-
-    const update$1 = Game_Character.prototype.update;
-
-    Game_Character.prototype.update = function() {
-        update$1.call(this);
-        this.updateLighting();
-    };
-
-    Game_Character.prototype.updateLighting = function() {
-        if (!!this._lightConfig.status && !this.lighting) {
-            this.lighting = true;
-            $gameLighting.add(this._lightConfig);
-        }
-        if (!this._lightConfig.status && this.lighting) {
-            this.lighting = false;
-            $gameLighting.remove(this._lightConfig);
-        }
-    };
-
-    const setupPageSettings = Game_Event.prototype.setupPageSettings;
-
-    Game_Event.prototype.setupPageSettings = function() {
-        setupPageSettings.call(this);
-        if (!this._erased) {
-            this.setupLighting();
-        }
-    };
-
-    Game_Event.prototype.setupLighting = function() {
-        this._lightConfig = {};
-        this.page().list.forEach((comment) => {
-            if (comment.code === 108 || comment.code === 408) 
-                parseNotes(this._lightConfig, comment.parameters.join(''));
-        });
-        this._lightConfig.id = this._eventId;
-    };
-
-    const setup = Game_Map.prototype.setup;
-
-    Game_Map.prototype.setup = function(mapId) {
-        setup.call(this, mapId);
-        this._lighting = [];
-    };
-
-    if (engineName === 'MV') {
-        const _createRenderer = Graphics._createRenderer;
-        Graphics._createRenderer = function() {
-            _createRenderer.call(this);
-            this.app = { renderer: this._renderer };
-        };
-    }
-
-    if (engineName === 'MV') {
-        ImageManager.loadLight = function(filename) {
-            return this.loadBitmap('img/lights/', filename.substring(0, filename.length), true);
-        };
-    } else {
-        ImageManager.loadLight = function(filename) {
-            const url = 'img/lights/' + Utils.encodeURI(filename + '.png');
-            return Bitmap.load(url);
-        };
-    }
-
-    const destroy = Spriteset_Map.prototype.destroy;
-    const createUpperLayer = Spriteset_Map.prototype.createUpperLayer;
-    const update = Spriteset_Map.prototype.update;
-
-    Spriteset_Map.prototype.destroy = function(options) {
-        destroy.call(this, options);
-        $gameLighting.removeScene(this);
-    };
-
-    Spriteset_Map.prototype.createUpperLayer = function() {
-        createUpperLayer.call(this);
-        $gameLighting.loadScene(this);
-    };
-
-    Spriteset_Map.prototype.update = function() {
-        update.call(this);
-        $gameLighting.update();
-    };
-
-    class Light extends Sprite {
+    class Light {
         constructor(config, position) {
-            super();
             this.config = config;
-            this.pos = position;
+            this.position = position;
 
             this.filename = config.filename;
-            this.bitmap = ImageManager.loadLight(this.filename);
             this.id = config.id;
 
-            this.anchor.set(0.5);
-            this.blendMode = PIXI.BLEND_MODES.ADD;
+            this.sprite = new PIXI.Sprite(TextureManager.filter(config));
+
+            this.sprite.anchor.set(0.5);
+            this.sprite.blendMode = PIXI.BLEND_MODES.ADD;
         }
 
         update() {
-            this.x = this.pos.screenX();
-            this.y = this.pos.screenY();
+            this.sprite.x = this.position.screenX();
+            this.sprite.y = this.position.screenY();
         }
     }
 
@@ -859,7 +890,7 @@
             const character = config.id ? $gameMap._events[config.id] : $gamePlayer;
             const light = new Light(config, character);
             this.lights.push(light);
-            this.layer.addChild(light);
+            this.layer.addChild(light.sprite);
         }
 
         addCharacterMapLighting() {

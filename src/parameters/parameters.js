@@ -2,6 +2,8 @@ import { pluginName } from "./header";
 import { ColorManager } from "../core/utils";
 import { shadowConfig } from "./config";
 
+import { TextureManager } from "../core/utils";
+
 const engineParameters = PluginManager.parameters(pluginName);
 
 const defaultLight = engineParameters['default'];
@@ -53,6 +55,7 @@ function registerLight(_config) {
 
     config.name = name;
     baseLightingConfig[name] = config;
+    TextureManager.load(config.filename);
 
     console.log('Shora Lighting: ' + name + ' registered');
 }

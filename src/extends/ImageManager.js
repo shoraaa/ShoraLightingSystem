@@ -1,4 +1,4 @@
-import { engineName } from "../parameters/index";
+import { engineName } from "../parameters/header";
 
 if (engineName === 'MV') {
     ImageManager.loadLight = function(filename) {

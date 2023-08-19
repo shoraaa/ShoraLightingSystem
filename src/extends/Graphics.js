@@ -1,4 +1,4 @@
-import { engineName } from "../parameters/index";
+import { engineName } from "../parameters/header";
 
 if (engineName === 'MV') {
     const _createRenderer = Graphics._createRenderer;

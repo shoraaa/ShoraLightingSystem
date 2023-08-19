@@ -450,5 +450,6 @@
 
 export const pluginName = 'ShoraLightingSystem';
 export const pluginVersion = '2.0';
+export const engineName = Number(PIXI.VERSION[0]) < 5 ? 'MV' : 'MZ';
 
 console.log(pluginName + ' v' + pluginVersion);
