@@ -448,7 +448,7 @@
  * @default #ffffff
 */
 
-export const pluginName: string = 'ShoraLightingSystem';
-export const pluginVersion: string = '2.0TS';
+export const pluginName = 'ShoraLightingSystem';
+export const pluginVersion = '2.0';
 
 console.log(pluginName + ' v' + pluginVersion);

@@ -1,6 +1,3 @@
-import { Spriteset_Map } from 'rmmz/lib/sprites';
-import Game_Lighting from "../lighting/Game_Lighting";
-declare var $gameLighting: Game_Lighting;
 
 const destroy = Spriteset_Map.prototype.destroy;
 const createUpperLayer = Spriteset_Map.prototype.createUpperLayer;
