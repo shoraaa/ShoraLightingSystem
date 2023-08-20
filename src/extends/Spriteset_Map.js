@@ -1,19 +1,20 @@
+import { lightingManager } from "../light/LightingManager";
 
 const destroy = Spriteset_Map.prototype.destroy;
 const createUpperLayer = Spriteset_Map.prototype.createUpperLayer;
 const update = Spriteset_Map.prototype.update;
 
 Spriteset_Map.prototype.destroy = function(options) {
+    lightingManager.removeScene(this);
     destroy.call(this, options);
-    $gameLighting.removeScene(this);
 }
 
 Spriteset_Map.prototype.createUpperLayer = function() {
     createUpperLayer.call(this);
-    $gameLighting.loadScene(this);
+    lightingManager.loadScene(this);
 }
 
 Spriteset_Map.prototype.update = function() {
     update.call(this);
-    $gameLighting.update();
+    lightingManager.update();
 }

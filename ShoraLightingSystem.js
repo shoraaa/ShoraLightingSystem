@@ -1,20 +1,6 @@
 (function () {
     'use strict';
 
-    const makeSaveContents = DataManager.makeSaveContents;
-    const extractSaveContents = DataManager.extractSaveContents;
-
-    DataManager.makeSaveContents = function() {
-        const contents = makeSaveContents();
-        contents.lighting = $gameLighting.data;
-        return contents;
-    };
-
-    DataManager.extractSaveContents = function(contents) {
-        extractSaveContents(contents);
-        $gameLighting.data = contents.lighting;
-    };
-
     /*:
      * @plugindesc 
      * [v2.0TS] A Lighting and Shadow plugin for RPG Maker MV/MZ, written in Typescript, powered by pixi.js library.
@@ -482,31 +468,126 @@
         };
     }
 
-    const initialize = Game_Character.prototype.initialize;
+    class LightingColorFilter extends PIXI.Filter {
+        constructor() {
+            super(null, LightingColorFilter._fragmentSrc());
+            this.uniforms.hue = 0;
+            this.uniforms.colorTone = [0, 0, 0, 0];
+            this.uniforms.blendColor = [0, 0, 0, 0];
+            this.uniforms.brightness = 255;
+        };
 
-    Game_Character.prototype.initialize = function() {
-        initialize.call(this);
-        this._lightConfig = {};
-        this.lighting = false;
-    };
+        setHue(hue) {
+            this.uniforms.hue = Number(hue);
+        };
 
-    const update$1 = Game_Character.prototype.update;
+        setColorTone(tone) {
+            if (!(tone instanceof Array)) {
+                throw new Error("Argument must be an array");
+            }
+            this.uniforms.colorTone = tone.clone();
+        };
 
-    Game_Character.prototype.update = function() {
-        update$1.call(this);
-        this.updateLighting();
-    };
+        setBlendColor(color) {
+            if (!(color instanceof Array)) {
+                throw new Error("Argument must be an array");
+            }
+            this.uniforms.blendColor = color.clone();
+        };
 
-    Game_Character.prototype.updateLighting = function() {
-        if (!!this._lightConfig.status && !this.lighting) {
-            this.lighting = true;
-            $gameLighting.add(this._lightConfig);
-        }
-        if (!this._lightConfig.status && this.lighting) {
-            this.lighting = false;
-            $gameLighting.remove(this._lightConfig);
-        }
-    };
+
+        setBrightness(brightness) {
+            this.uniforms.brightness = Number(brightness);
+        };
+
+        static _fragmentSrc() {
+            const src =
+                "varying vec2 vTextureCoord;" +
+                "uniform sampler2D uSampler;" +
+                "uniform float hue;" +
+                "uniform vec4 colorTone;" +
+                "uniform vec4 blendColor;" +
+                "uniform float brightness;" +
+                "vec3 rgbToHsl(vec3 rgb) {" +
+                "  float r = rgb.r;" +
+                "  float g = rgb.g;" +
+                "  float b = rgb.b;" +
+                "  float cmin = min(r, min(g, b));" +
+                "  float cmax = max(r, max(g, b));" +
+                "  float h = 0.0;" +
+                "  float s = 0.0;" +
+                "  float l = (cmin + cmax) / 2.0;" +
+                "  float delta = cmax - cmin;" +
+                "  if (delta > 0.0) {" +
+                "    if (r == cmax) {" +
+                "      h = mod((g - b) / delta + 6.0, 6.0) / 6.0;" +
+                "    } else if (g == cmax) {" +
+                "      h = ((b - r) / delta + 2.0) / 6.0;" +
+                "    } else {" +
+                "      h = ((r - g) / delta + 4.0) / 6.0;" +
+                "    }" +
+                "    if (l < 1.0) {" +
+                "      s = delta / (1.0 - abs(2.0 * l - 1.0));" +
+                "    }" +
+                "  }" +
+                "  return vec3(h, s, l);" +
+                "}" +
+                "vec3 hslToRgb(vec3 hsl) {" +
+                "  float h = hsl.x;" +
+                "  float s = hsl.y;" +
+                "  float l = hsl.z;" +
+                "  float c = (1.0 - abs(2.0 * l - 1.0)) * s;" +
+                "  float x = c * (1.0 - abs((mod(h * 6.0, 2.0)) - 1.0));" +
+                "  float m = l - c / 2.0;" +
+                "  float cm = c + m;" +
+                "  float xm = x + m;" +
+                "  if (h < 1.0 / 6.0) {" +
+                "    return vec3(cm, xm, m);" +
+                "  } else if (h < 2.0 / 6.0) {" +
+                "    return vec3(xm, cm, m);" +
+                "  } else if (h < 3.0 / 6.0) {" +
+                "    return vec3(m, cm, xm);" +
+                "  } else if (h < 4.0 / 6.0) {" +
+                "    return vec3(m, xm, cm);" +
+                "  } else if (h < 5.0 / 6.0) {" +
+                "    return vec3(xm, m, cm);" +
+                "  } else {" +
+                "    return vec3(cm, m, xm);" +
+                "  }" +
+                "}" +
+                "void main() {" +
+                "  vec4 sample = texture2D(uSampler, vTextureCoord);" +
+                "  float a = sample.a;" +
+                "  vec3 hsl = rgbToHsl(sample.rgb);" +
+                "  hsl.x = mod(hsl.x + hue / 360.0, 1.0);" +
+                "  hsl.y = hsl.y * (1.0 - colorTone.a / 255.0);" +
+                "  vec3 rgb = hslToRgb(hsl);" +
+                "  float r = rgb.r;" +
+                "  float g = rgb.g;" +
+                "  float b = rgb.b;" +
+                "  float r2 = colorTone.r / 255.0;" +
+                "  float g2 = colorTone.g / 255.0;" +
+                "  float b2 = colorTone.b / 255.0;" +
+                "  float r3 = blendColor.r / 255.0;" +
+                "  float g3 = blendColor.g / 255.0;" +
+                "  float b3 = blendColor.b / 255.0;" +
+                "  float i3 = blendColor.a / 255.0;" +
+                "  float i1 = 1.0 - i3;" +
+                "  r = clamp((r / a + r2) * a, 0.0, 1.0);" +
+                "  g = clamp((g / a + g2) * a, 0.0, 1.0);" +
+                "  b = clamp((b / a + b2) * a, 0.0, 1.0);" +
+                "  r = clamp(r * i1 + r3 * i3 * a, 0.0, 1.0);" +
+                "  g = clamp(g * i1 + g3 * i3 * a, 0.0, 1.0);" +
+                "  b = clamp(b * i1 + b3 * i3 * a, 0.0, 1.0);" +
+                "  r = r * brightness / 255.0;" +
+                "  g = g * brightness / 255.0;" +
+                "  b = b * brightness / 255.0;" +
+                "  gl_FragColor = vec4(r, g, b, a);" +
+                "}";
+            return src;
+        }; 
+    }
+
 
     const ColorManager = {
         registered: {},
@@ -549,7 +630,7 @@
             let baseTexture = TextureManager.bitmapCache[options.filename]._baseTexture;
             let sprite = new PIXI.Sprite(new PIXI.Texture(baseTexture));
             let colorFilter = options.colorfilter;
-            let filter = new ColorFilter();
+            let filter = new LightingColorFilter();
     		filter.setBrightness(colorFilter.brightness || 255);
     		filter.setHue(colorFilter.hue === -1 ? Math.random() * 360 : colorFilter.hue);
     		filter.setColorTone(colorFilter.colortone || [0, 0, 0, 0]); // 8, 243, 242, 194
@@ -576,8 +657,9 @@
             return;
         }
 
-        if (notes[0] === 'light') notes[0] = 'default';
-        if (!$gameLighting.baseLightingConfig[notes[0]]) return;
+        if (notes[0] === 'light') {
+            notes[0] = 'default';
+        }
 
         config.name = notes[0];
         config.status = true;
@@ -633,58 +715,6 @@
 
     }
 
-    const setupPageSettings = Game_Event.prototype.setupPageSettings;
-
-    Game_Event.prototype.setupPageSettings = function() {
-        setupPageSettings.call(this);
-        if (!this._erased) {
-            this.setupLighting();
-        }
-    };
-
-    Game_Event.prototype.setupLighting = function() {
-        this._lightConfig = {};
-        this.page().list.forEach((comment) => {
-            if (comment.code === 108 || comment.code === 408) 
-                parseNotes(this._lightConfig, comment.parameters.join(''));
-        });
-        this._lightConfig.id = this._eventId;
-    };
-
-    const setup = Game_Map.prototype.setup;
-
-    Game_Map.prototype.setup = function(mapId) {
-        setup.call(this, mapId);
-        this._lighting = [];
-    };
-
-    if (engineName === 'MV') {
-        const _createRenderer = Graphics._createRenderer;
-        Graphics._createRenderer = function() {
-            _createRenderer.call(this);
-            this.app = { renderer: this._renderer };
-        };
-    }
-
-    const destroy = Spriteset_Map.prototype.destroy;
-    const createUpperLayer = Spriteset_Map.prototype.createUpperLayer;
-    const update = Spriteset_Map.prototype.update;
-
-    Spriteset_Map.prototype.destroy = function(options) {
-        destroy.call(this, options);
-        $gameLighting.removeScene(this);
-    };
-
-    Spriteset_Map.prototype.createUpperLayer = function() {
-        createUpperLayer.call(this);
-        $gameLighting.loadScene(this);
-    };
-
-    Spriteset_Map.prototype.update = function() {
-        update.call(this);
-        $gameLighting.update();
-    };
-
     const engineParameters$1 = PluginManager.parameters(pluginName);
 
     const mapConfig = JSON.parse(engineParameters$1['Map']);
@@ -729,6 +759,201 @@
         }
 
     };
+
+    var ShadowSystem = (function() {
+
+        const graphics = new PIXI.Graphics();
+
+        const epsilon = () => 0.0000001;
+
+        const equal = (a, b) => {
+            if (Math.abs(a[0] - b[0]) < epsilon() && Math.abs(a[1] - b[1]) < epsilon()) return true;
+            return false;
+        };
+
+        const intersectLines = (a1, a2, b1, b2) => {
+            let dbx = b2[0] - b1[0];
+            let dby = b2[1] - b1[1];
+            let dax = a2[0] - a1[0];
+            let day = a2[1] - a1[1];
+            
+            let u_b  = dby * dax - dbx * day;
+            if (u_b != 0) {
+                let ua = (dbx * (a1[1] - b1[1]) - dby * (a1[0] - b1[0])) / u_b;
+                return [a1[0] - ua * -dax, a1[1] - ua * -day];
+            }
+            return [];
+        };
+
+        const distance = (a, b) => {
+            let dx = a[0]-b[0];
+            let dy = a[1]-b[1];
+            return dx*dx + dy*dy;
+        };
+
+        const isOnSegment = (xi, yi, xj, yj, xk, yk) => {
+          return (xi <= xk || xj <= xk) && (xk <= xi || xk <= xj) &&
+                 (yi <= yk || yj <= yk) && (yk <= yi || yk <= yj);
+        };
+
+        const computeDirection = (xi, yi, xj, yj, xk, yk) => {
+          a = (xk - xi) * (yj - yi);
+          b = (xj - xi) * (yk - yi);
+          return a < b ? -1 : a > b ? 1 : 0;
+        };
+
+        const doLineSegmentsIntersect = (x1, y1, x2, y2, x3, y3, x4, y4) => {
+          d1 = computeDirection(x3, y3, x4, y4, x1, y1);
+          d2 = computeDirection(x3, y3, x4, y4, x2, y2);
+          d3 = computeDirection(x1, y1, x2, y2, x3, y3);
+          d4 = computeDirection(x1, y1, x2, y2, x4, y4);
+          return (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+                  ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) ||
+                 (d1 == 0 && isOnSegment(x3, y3, x4, y4, x1, y1)) ||
+                 (d2 == 0 && isOnSegment(x3, y3, x4, y4, x2, y2)) ||
+                 (d3 == 0 && isOnSegment(x1, y1, x2, y2, x3, y3)) ||
+                 (d4 == 0 && isOnSegment(x1, y1, x2, y2, x4, y4));
+        };
+
+        const breakIntersections = (segments) => {
+            let output = [];
+            for (let i = 0; i < segments.length; ++i) {
+                let intersections = [];
+                for (let j = 0; j < segments.length; ++j) {
+                    if (i == j) continue;
+                    if (doLineSegmentsIntersect(segments[i][0][0], segments[i][0][1], segments[i][1][0], segments[i][1][1], segments[j][0][0], segments[j][0][1], segments[j][1][0], segments[j][1][1])) {
+                        let intersect = intersectLines(segments[i][0], segments[i][1], segments[j][0], segments[j][1]);
+                        if (intersect.length != 2) continue;
+                        if (equal(intersect, segments[i][0]) || equal(intersect, segments[i][1])) continue;
+                        intersections.push(intersect);
+                    }
+                }
+                let start = [segments[i][0][0], segments[i][0][1]];
+                while (intersections.length > 0) {
+                    let endIndex = 0;
+                    let endDis = distance(start, intersections[0]);
+                    for (let j = 1; j < intersections.length; ++j) {
+                        let dis = distance(start, intersections[j]);
+                        if (dis < endDis) {
+                            endDis = dis;
+                            endIndex = j;
+                        }
+                    }
+                    output.push([[start[0], start[1]], [intersections[endIndex][0], intersections[endIndex][1]]]);
+                    start[0] = intersections[endIndex][0];
+                    start[1] = intersections[endIndex][1];
+                    intersections.splice(endIndex, 1);
+                }
+                output.push([start, [segments[i][1][0], segments[i][1][1]]]);
+            }
+            return output;
+        };
+
+        const getSegments = (segments) => {
+            let newSegments = [];
+            for (let i = 0; i < segments.length; ++i) {
+                let [p1x, p1y, p2x, p2y] = segments[i];
+                newSegments.push([[p1x, p1y], [p2x, p2y]]);
+            }
+            newSegments = breakIntersections(newSegments);
+            return newSegments;
+        };
+
+        const calculate = (lighting) => {
+            graphics.clear();
+            graphics.beginFill(0x111111).drawRect(0, 0, 50, 50).endFill();
+            return graphics;
+        };
+
+        let exports = {};
+
+        exports.calculate = calculate;
+        exports.getSegments = getSegments;
+
+        return exports;
+
+    })();
+
+    class Lighting extends PIXI.Sprite {
+        constructor(config, position) {
+            super(new PIXI.RenderTexture());
+
+            this.config = config;
+            this.location = position;
+
+            this.filename = config.filename;
+            this.id = config.id;
+
+            this.lightSprite = new PIXI.Sprite(TextureManager.filter(config));
+
+            this.anchor.set(0.5);
+            this.blendMode = PIXI.BLEND_MODES.ADD;
+
+            this.texture.resize(this.lightSprite.width, this.lightSprite.height);
+            Graphics.app.renderer.render(this.lightSprite, this.texture, false);
+        }
+
+        destroy() { 
+            this.lightSprite.destroy();
+            super.destroy();
+        }
+
+        update() {
+            if (!this.config.status) {
+                return;
+            }
+
+            const old_x = this.x, old_y = this.y, 
+                  old_ox = this.config.offset.x, old_oy = this.config.offset.y;
+
+            this.updatePosition();
+            this.updateAnimation();
+
+            if (old_x !== this.x || old_y !== this.y || 
+                old_ox !== this.config.offset.x || old_oy != this.config.offset.y) {
+                this.updateShadow();
+            }
+        }
+
+        updatePosition() {
+            this.x = this.location.screenX();
+            this.y = this.location.screenY();
+        }
+
+        updateAnimation() {
+            // offset, range, angle
+        }
+
+        updateShadow() {
+            const shadow = ShadowSystem.calculate(this);
+            Graphics.app.renderer.render(this.lightSprite, this.texture);
+            Graphics.app.renderer.render(shadow, this.texture, false);
+
+        }
+
+    }
+
+    class AmbientLayer extends PIXI.Graphics {
+        constructor(config) {
+            super();
+
+            this.config = config;
+
+            this.id = -1;
+            this.tint = config.ambient;
+
+            this.beginFill(0xffffff);
+    	    this.drawRect(0, 0, Graphics.width, Graphics.height);
+            this.endFill();
+
+            this.blendMode = PIXI.BLEND_MODES.NORMAL;
+        }
+
+        update() {
+            this.config.ambient = this.tint;
+        }
+
+    }
 
     const engineParameters = PluginManager.parameters(pluginName);
 
@@ -787,55 +1012,12 @@
     }
 
     registerLight(defaultLight);
-    for (config of customLights) {
+    for (const config of customLights) {
         registerLight(config);
     }
 
-    class Light {
-        constructor(config, position) {
-            this.config = config;
-            this.position = position;
-
-            this.filename = config.filename;
-            this.id = config.id;
-
-            this.sprite = new PIXI.Sprite(TextureManager.filter(config));
-
-            this.sprite.anchor.set(0.5);
-            this.sprite.blendMode = PIXI.BLEND_MODES.ADD;
-        }
-
-        update() {
-            this.sprite.x = this.position.screenX();
-            this.sprite.y = this.position.screenY();
-        }
-    }
-
-    class AmbientLayer extends PIXI.Graphics {
-        constructor(config) {
-            super();
-
-            this.config = config;
-
-            this.id = -1;
-            this.tint = config.ambient;
-
-            this.beginFill(0xffffff);
-    	    this.drawRect(0, 0, Graphics.width, Graphics.height);
-            this.endFill();
-
-            this.blendMode = PIXI.BLEND_MODES.NORMAL;
-        }
-
-        update() {
-            this.config.ambient = this.tint;
-        }
-
-    }
-
-    class Game_Lighting {
+    class LightingManager {
         constructor() {
-            console.log(pluginName + " API had been construted. Use the method provided by $gameLighting to get started.");
             this.data = {
                 _disabled: false,
 
@@ -849,7 +1031,7 @@
             };
             this.baseLightingConfig = baseLightingConfig;
 
-            this.lights = [];
+            this.characterLighting = [];
             this.layer = new PIXI.Container();
         }
 
@@ -870,30 +1052,32 @@
             this.layer.addChild(this.ambient);
         }
 
-
-
-
         /*! Post-Processing */
         loadScene(spriteset) {
             this.createSprite();
             this.addAmbientLayer();
-            this.addCharacterMapLighting();
+            this.addAllCharacterLighting();
             spriteset._baseSprite.addChild(this.sprite);
         }
 
         removeScene(spriteset) {
             spriteset._baseSprite.removeChild(this.sprite);
-            this.layer.removeChildren(1);
+            for (const lighting of this.characterLighting) {
+                if (!lighting) {
+                    continue;
+                }
+                this.removeCharacterLighting(lighting.config.id);
+            }
         }
 
         addLight(config) {
             const character = config.id ? $gameMap._events[config.id] : $gamePlayer;
-            const light = new Light(config, character);
-            this.lights.push(light);
-            this.layer.addChild(light.sprite);
+            const lighting = new Lighting(config, character);
+            this.characterLighting.push(lighting);
+            this.layer.addChild(lighting);
         }
 
-        addCharacterMapLighting() {
+        addAllCharacterLighting() {
             for (const config of $gameMap._lighting) {
                 if (!config) {
                     continue;
@@ -904,28 +1088,144 @@
 
         update() {
             this.ambient.update();
-            for (const light of this.lights) {
-                light.update();
+            for (const lighting of this.characterLighting) {
+                if (!lighting) {
+                    continue;
+                }
+                lighting.update();
             }
             Graphics.app.renderer.render(this.layer, this.texture, false);
         }
 
-        /*! Indirect API Functions */
-        add(config) {
+        addCharacterLighting(config) {
             if (!this.baseLightingConfig[config.name]) {
                 config.name = 'default';
             }
 
             const _config = {...this.baseLightingConfig[config.name], ...config};
 
+            this.removeCharacterLighting(_config.id);
             $gameMap._lighting[config.id] = _config;
             this.addLight(_config);
-
         }
 
-        /*! Direct API Functions (called by script command) */
-        setPluginState(state) {
+        removeCharacterLighting(cid) {
+            if ($gameMap._lighting[cid] && this.characterLighting[cid]) {
+                const lighting = this.characterLighting[cid];
+                $gameMap._lighting[cid] = this.characterLighting[cid] = null;
+                this.layer.removeChild(lighting);
+                lighting.destroy();
+            }
+        }
+    }
 
+    const lightingManager = new LightingManager();
+
+    const makeSaveContents = DataManager.makeSaveContents;
+    const extractSaveContents = DataManager.extractSaveContents;
+
+    DataManager.makeSaveContents = function() {
+        const contents = makeSaveContents();
+        contents.lighting = lightingManager.data;
+        return contents;
+    };
+
+    DataManager.extractSaveContents = function(contents) {
+        extractSaveContents(contents);
+        lightingManager.data = contents.lighting;
+    };
+
+    if (!shadowConfig.engineShadow) {
+        Tilemap.prototype._addShadow = function() {}; 
+        if (engineName === 'MV') {
+            ShaderTilemap.prototype._addShadow = function() {}; 
+            ShaderTilemap.prototype._drawShadow = function() {};
+        }
+    }
+
+    const initialize = Game_Character.prototype.initialize;
+    Game_Character.prototype.initialize = function() {
+        initialize.call(this);
+        this._lightConfig = {};
+        this.lighting = false;
+    };
+
+    const update$1 = Game_Character.prototype.update;
+
+    Game_Character.prototype.update = function() {
+        update$1.call(this);
+        this.updateLighting();
+    };
+
+    Game_Character.prototype.updateLighting = function() {
+        if (!!this._lightConfig.status && !this.lighting) {
+            this.lighting = true;
+            lightingManager.addCharacterLighting(this._lightConfig);
+        }
+        if (!this._lightConfig.status && this.lighting) {
+            this.lighting = false;
+            lightingManager.removeCharacterLighting(this._lightConfig);
+        }
+    };
+
+    const setupPageSettings = Game_Event.prototype.setupPageSettings;
+
+    Game_Event.prototype.setupPageSettings = function() {
+        setupPageSettings.call(this);
+        if (!this._erased) {
+            this.setupLighting();
+        }
+    };
+
+    Game_Event.prototype.setupLighting = function() {
+        this._lightConfig = {};
+        this.page().list.forEach((comment) => {
+            if (comment.code === 108 || comment.code === 408) 
+                parseNotes(this._lightConfig, comment.parameters.join(''));
+        });
+        this._lightConfig.id = this._eventId;
+    };
+
+    const setup = Game_Map.prototype.setup;
+
+    Game_Map.prototype.setup = function(mapId) {
+        setup.call(this, mapId);
+        this._lighting = [];
+    };
+
+    if (engineName === 'MV') {
+        const _createRenderer = Graphics._createRenderer;
+        Graphics._createRenderer = function() {
+            _createRenderer.call(this);
+            this.app = { renderer: this._renderer };
+        };
+    }
+
+    const destroy = Spriteset_Map.prototype.destroy;
+    const createUpperLayer = Spriteset_Map.prototype.createUpperLayer;
+    const update = Spriteset_Map.prototype.update;
+
+    Spriteset_Map.prototype.destroy = function(options) {
+        lightingManager.removeScene(this);
+        destroy.call(this, options);
+    };
+
+    Spriteset_Map.prototype.createUpperLayer = function() {
+        createUpperLayer.call(this);
+        lightingManager.loadScene(this);
+    };
+
+    Spriteset_Map.prototype.update = function() {
+        update.call(this);
+        lightingManager.update();
+    };
+
+    class Game_Lighting {
+        constructor() {
+            console.log(pluginName + " API had been construted. Use the method provided by $gameLighting to get started.");
+        }
+
+        setPluginState(state) {
         }
 
         enable() {

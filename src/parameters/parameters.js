@@ -61,6 +61,6 @@ function registerLight(_config) {
 }
 
 registerLight(defaultLight);
-for (config of customLights) {
+for (const config of customLights) {
     registerLight(config);
 }

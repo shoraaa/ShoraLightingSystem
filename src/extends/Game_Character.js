@@ -1,5 +1,6 @@
-const initialize = Game_Character.prototype.initialize;
+import { lightingManager } from "../light/LightingManager";
 
+const initialize = Game_Character.prototype.initialize;
 Game_Character.prototype.initialize = function() {
     initialize.call(this);
     this._lightConfig = {};
@@ -16,10 +17,10 @@ Game_Character.prototype.update = function() {
 Game_Character.prototype.updateLighting = function() {
     if (!!this._lightConfig.status && !this.lighting) {
         this.lighting = true;
-        $gameLighting.add(this._lightConfig);
+        lightingManager.addCharacterLighting(this._lightConfig);
     }
     if (!this._lightConfig.status && this.lighting) {
         this.lighting = false;
-        $gameLighting.remove(this._lightConfig);
+        lightingManager.removeCharacterLighting(this._lightConfig);
     }
 }
