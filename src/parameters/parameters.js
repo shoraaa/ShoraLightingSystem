@@ -11,49 +11,64 @@ const customLights = JSON.parse(engineParameters['LightList']);
 
 export const baseLightingConfig = {};
 
-function registerLight(_config) {
-    const config = JSON.parse(_config);
-    let name = config.name;
+function registerLight(configJSON) {
+    configJSON = JSON.parse(configJSON);
+    configJSON.offset = JSON.parse(configJSON.offset) || {};
+    configJSON.colorfilter = JSON.parse(configJSON.colorfilter) || {};
+    configJSON.animation = JSON.parse(configJSON.animation) || {};
+    configJSON.animation.flicker = JSON.parse(configJSON.animation.flicker) || {};
+    configJSON.animation.pulse = JSON.parse(configJSON.animation.pulse) || {};
+    configJSON.animation.rotation = JSON.parse(configJSON.animation.rotation) || {};
+
+    let name = configJSON.name;
     if (name == "<-- CHANGE_THIS -->") 
         return console.warn('Please set the reference of light, aka it name when adding new custom light. Register progress canceled.'); 
 
-    config.radius = Number(config.radius || 100) / 100;
-    config.angle = (Number(config.angle) || 0) / 57.6; 
-    config.status = config.status !== 'false';
+    const config = {
+        name: configJSON.name,
+        filename: configJSON.filename,
 
-    config.direction = config.direction === 'true';
-    config.tint = ColorManager.stringToHex(config.tint);
-    config.bwall = config.bwall === 'true';
-    config.shadow = config.shadow === 'true';
-    
-    config.shadowambient = 
-        config.shadowambient == "" ?  shadowConfig.shadowambient : 
-                                      ColorManager.stringToHex(config.shadowambient);
+        status: configJSON.status !== 'false',
+        radius: Number(configJSON.radius || 100) / 100,
+        angle: (Number(configJSON.angle) || 0) / 57.6,
+        direction: configJSON.direction === 'true',
+        tint: ColorManager.stringToHex(configJSON.tint || 0),
 
-    config.offset = JSON.parse(config.offset);
-    for (const p in config.offset) {
-        config.offset[p] = Number(config.offset[p]);
-    }
+        bwall: configJSON.bwall === 'true',
+        shadow: configJSON.shadow === 'true',
+        shadowambient: configJSON.shadowambient ? ColorManager.stringToHex(configJSON.shadowambient) : shadowConfig.ambient,
+        shadowoffsetx: Number(configJSON.shadowoffsetx) || 0,
+        shadowoffsety: Number(configJSON.shadowoffsety) || 0,
 
-    config.shadowoffsetx = Number(config.shadowoffsetx);
-    config.shadowoffsety = Number(config.shadowoffsety);
-    
-    config.colorfilter = JSON.parse(config.colorfilter);
-    config.colorfilter.hue = Number(config.colorfilter.hue);
-    config.colorfilter.brightness = Number(config.colorfilter.brightness);
-    config.colorfilter.colortone = ColorManager.toRGBA(config.colorfilter.colortone);
-    config.colorfilter.blendcolor = ColorManager.toRGBA(config.colorfilter.blendcolor);
+        offset: {
+            x: Number(configJSON.offset.x) || 0,
+            y: Number(configJSON.offset.y) || 0,
+        },
 
-    config.animation = JSON.parse(config.animation);
-    for (const p in config.animation) {
-        if (p[0] === '.') continue;
-        config.animation[p] = JSON.parse(config.animation[p]);
-        for (let a in config.animation[p]) {
-            config.animation[p][a] = JSON.parse(config.animation[p][a]);
-        }
-    }
+        colorfilter: {
+            hue: Number(configJSON.colorfilter.hue) || 0,
+            brightness: Number(configJSON.colorfilter.brightness),
+            colortone: ColorManager.toRGBA(configJSON.colorfilter.colortone || "rgba(0,0,0,0)"),
+            blendcolor: ColorManager.toRGBA(configJSON.colorfilter.blendcolor || "rgba(0,0,0,0)"),
+        },
 
-    config.name = name;
+        animation: {
+            flicker: {
+                status: configJSON.animation.flicker.status === 'true',
+                intensity: Number(configJSON.animation.flicker.flickintensity) || 0,
+                speed: Number(configJSON.animation.flicker.flickspeed) || 0,
+            },
+            pulse: {
+                status: configJSON.animation.pulse.status === 'true',
+                factor: Number(configJSON.animation.pulse.pulsefactor) || 0,
+                speed: Number(configJSON.animation.pulse.pulsespeed) || 0,
+            },
+            rotation: {
+                speed: Number(configJSON.animation.rotation.rotatespeed) || 0,
+            },
+        },
+    };
+
     baseLightingConfig[name] = config;
     TextureManager.load(config.filename);
 

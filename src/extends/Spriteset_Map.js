@@ -1,4 +1,5 @@
 import { lightingManager } from "../light/LightingManager";
+import { shadowManager } from "../light/ShadowManager";
 
 const destroy = Spriteset_Map.prototype.destroy;
 const createUpperLayer = Spriteset_Map.prototype.createUpperLayer;
@@ -12,6 +13,7 @@ Spriteset_Map.prototype.destroy = function(options) {
 Spriteset_Map.prototype.createUpperLayer = function() {
     createUpperLayer.call(this);
     lightingManager.loadScene(this);
+    shadowManager.refresh();
 }
 
 Spriteset_Map.prototype.update = function() {

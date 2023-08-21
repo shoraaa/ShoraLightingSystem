@@ -587,7 +587,179 @@
             return src;
         }; 
     }
+    class KawaseBlurFilter extends PIXI.Filter {
+        constructor(blur, quality) {
+            const fragment = `
+        varying vec2 vTextureCoord;
+        uniform sampler2D uSampler;
 
+        uniform vec2 uOffset;
+
+        void main(void)
+        {
+            vec4 color = vec4(0.0);
+
+            color += texture2D(uSampler, vec2(vTextureCoord.x - uOffset.x, vTextureCoord.y));
+            color += texture2D(uSampler, vec2(vTextureCoord.x, vTextureCoord.y + uOffset.y));
+            color += texture2D(uSampler, vec2(vTextureCoord.x + uOffset.x, vTextureCoord.y));
+            color += texture2D(uSampler, vec2(vTextureCoord.x, vTextureCoord.y - uOffset.y));
+
+            // Average
+            color *= 0.25;
+
+            gl_FragColor = color;
+        }
+        `;
+            super(null, fragment);
+            this._kernels = [];
+            this.uniforms.uOffset = new Float32Array(2);
+            this._pixelSize = new Point(1);
+            // if `blur` is array , as kernels
+            if (Array.isArray(blur)) {
+                this.kernels = blur;
+            }
+            else {
+                this._blur = blur;
+                this.quality = quality;
+            }
+        }
+        /**
+         * Overrides apply
+         * @private
+         */
+        apply(filterManager, input, output, clear) {
+            const uvX = this._pixelSize.x / input.sourceFrame.width;
+            const uvY = this._pixelSize.y / input.sourceFrame.height;
+            let offset;
+            if (this._quality === 1 || this._blur === 0) {
+                offset = this._kernels[0] + 0.5;
+                this.uniforms.uOffset[0] = offset * uvX;
+                this.uniforms.uOffset[1] = offset * uvY;
+                filterManager.applyFilter(this, input, output, clear);
+            }
+            else {
+                const renderTarget = filterManager.getRenderTarget(true);
+                let source = input;
+                let target = renderTarget;
+                let tmp;
+                const last = this._quality - 1;
+                for (let i = 0; i < last; i++) {
+                    offset = this._kernels[i] + 0.5;
+                    this.uniforms.uOffset[0] = offset * uvX;
+                    this.uniforms.uOffset[1] = offset * uvY;
+                    filterManager.applyFilter(this, source, target, 1);
+                    tmp = source;
+                    source = target;
+                    target = tmp;
+                }
+                offset = this._kernels[last] + 0.5;
+                this.uniforms.uOffset[0] = offset * uvX;
+                this.uniforms.uOffset[1] = offset * uvY;
+                filterManager.applyFilter(this, source, output, clear);
+                filterManager.returnRenderTarget(renderTarget);
+            }
+        }
+        _updatePadding() {
+            this.padding = Math.ceil(this._kernels.reduce((acc, v) => acc + v + 0.5, 0));
+        }
+        /**
+         * Auto generate kernels by blur & quality
+         * @private
+         */
+        _generateKernels() {
+            const blur = this._blur;
+            const quality = this._quality;
+            const kernels = [blur];
+            if (blur > 0) {
+                let k = blur;
+                const step = blur / quality;
+                for (let i = 1; i < quality; i++) {
+                    k -= step;
+                    kernels.push(k);
+                }
+            }
+            this._kernels = kernels;
+            this._updatePadding();
+        }
+        /**
+         * The kernel size of the blur filter, for advanced usage.
+         * @default [0]
+         */
+        get kernels() {
+            return this._kernels;
+        }
+        set kernels(value) {
+            if (Array.isArray(value) && value.length > 0) {
+                this._kernels = value;
+                this._quality = value.length;
+                this._blur = Math.max(...value);
+            }
+            else {
+                // if value is invalid , set default value
+                this._kernels = [0];
+                this._quality = 1;
+            }
+        }
+        /**
+         * Get the if the filter is clampped.
+         *
+         * @readonly
+         * @default false
+         */
+        get clamp() {
+            return this._clamp;
+        }
+        /**
+         * Sets the pixel size of the filter. Large size is blurrier. For advanced usage.
+         *
+         * @member {PIXI.Point|number[]}
+         * @default [1, 1]
+         */
+        set pixelSize(value) {
+            if (typeof value === 'number') {
+                this._pixelSize.x = value;
+                this._pixelSize.y = value;
+            }
+            else if (Array.isArray(value)) {
+                this._pixelSize.x = value[0];
+                this._pixelSize.y = value[1];
+            }
+            else if (value instanceof Point) {
+                this._pixelSize.x = value.x;
+                this._pixelSize.y = value.y;
+            }
+            else {
+                // if value is invalid , set default value
+                this._pixelSize.x = 1;
+                this._pixelSize.y = 1;
+            }
+        }
+        get pixelSize() {
+            return this._pixelSize;
+        }
+        /**
+         * The quality of the filter, integer greater than `1`.
+         * @default 3
+         */
+        get quality() {
+            return this._quality;
+        }
+        set quality(value) {
+            this._quality = Math.max(1, Math.round(value));
+            this._generateKernels();
+        }
+        /**
+         * The amount of blur, value greater than `0`.
+         * @default 4
+         */
+        get blur() {
+            return this._blur;
+        }
+        set blur(value) {
+            this._blur = value;
+            this._generateKernels();
+        }
+    }
 
     const ColorManager = {
         registered: {},
@@ -761,14 +933,40 @@
     };
 
     var ShadowSystem = (function() {
-
-        const graphics = new PIXI.Graphics();
-
         const epsilon = () => 0.0000001;
 
         const equal = (a, b) => {
             if (Math.abs(a[0] - b[0]) < epsilon() && Math.abs(a[1] - b[1]) < epsilon()) return true;
             return false;
+        };
+
+        const parentOfThis = (index) => {
+            return Math.floor((index-1)/2);
+        };
+
+        const child = (index) => {
+            return 2*index+1;
+        };
+
+        const angle = (a, b) => {
+            return Math.atan2(b[1]-a[1], b[0]-a[0]) * 180 / Math.PI;
+        };
+
+        const angle2 = (a, b, c) => {
+            let a3 = angle(a,b) - angle(b,c);
+            if (a3 < 0) a3 += 360;
+            if (a3 > 360) a3 -= 360;
+            return a3;
+        };
+
+        const sortPoints = (position, segments) => {
+            let points = new Array(segments.length * 2);
+            for (let i = 0; i < segments.length; ++i) {
+                points[2*i] = [i, 0, angle(segments[i][0], position)];
+                points[2*i+1] = [i, 1, angle(segments[i][1], position)];
+            }
+            points.sort(function(a,b) {return a[2]-b[2];});
+            return points;
         };
 
         const intersectLines = (a1, a2, b1, b2) => {
@@ -797,22 +995,244 @@
         };
 
         const computeDirection = (xi, yi, xj, yj, xk, yk) => {
-          a = (xk - xi) * (yj - yi);
-          b = (xj - xi) * (yk - yi);
+          const a = (xk - xi) * (yj - yi);
+          const b = (xj - xi) * (yk - yi);
           return a < b ? -1 : a > b ? 1 : 0;
         };
 
         const doLineSegmentsIntersect = (x1, y1, x2, y2, x3, y3, x4, y4) => {
-          d1 = computeDirection(x3, y3, x4, y4, x1, y1);
-          d2 = computeDirection(x3, y3, x4, y4, x2, y2);
-          d3 = computeDirection(x1, y1, x2, y2, x3, y3);
-          d4 = computeDirection(x1, y1, x2, y2, x4, y4);
+          const d1 = computeDirection(x3, y3, x4, y4, x1, y1);
+          const d2 = computeDirection(x3, y3, x4, y4, x2, y2);
+          const d3 = computeDirection(x1, y1, x2, y2, x3, y3);
+          const d4 = computeDirection(x1, y1, x2, y2, x4, y4);
           return (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
                   ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) ||
                  (d1 == 0 && isOnSegment(x3, y3, x4, y4, x1, y1)) ||
                  (d2 == 0 && isOnSegment(x3, y3, x4, y4, x2, y2)) ||
                  (d3 == 0 && isOnSegment(x1, y1, x2, y2, x3, y3)) ||
                  (d4 == 0 && isOnSegment(x1, y1, x2, y2, x4, y4));
+        };
+
+        const lessThan = (index1, index2, position, segments, destination) => {
+            let inter1 = intersectLines(segments[index1][0], segments[index1][1], position, destination);
+            let inter2 = intersectLines(segments[index2][0], segments[index2][1], position, destination);
+            if (!equal(inter1, inter2)) {
+                let d1 = distance(inter1, position);
+                let d2 = distance(inter2, position);
+                return d1 < d2;
+            }
+            let end1 = 0;
+            if (equal(inter1, segments[index1][0])) end1 = 1;
+            let end2 = 0;
+            if (equal(inter2, segments[index2][0])) end2 = 1;
+            let a1 = angle2(segments[index1][end1], inter1, position);
+            let a2 = angle2(segments[index2][end2], inter2, position);
+            if (a1 < 180) {
+                if (a2 > 180) return true;
+                return a2 < a1;
+            }
+            return a1 < a2;
+        };
+
+        const remove = (index, heap, position, segments, destination, map) => {
+            map[heap[index]] = -1;
+            if (index == heap.length - 1) {
+                heap.pop();
+                return;
+            }
+            heap[index] = heap.pop();
+            map[heap[index]] = index;
+            let cur = index;
+            let parent = parentOfThis(cur);
+            if (cur != 0 && lessThan(heap[cur], heap[parent], position, segments, destination)) {
+                while (cur > 0) {
+                    let parent = parentOfThis(cur);
+                    if (!lessThan(heap[cur], heap[parent], position, segments, destination)) {
+                        break;
+                    }
+                    map[heap[parent]] = cur;
+                    map[heap[cur]] = parent;
+                    let temp = heap[cur];
+                    heap[cur] = heap[parent];
+                    heap[parent] = temp;
+                    cur = parent;
+                }
+            } else {
+                while (true) {
+                    let left = child(cur);
+                    let right = left + 1;
+                    if (left < heap.length && lessThan(heap[left], heap[cur], position, segments, destination) &&
+                            (right == heap.length || lessThan(heap[left], heap[right], position, segments, destination))) {
+                        map[heap[left]] = cur;
+                        map[heap[cur]] = left;
+                        let temp = heap[left];
+                        heap[left] = heap[cur];
+                        heap[cur] = temp;
+                        cur = left;
+                    } else if (right < heap.length && lessThan(heap[right], heap[cur], position, segments, destination)) {
+                        map[heap[right]] = cur;
+                        map[heap[cur]] = right;
+                        let temp = heap[right];
+                        heap[right] = heap[cur];
+                        heap[cur] = temp;
+                        cur = right;
+                    } else break;
+                }
+            }
+        };
+
+        const insert = (index, heap, position, segments, destination, map) => {
+            let intersect = intersectLines(segments[index][0], segments[index][1], position, destination);
+            if (intersect.length == 0) return;
+            let cur = heap.length;
+            heap.push(index);
+            map[index] = cur;
+            while (cur > 0) {
+                let parent = parentOfThis(cur);
+                if (!lessThan(heap[cur], heap[parent], position, segments, destination)) {
+                    break;
+                }
+                map[heap[parent]] = cur;
+                map[heap[cur]] = parent;
+                let temp = heap[cur];
+                heap[cur] = heap[parent];
+                heap[parent] = temp;
+                cur = parent;
+            }
+        };
+
+        const compute = (position, segments) => {
+            let bounded = [];
+            let minX = position[0];
+            let minY = position[1];
+            let maxX = position[0];
+            let maxY = position[1];
+            for (let i = 0; i < segments.length; ++i) {
+                for (let j = 0; j < 2; ++j) {
+                    minX = Math.min(minX, segments[i][j][0]);
+                    minY = Math.min(minY, segments[i][j][1]);
+                    maxX = Math.max(maxX, segments[i][j][0]);
+                    maxY = Math.max(maxY, segments[i][j][1]);
+                }
+                bounded.push([[segments[i][0][0], segments[i][0][1]], [segments[i][1][0], segments[i][1][1]]]);
+            }
+            --minX;
+            --minY;
+            ++maxX;
+            ++maxY;
+            bounded.push([[minX, minY],[maxX, minY]]);
+            bounded.push([[maxX, minY],[maxX, maxY]]);
+            bounded.push([[maxX, maxY],[minX, maxY]]);
+            bounded.push([[minX, maxY],[minX, minY]]);
+            let polygon = [];
+            let sorted = sortPoints(position, bounded);
+            let map = new Array(bounded.length);
+            for (let i = 0; i < map.length; ++i) map[i] = -1;
+            let heap = [];
+            let start = [position[0] + 1, position[1]];
+            for (let i = 0; i < bounded.length; ++i) {
+                let a1 = angle(bounded[i][0], position);
+                let a2 = angle(bounded[i][1], position);
+                let active = false;
+                if (a1 > -180 && a1 <= 0 && a2 <= 180 && a2 >= 0 && a2 - a1 > 180) active = true;
+                if (a2 > -180 && a2 <= 0 && a1 <= 180 && a1 >= 0 && a1 - a2 > 180) active = true;
+                if (active) {
+                    insert(i, heap, position, bounded, start, map);
+                }
+            }
+            for (let i = 0; i < sorted.length;) {
+                let extend = false;
+                let shorten = false;
+                let orig = i;
+                let vertex = bounded[sorted[i][0]][sorted[i][1]];
+                let old_segment = heap[0];
+                do {
+                    if (map[sorted[i][0]] != -1) {
+                        if (sorted[i][0] == old_segment) {
+                            extend = true;
+                            vertex = bounded[sorted[i][0]][sorted[i][1]];
+                        }
+                        remove(map[sorted[i][0]], heap, position, bounded, vertex, map);
+                    } else {
+                        insert(sorted[i][0], heap, position, bounded, vertex, map);
+                        if (heap[0] != old_segment) {
+                            shorten = true;
+                        }
+                    }
+                    ++i;
+                    if (i == sorted.length) break;
+                } while (sorted[i][2] < sorted[orig][2] + epsilon());
+
+                if (extend) {	
+                    polygon.push(vertex);	
+                    let cur = intersectLines(bounded[heap[0]][0], bounded[heap[0]][1], position, vertex);	
+                    if (!equal(cur, vertex)) polygon.push(cur);	
+                } else if (shorten) {	
+                    polygon.push(intersectLines(bounded[old_segment][0], bounded[old_segment][1], position, vertex));	
+                    polygon.push(intersectLines(bounded[heap[0]][0], bounded[heap[0]][1], position, vertex));	
+                } 	
+            }	
+            return polygon;
+        };
+
+        const computeViewport = (position, segments, viewportMinCorner, viewportMaxCorner) => {
+            let brokenSegments = [];
+            let viewport = [[viewportMinCorner[0],viewportMinCorner[1]],[viewportMaxCorner[0],viewportMinCorner[1]],[viewportMaxCorner[0],viewportMaxCorner[1]],[viewportMinCorner[0],viewportMaxCorner[1]]];
+            for (let i = 0; i < segments.length; ++i) {
+                if (segments[i][0][0] < viewportMinCorner[0] && segments[i][1][0] < viewportMinCorner[0]) continue;
+                if (segments[i][0][1] < viewportMinCorner[1] && segments[i][1][1] < viewportMinCorner[1]) continue;
+                if (segments[i][0][0] > viewportMaxCorner[0] && segments[i][1][0] > viewportMaxCorner[0]) continue;
+                if (segments[i][0][1] > viewportMaxCorner[1] && segments[i][1][1] > viewportMaxCorner[1]) continue;
+                let intersections = [];
+                for (let j = 0; j < viewport.length; ++j) { // ?
+                    let k = j + 1;
+                    if (k == viewport.length) k = 0;
+                    if (doLineSegmentsIntersect(segments[i][0][0], segments[i][0][1], segments[i][1][0], segments[i][1][1], viewport[j][0], viewport[j][1], viewport[k][0], viewport[k][1])) {
+                        let intersect = intersectLines(segments[i][0], segments[i][1], viewport[j], viewport[k]);
+                        if (intersect.length != 2) continue;
+                        if (equal(intersect, segments[i][0]) || equal(intersect, segments[i][1])) continue;
+                        intersections.push(intersect);
+                    }
+                }
+                let start = [segments[i][0][0], segments[i][0][1]];
+                while (intersections.length > 0) {
+                    let endIndex = 0;
+                    let endDis = distance(start, intersections[0]);
+                    for (let j = 1; j < intersections.length; ++j) {
+                        let dis = distance(start, intersections[j]);
+                        if (dis < endDis) {
+                            endDis = dis;
+                            endIndex = j;
+                        }
+                    }
+                    brokenSegments.push([[start[0], start[1]], [intersections[endIndex][0], intersections[endIndex][1]]]);
+                    start[0] = intersections[endIndex][0];
+                    start[1] = intersections[endIndex][1];
+                    intersections.splice(endIndex, 1);
+                }
+                brokenSegments.push([start, [segments[i][1][0], segments[i][1][1]]]);
+            }
+
+            let viewportSegments = [];
+            for (let i = 0; i < brokenSegments.length; ++i) {
+                if (inViewport(brokenSegments[i][0], viewportMinCorner, viewportMaxCorner) && inViewport(brokenSegments[i][1], viewportMinCorner, viewportMaxCorner)) {
+                    viewportSegments.push([[brokenSegments[i][0][0], brokenSegments[i][0][1]], [brokenSegments[i][1][0], brokenSegments[i][1][1]]]);
+                }
+            }
+            let eps = epsilon() * 10;
+            viewportSegments.push([[viewportMinCorner[0]-eps,viewportMinCorner[1]-eps],[viewportMaxCorner[0]+eps,viewportMinCorner[1]-eps]]);
+            viewportSegments.push([[viewportMaxCorner[0]+eps,viewportMinCorner[1]-eps],[viewportMaxCorner[0]+eps,viewportMaxCorner[1]+eps]]);
+            viewportSegments.push([[viewportMaxCorner[0]+eps,viewportMaxCorner[1]+eps],[viewportMinCorner[0]-eps,viewportMaxCorner[1]+eps]]);
+            viewportSegments.push([[viewportMinCorner[0]-eps,viewportMaxCorner[1]+eps],[viewportMinCorner[0]-eps,viewportMinCorner[1]-eps]]);
+            return compute(position, viewportSegments);
+        };
+
+        const inViewport = (position, viewportMinCorner, viewportMaxCorner) => {
+            if (position[0] < viewportMinCorner[0] - epsilon()) return false;
+            if (position[1] < viewportMinCorner[1] - epsilon()) return false;
+            if (position[0] > viewportMaxCorner[0] + epsilon()) return false;
+            if (position[1] > viewportMaxCorner[1] + epsilon()) return false;
+            return true;
         };
 
         const breakIntersections = (segments) => {
@@ -859,42 +1279,427 @@
             return newSegments;
         };
 
-        const calculate = (lighting) => {
-            graphics.clear();
-            graphics.beginFill(0x111111).drawRect(0, 0, 50, 50).endFill();
-            return graphics;
-        };
-
         let exports = {};
 
-        exports.calculate = calculate;
+        exports.computeViewport = computeViewport;
+        exports.compute = compute;
         exports.getSegments = getSegments;
 
         return exports;
 
     })();
 
+    class ShadowManager {
+        constructor() {
+            this.system = ShadowSystem;
+
+            this.transform = new PIXI.Transform();
+            this.graphics = new PIXI.Graphics();
+            this.renderTexture = PIXI.RenderTexture.create();
+            this.sprite = new PIXI.Sprite(this.renderTexture);
+            this.sprite.blendMode = PIXI.BLEND_MODES.MULTIPLY;
+
+            this.segments = [];
+            this.lowerWalls = [];
+
+            // this.customCasters = []; TODO
+
+            this._upperGraphics = new PIXI.Graphics();
+            this._upperTexture = PIXI.RenderTexture.create();
+            this.upper = new PIXI.Sprite(this._upperTexture);
+
+            this.haveIgnoreShadow = false;
+            this._ignoreGraphics = new PIXI.Graphics();
+            this._ignoreTexture = PIXI.RenderTexture.create();
+            this.ignore = new PIXI.Sprite(this._ignoreTexture);
+
+            // this._upperGraphics.blendMode = PIXI.BLEND_MODES.MULTIPLY;
+        }
+
+        refresh() {
+            this.clear();
+            this.scanMapCaster();
+    		this.createSegments();
+        }
+
+        clear() {
+            const width = Math.max($gameMap.width() * $gameMap.tileWidth(), Graphics.width);
+            const height = Math.max($gameMap.height() * $gameMap.tileHeight(), Graphics.height);
+
+            this.segments = [];
+            this.lowerWalls = [];
+
+            this._upperGraphics.clear();
+            this._upperTexture.resize(width, height);
+
+            this._ignoreGraphics.clear();
+            this._ignoreTexture.resize(width, height);
+        }
+
+
+        scanMapCaster() {
+            const width = $gameMap.width(),
+                  height = $gameMap.height(),
+                  tw = $gameMap.tileWidth(),
+                  th = $gameMap.tileHeight(),
+                  regionStart = shadowConfig.regionId.start,
+                  regionEnd = shadowConfig.regionId.end,
+                  topRegionId = shadowConfig.regionId.top,
+                  ignoreShadowsId = shadowConfig.regionId.ignore,
+                  wallID = shadowConfig.terrainTags.wall || 1,
+                  topID = shadowConfig.terrainTags.topWall || 2;
+
+
+            this.map = new Array(height)
+                .fill(0)
+                .map(() => new Array(width).fill(0));
+            this.lower = new Array(height)
+                .fill(0)
+                .map(() => new Array(width).fill(0));
+
+            let id, h;
+
+            for (let x = 0; x < width; ++x) {
+                h = 0;
+                for (let y = height - 1; y >= 0; --y) {
+                    id = $gameMap.terrainTag(x, y);
+                    if (id == wallID) {
+                        if (y !== height - 1 && $gameMap.terrainTag(x, y + 1) !== wallID) h = 0;
+                        h += 1;
+                    } else if (id == topID) {
+                        this.map[y][x] = h + 1;
+                    } else {
+                        h = 0;
+                    }
+                }
+            }
+
+            // drawing 
+            this._upperGraphics.beginFill($gameLighting.topBlockAmbient);
+            this._ignoreGraphics.beginFill(0xffffff);
+
+            for (var i = 0; i < height; ++i) {
+                for (var j = 0; j < width; ++j) {
+                    id = $gameMap.regionId(j, i);
+                    if (regionStart <= id && id <= regionEnd) {
+                        if (!this.map[i][j]) {
+                            this.map[i][j] = id - regionStart + 1; 
+                        }
+                    }
+                    if (id === topRegionId) {
+                        this._upperGraphics.drawRect(j * tw, i * th, tw, th);
+                    }
+                    if (id === ignoreShadowsId) {
+                        this.haveIgnoreShadow = true;
+                        this._ignoreGraphics.drawRect(j * tw, i * th, tw, th);
+                    }
+                }
+            }
+
+            for (var i = 0; i < height; ++i) {
+                for (var j = 0; j < width; ++j) {
+                    h = this.map[i][j];
+                    if (!h) continue;
+                    this._upperGraphics.drawRect(j * tw, i * th, tw, th);
+                    if (i + h - 1 < height) this.lower[i + h - 1][j] = h - 1; 
+                }
+            }
+
+            this._upperGraphics.endFill();
+            this._ignoreGraphics.endFill();
+            Graphics.app.renderer.render(this._upperGraphics, this._upperTexture);
+            Graphics.app.renderer.render(this._ignoreGraphics, this._ignoreTexture);
+
+        }
+
+        check(y, x1, x2) {
+            if (y === 0) return 0;
+            if (x1 > x2) [x1, x2] = [x2, x1];
+
+            let tw = $gameMap.tileWidth(),
+                th = $gameMap.tileHeight();
+            // todo: check for custom shadow cast
+            if (y % th !== 0) {
+                // custom
+                return 0;
+            }
+
+            // todo: check for differ continous height
+            // wait how did it not bug this part
+            
+            // how?
+            y = y / th - 1;
+            return Math.min(this.lower[y][Math.floor(x1 / tw)], this.lower[y][Math.ceil(x2 / tw) - 1]);
+        }
+
+
+        outOfBound(x, y) {
+    		return x < 0 || y < 0 || y >= this.map.length || x >= this.map[y].length;
+        }
+        
+        addUpperSegment(x, y, h, vert, horz) {
+    		let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
+    		horz.push([x * tw, (y + h) * th, (x + 1) * tw, (y + h) * th]);
+        }
+        
+        addLowerSegment(x, y, h, vert, horz) {
+    		let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
+    		horz.push([(x + 1) * tw, (y + h + 1) * th, x * tw, (y + h + 1) * th]);
+            // lower walls
+    		this.lowerWalls.push([(x + 1) * tw, (y + h + 1) * th, x * tw, (y + h + 1) * th, h]);
+        }
+        
+        addRightSegment(x, y, h, vert, horz) {
+    		let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
+    		vert.push([(x + 1) * tw, (y + h) * th, (x + 1) * tw, (y + h + 1) * th]);
+        }
+        
+        addLeftSegment(x, y, h, vert, horz) {
+    		let [tw, th] = [$gameMap.tileWidth(), $gameMap.tileHeight()];
+    		vert.push([x * tw, (y + h) * th, x * tw, (y + h + 1) * th]);
+        }
+        
+        addCaster(x, y, h, vert, horz) {
+    		// Check left of this postion.
+    		if (!this.outOfBound(x, y - 1) && this.map[y - 1][x]) {
+    			// Check upper of this postion.
+    			if (!this.outOfBound(x - 1, y)) {
+    				if (this.map[y][x - 1] !== h + 1) {
+    					this.addLeftSegment(x, y, h, vert, horz);
+    				} 
+    			}
+    		} else {
+    			// Check upper of this postion.
+    			if (!this.outOfBound(x - 1, y)) {
+    				this.addUpperSegment(x, y, h, vert, horz);
+    				// Check left of this postion.
+    				if (this.map[y][x - 1] !== h + 1) {
+    					this.addLeftSegment(x, y, h, vert, horz);
+    				} 
+    			} 
+    		} 
+
+    		// Check right of this postion.
+    		if (!this.outOfBound(x + 1, y)) {
+    			if (this.map[y][x + 1] !== h + 1) {
+    				this.addRightSegment(x, y, h, vert, horz);
+    			}
+    		}
+
+    		// Check lower of this postion.
+    		if (!this.outOfBound(x, y + 1)) {
+    			if (this.map[y + 1][x] !== h + 1) {
+    				this.addLowerSegment(x, y, h, vert, horz);
+    			}
+    		}
+        }
+        
+        mergeHorizontalSegments(a) {
+            // y = s[1] = s[3], quan ly doan [s[0], s[2]]
+            for (let i = 0; i < a.length; ++i)
+                if (a[i][0] > a[i][2]) [a[i][0], a[i][2]] = [a[i][2], a[i][0]];
+            let cmp = function(u, v) {
+                if (u[1] == v[1])
+                    return u[0] < v[0] ? -1 : 1;
+                return u[1] < v[1] ? -1 : 1;
+            };
+            a.sort(cmp);
+            let res = [];
+            for (let i = 0; i < a.length;) {
+                let j = i + 1, cur = a[i][2];
+                while (j < a.length && a[j][1] == a[i][1] && a[j][0] <= cur) 
+                    cur = Math.max(cur, a[j][2]), j++;
+                j--;
+                res.push([a[i][0], a[i][1], cur, a[i][3]]);
+                i = j + 1;
+            }
+            return res;
+        }
+
+        mergeVerticalSegments(a) {
+            // x = s[0] = s[2], quan ly doan [s[1], s[3]]
+            for (let i = 0; i < a.length; ++i)
+                if (a[i][1] > a[i][3]) [a[i][1], a[i][3]] = [a[i][3], a[i][1]];
+            let cmp = function(u, v) {
+                if (u[0] == v[0])
+                    return u[1] < v[1] ? -1 : 1;
+                return u[0] < v[0] ? -1 : 1;
+            };
+            a.sort(cmp);
+            let res = [];
+            for (let i = 0; i < a.length;) {
+                let j = i + 1, cur = a[i][3];
+                while (j < a.length && a[j][0] == a[i][0] && a[j][1] <= cur) 
+                    cur = Math.max(cur, a[j][3]), j++;
+                j--;
+                res.push([a[i][0], a[i][1], a[i][2], cur]);
+                i = j + 1;
+            }
+            return res;
+        }
+
+        mergeLowerWalls(a) {
+            // y = s[1] = s[3], quan ly doan [s[2], s[0]]
+            let cmp = function(u, v) {
+                if (u[1] == v[1])
+                    return u[0] > v[0] ? -1 : 1;
+                return u[1] < v[1] ? -1 : 1;
+            };
+            a.sort(cmp);
+            let res = [];
+            for (let i = 0; i < a.length;) {
+                let j = i + 1, cur = a[i][2];
+                while (j < a.length && a[j][1] == a[i][1] && a[j][4] == a[i][4] && a[j][0] >= cur) 
+                    cur = Math.min(cur, a[j][2]), j++;
+                j--;
+                res.push([a[i][0], a[i][1], cur, a[i][3], a[i][4]]);
+                i = j + 1;
+            }
+            return res;
+        }
+        
+        createSegments() {
+
+            let vert = [], horz = [];
+
+    		for (var y = 0; y < this.map.length; y++) {
+    			for (var x = 0; x < this.map[y].length; x++) {
+    				if (this.map[y][x]) {
+    					this.addCaster(x, y, this.map[y][x] - 1, vert, horz);
+    				}
+    			}
+    		}
+
+            this.segments = this.system.getSegments(
+                                this.mergeVerticalSegments(vert).concat(
+                                this.mergeHorizontalSegments(horz)
+                                ));
+
+    		// Lower walls
+            this.lowerWalls = this.mergeLowerWalls(this.lowerWalls);
+            this.lowerWalls.sort((a, b) => b[0] - a[0]);
+        }
+        
+        worldToScreenX(x) {
+            return Math.round($gameMap.adjustX(x));
+        }
+
+        worldToScreenY(y) {
+            return Math.round($gameMap.adjustY(y));
+        }
+
+        getWallHeight(x, y) {
+            let tw = $gameMap.tileWidth(), eps = 0.1; // tw * h + 6 + eps
+            for (const [x2, y2, x1, y1, h] of this.lowerWalls) {
+                if (x >= x1 && x <= x2 && y <= y1 && y >= y2-tw*h) {
+                    return y1 - y + eps;
+                }
+            }
+            return 0;
+        }
+
+        drawWall(index, polygon, oy) {
+    		let [x, y] = polygon[index], last = (index == 0 ? polygon.length - 1 : index - 1);
+    		let [nx, ny] = polygon[last]; 
+
+            if (y != ny || y > oy) return;
+
+    		let tw = $gameMap.tileWidth();
+
+            // 2 possiblities: nx to x is 1 height, or multiple height
+            let h = this.check(y, nx, x);
+            if (h === 0) return;
+            if (h !== -1) {
+                this.graphics.lineTo(nx, ny - tw * h)
+    		 		    .lineTo(x, y - tw * h);
+            }
+            
+    	}; 
+
+        getShadowGraphics(lighting) {
+            const ox = lighting.x + lighting.config.shadowoffsetx + $gameMap.displayX() * $gameMap.tileWidth();
+            let oy = lighting.y + lighting.config.shadowoffsety + $gameMap.displayY() * $gameMap.tileHeight();
+            
+            if (!lighting.config.bwall) {
+                oy += this.getWallHeight(ox, oy);
+            }
+
+            const bounds = lighting.getBounds();
+            bounds.x += $gameMap.displayX() * $gameMap.tileWidth() + lighting.config.shadowoffsetx;
+            bounds.y += $gameMap.displayY() * $gameMap.tileHeight() + lighting.config.shadowoffsety;
+
+            const polygon = this.system.computeViewport(
+                            [ox, oy], this.segments,
+                            [bounds.left, bounds.top],
+                            [bounds.right, bounds.bottom]);
+            const tw = $gameMap.tileWidth();
+
+            this.graphics.clear();
+
+            this.graphics.beginFill(shadowConfig.ambient);
+    		this.graphics.drawRect(bounds.x, bounds.y, bounds.width, bounds.height);
+    		this.graphics.endFill();
+
+    		this.graphics.beginFill(0xffffff);
+    		this.graphics.moveTo(polygon[0][0], polygon[0][1]);
+    		for (let i = 1; i < polygon.length; ++i) {
+                this.drawWall(i, polygon, oy);
+                this.graphics.lineTo(polygon[i][0], polygon[i][1]);
+            }
+            this.graphics.lineTo(polygon[0][0], polygon[0][1]);
+            this.drawWall(0, polygon, oy);
+    		this.graphics.endFill(); 
+
+    		//drawing lower-walls
+            this.graphics.beginFill(shadowConfig.ambient); 
+            let leftBound = bounds.left, rightBound = bounds.right, downBound = bounds.bottom;
+    		for (let i = 0, l = this.lowerWalls.length; i < l; ++i) {
+    			let [x2, y2, x1, y1, height] = this.lowerWalls[i];
+                if (y1 >= oy && y1-tw*height <= downBound && x1 <= rightBound && x2 >= leftBound) {
+                    this.graphics.moveTo(x1, y1);
+                    this.graphics.lineTo(x1, y1-tw*height);
+                    this.graphics.lineTo(x2, y2-tw*height);
+                    this.graphics.lineTo(x2, y2);
+                }
+    		}
+            this.graphics.endFill();   
+
+            this.transform.pivot.set(ox, oy);
+            this.transform.position.set(lighting.width / 2, lighting.height / 2);
+            this.transform.updateLocalTransform();
+            const transform = this.transform.localTransform;
+
+            this.renderTexture.resize(lighting.width, lighting.height);
+            Graphics.app.renderer.render(this.graphics, this.renderTexture, true, transform);
+            Graphics.app.renderer.render(this.upper, this.renderTexture, false, transform);
+
+
+            return this.sprite;
+        }
+
+
+    }
+
+    const shadowManager = new ShadowManager();
+
     class Lighting extends PIXI.Sprite {
         constructor(config, position) {
-            super(new PIXI.RenderTexture());
+            super();
+            this.light = new PIXI.Sprite(TextureManager.filter(config));
+            this.texture = PIXI.RenderTexture.create(this.light.width, this.light.height);
+            this.anchor.set(0.5);
+            this.blendMode = PIXI.BLEND_MODES.ADD;
 
             this.config = config;
             this.location = position;
 
-            this.filename = config.filename;
-            this.id = config.id;
+            console.log(config);
 
-            this.lightSprite = new PIXI.Sprite(TextureManager.filter(config));
-
-            this.anchor.set(0.5);
-            this.blendMode = PIXI.BLEND_MODES.ADD;
-
-            this.texture.resize(this.lightSprite.width, this.lightSprite.height);
-            Graphics.app.renderer.render(this.lightSprite, this.texture, false);
+            Graphics.app.renderer.render(this.light, this.texture, false);
         }
 
         destroy() { 
-            this.lightSprite.destroy();
+            this.light.destroy();
             super.destroy();
         }
 
@@ -903,13 +1708,13 @@
                 return;
             }
 
-            const old_x = this.x, old_y = this.y, 
+            const old_x = this.mapX, old_y = this.mapY, 
                   old_ox = this.config.offset.x, old_oy = this.config.offset.y;
 
             this.updatePosition();
             this.updateAnimation();
 
-            if (old_x !== this.x || old_y !== this.y || 
+            if (old_x !== this.mapX || old_y !== this.mapY || 
                 old_ox !== this.config.offset.x || old_oy != this.config.offset.y) {
                 this.updateShadow();
             }
@@ -918,6 +1723,8 @@
         updatePosition() {
             this.x = this.location.screenX();
             this.y = this.location.screenY();
+            this.mapX = this.location._realX;
+            this.mapY = this.location._realY;
         }
 
         updateAnimation() {
@@ -925,8 +1732,8 @@
         }
 
         updateShadow() {
-            const shadow = ShadowSystem.calculate(this);
-            Graphics.app.renderer.render(this.lightSprite, this.texture);
+            const shadow = shadowManager.getShadowGraphics(this);
+            Graphics.app.renderer.render(this.light, this.texture);
             Graphics.app.renderer.render(shadow, this.texture, false);
 
         }
@@ -962,49 +1769,64 @@
 
     const baseLightingConfig = {};
 
-    function registerLight(_config) {
-        const config = JSON.parse(_config);
-        let name = config.name;
+    function registerLight(configJSON) {
+        configJSON = JSON.parse(configJSON);
+        configJSON.offset = JSON.parse(configJSON.offset) || {};
+        configJSON.colorfilter = JSON.parse(configJSON.colorfilter) || {};
+        configJSON.animation = JSON.parse(configJSON.animation) || {};
+        configJSON.animation.flicker = JSON.parse(configJSON.animation.flicker) || {};
+        configJSON.animation.pulse = JSON.parse(configJSON.animation.pulse) || {};
+        configJSON.animation.rotation = JSON.parse(configJSON.animation.rotation) || {};
+
+        let name = configJSON.name;
         if (name == "<-- CHANGE_THIS -->") 
             return console.warn('Please set the reference of light, aka it name when adding new custom light. Register progress canceled.'); 
 
-        config.radius = Number(config.radius || 100) / 100;
-        config.angle = (Number(config.angle) || 0) / 57.6; 
-        config.status = config.status !== 'false';
+        const config = {
+            name: configJSON.name,
+            filename: configJSON.filename,
 
-        config.direction = config.direction === 'true';
-        config.tint = ColorManager.stringToHex(config.tint);
-        config.bwall = config.bwall === 'true';
-        config.shadow = config.shadow === 'true';
-        
-        config.shadowambient = 
-            config.shadowambient == "" ?  shadowConfig.shadowambient : 
-                                          ColorManager.stringToHex(config.shadowambient);
+            status: configJSON.status !== 'false',
+            radius: Number(configJSON.radius || 100) / 100,
+            angle: (Number(configJSON.angle) || 0) / 57.6,
+            direction: configJSON.direction === 'true',
+            tint: ColorManager.stringToHex(configJSON.tint || 0),
 
-        config.offset = JSON.parse(config.offset);
-        for (const p in config.offset) {
-            config.offset[p] = Number(config.offset[p]);
-        }
+            bwall: configJSON.bwall === 'true',
+            shadow: configJSON.shadow === 'true',
+            shadowambient: configJSON.shadowambient ? ColorManager.stringToHex(configJSON.shadowambient) : shadowConfig.ambient,
+            shadowoffsetx: Number(configJSON.shadowoffsetx) || 0,
+            shadowoffsety: Number(configJSON.shadowoffsety) || 0,
 
-        config.shadowoffsetx = Number(config.shadowoffsetx);
-        config.shadowoffsety = Number(config.shadowoffsety);
-        
-        config.colorfilter = JSON.parse(config.colorfilter);
-        config.colorfilter.hue = Number(config.colorfilter.hue);
-        config.colorfilter.brightness = Number(config.colorfilter.brightness);
-        config.colorfilter.colortone = ColorManager.toRGBA(config.colorfilter.colortone);
-        config.colorfilter.blendcolor = ColorManager.toRGBA(config.colorfilter.blendcolor);
+            offset: {
+                x: Number(configJSON.offset.x) || 0,
+                y: Number(configJSON.offset.y) || 0,
+            },
 
-        config.animation = JSON.parse(config.animation);
-        for (const p in config.animation) {
-            if (p[0] === '.') continue;
-            config.animation[p] = JSON.parse(config.animation[p]);
-            for (let a in config.animation[p]) {
-                config.animation[p][a] = JSON.parse(config.animation[p][a]);
-            }
-        }
+            colorfilter: {
+                hue: Number(configJSON.colorfilter.hue) || 0,
+                brightness: Number(configJSON.colorfilter.brightness),
+                colortone: ColorManager.toRGBA(configJSON.colorfilter.colortone || "rgba(0,0,0,0)"),
+                blendcolor: ColorManager.toRGBA(configJSON.colorfilter.blendcolor || "rgba(0,0,0,0)"),
+            },
 
-        config.name = name;
+            animation: {
+                flicker: {
+                    status: configJSON.animation.flicker.status === 'true',
+                    intensity: Number(configJSON.animation.flicker.flickintensity) || 0,
+                    speed: Number(configJSON.animation.flicker.flickspeed) || 0,
+                },
+                pulse: {
+                    status: configJSON.animation.pulse.status === 'true',
+                    factor: Number(configJSON.animation.pulse.pulsefactor) || 0,
+                    speed: Number(configJSON.animation.pulse.pulsespeed) || 0,
+                },
+                rotation: {
+                    speed: Number(configJSON.animation.rotation.rotatespeed) || 0,
+                },
+            },
+        };
+
         baseLightingConfig[name] = config;
         TextureManager.load(config.filename);
 
@@ -1030,15 +1852,18 @@
                 softShadowStr: shadowConfig.soft.strength,
             };
             this.baseLightingConfig = baseLightingConfig;
-
             this.characterLighting = [];
+
+            this.blurFilter = [new KawaseBlurFilter(this.data.softShadowStr, this.data.softShadowQlt)];
             this.layer = new PIXI.Container();
+            this.layer.filters = this.data.softShadow ? this.blurFilter : null;
         }
 
         createSprite() {
             if (this.sprite) {
                 return;
             }
+
             this.texture = PIXI.RenderTexture.create(Graphics.width, Graphics.height);
             this.sprite = new PIXI.Sprite(this.texture);
             this.sprite.blendMode = PIXI.BLEND_MODES.MULTIPLY;
@@ -1168,6 +1993,54 @@
         }
     };
 
+    const gainItem = Game_Party.prototype.gainItem;
+    Game_Party.prototype.gainItem = function(item, amount, includeEquip) {
+        gainItem.call(this, item, amount, includeEquip);
+        $gamePlayer.scanLighting();
+    };
+
+    const refresh = Game_Player.prototype.refresh;
+    Game_Player.prototype.refresh = function() {
+        refresh.call(this);
+        this.scanLighting();
+    };
+
+    Game_Player.prototype.scanLighting = function() {
+        let note = '';
+        let lightConfig = {id: 0};
+
+        if ($gameParty.leader())
+            note = $gameParty.leader().actor().note.split('\n');
+
+        for (const line of note)
+            parseNotes(lightConfig, line);
+
+        if (lightConfig.name) {
+            this.setLighting(lightConfig);
+            return;
+        } 
+
+        lightConfig = {id: 0};
+        for (const item of $gameParty.items()) {
+            note = item.note.split('\n');
+            for (const line of note) {
+                parseNotes(lightConfig, line);
+            }
+            if (lightConfig.name) {
+                this.setLighting(lightConfig);
+                return;
+            }
+        }
+    };
+
+    Game_Player.prototype.setLighting = function(config) {
+        if (this.lighting) {
+            lightingManager.removeCharacterLighting(this._lightConfig);
+            this.lighting = false;
+        }
+        this._lightConfig = config;
+    };
+
     const setupPageSettings = Game_Event.prototype.setupPageSettings;
 
     Game_Event.prototype.setupPageSettings = function() {
@@ -1213,6 +2086,7 @@
     Spriteset_Map.prototype.createUpperLayer = function() {
         createUpperLayer.call(this);
         lightingManager.loadScene(this);
+        shadowManager.refresh();
     };
 
     Spriteset_Map.prototype.update = function() {

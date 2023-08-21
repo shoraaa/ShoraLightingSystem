@@ -1,27 +1,24 @@
 import { TextureManager } from "../core/utils";
-import { ShadowSystem } from "./ShadowSystem";
+import { shadowManager } from "./ShadowManager";
 
 export class Lighting extends PIXI.Sprite {
     constructor(config, position) {
-        super(new PIXI.RenderTexture());
+        super();
+        this.light = new PIXI.Sprite(TextureManager.filter(config));
+        this.texture = PIXI.RenderTexture.create(this.light.width, this.light.height);
+        this.anchor.set(0.5);
+        this.blendMode = PIXI.BLEND_MODES.ADD;
 
         this.config = config;
         this.location = position;
 
-        this.filename = config.filename;
-        this.id = config.id;
+        console.log(config);
 
-        this.lightSprite = new PIXI.Sprite(TextureManager.filter(config));
-
-        this.anchor.set(0.5);
-        this.blendMode = PIXI.BLEND_MODES.ADD;
-
-        this.texture.resize(this.lightSprite.width, this.lightSprite.height);
-        Graphics.app.renderer.render(this.lightSprite, this.texture, false);
+        Graphics.app.renderer.render(this.light, this.texture, false);
     }
 
     destroy() { 
-        this.lightSprite.destroy();
+        this.light.destroy();
         super.destroy();
     }
 
@@ -30,13 +27,13 @@ export class Lighting extends PIXI.Sprite {
             return;
         }
 
-        const old_x = this.x, old_y = this.y, 
+        const old_x = this.mapX, old_y = this.mapY, 
               old_ox = this.config.offset.x, old_oy = this.config.offset.y;
 
         this.updatePosition();
         this.updateAnimation();
 
-        if (old_x !== this.x || old_y !== this.y || 
+        if (old_x !== this.mapX || old_y !== this.mapY || 
             old_ox !== this.config.offset.x || old_oy != this.config.offset.y) {
             this.updateShadow();
         }
@@ -45,6 +42,8 @@ export class Lighting extends PIXI.Sprite {
     updatePosition() {
         this.x = this.location.screenX();
         this.y = this.location.screenY();
+        this.mapX = this.location._realX;
+        this.mapY = this.location._realY;
     }
 
     updateAnimation() {
@@ -52,8 +51,8 @@ export class Lighting extends PIXI.Sprite {
     }
 
     updateShadow() {
-        const shadow = ShadowSystem.calculate(this);
-        Graphics.app.renderer.render(this.lightSprite, this.texture);
+        const shadow = shadowManager.getShadowGraphics(this);
+        Graphics.app.renderer.render(this.light, this.texture);
         Graphics.app.renderer.render(shadow, this.texture, false);
 
     }

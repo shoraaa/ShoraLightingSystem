@@ -1,10 +1,12 @@
 import { lightConfig, shadowConfig } from "../parameters/config";
 
-import { Lighting } from "../light/Lighting";
-import { AmbientLayer } from "../light/AmbientLayer";
+import { Lighting } from "./Lighting";
+import { AmbientLayer } from "./AmbientLayer";
 import { baseLightingConfig } from "../parameters/index";
 
-export class LightingManager {
+import { KawaseBlurFilter } from "../core/utils";
+
+class LightingManager {
     constructor() {
         this.data = {
             _disabled: false,
@@ -18,15 +20,18 @@ export class LightingManager {
             softShadowStr: shadowConfig.soft.strength,
         };
         this.baseLightingConfig = baseLightingConfig;
-
         this.characterLighting = [];
+
+        this.blurFilter = [new KawaseBlurFilter(this.data.softShadowStr, this.data.softShadowQlt)];
         this.layer = new PIXI.Container();
+        this.layer.filters = this.data.softShadow ? this.blurFilter : null;
     }
 
     createSprite() {
         if (this.sprite) {
             return;
         }
+
         this.texture = PIXI.RenderTexture.create(Graphics.width, Graphics.height);
         this.sprite = new PIXI.Sprite(this.texture);
         this.sprite.blendMode = PIXI.BLEND_MODES.MULTIPLY;

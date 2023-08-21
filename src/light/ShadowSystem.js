@@ -1,7 +1,4 @@
 export var ShadowSystem = (function() {
-
-    const graphics = new PIXI.Graphics();
-
     const epsilon = () => 0.0000001;
 
     const equal = (a, b) => {
@@ -64,16 +61,16 @@ export var ShadowSystem = (function() {
     };
 
     const computeDirection = (xi, yi, xj, yj, xk, yk) => {
-      a = (xk - xi) * (yj - yi);
-      b = (xj - xi) * (yk - yi);
+      const a = (xk - xi) * (yj - yi);
+      const b = (xj - xi) * (yk - yi);
       return a < b ? -1 : a > b ? 1 : 0;
     };
 
     const doLineSegmentsIntersect = (x1, y1, x2, y2, x3, y3, x4, y4) => {
-      d1 = computeDirection(x3, y3, x4, y4, x1, y1);
-      d2 = computeDirection(x3, y3, x4, y4, x2, y2);
-      d3 = computeDirection(x1, y1, x2, y2, x3, y3);
-      d4 = computeDirection(x1, y1, x2, y2, x4, y4);
+      const d1 = computeDirection(x3, y3, x4, y4, x1, y1);
+      const d2 = computeDirection(x3, y3, x4, y4, x2, y2);
+      const d3 = computeDirection(x1, y1, x2, y2, x3, y3);
+      const d4 = computeDirection(x1, y1, x2, y2, x4, y4);
       return (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
               ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) ||
              (d1 == 0 && isOnSegment(x3, y3, x4, y4, x1, y1)) ||
@@ -348,15 +345,10 @@ export var ShadowSystem = (function() {
         return newSegments;
     };
 
-    const calculate = (lighting) => {
-        graphics.clear();
-        graphics.beginFill(0x111111).drawRect(0, 0, 50, 50).endFill();
-        return graphics;
-    }
-
     let exports = {};
 
-    exports.calculate = calculate;
+    exports.computeViewport = computeViewport;
+    exports.compute = compute;
     exports.getSegments = getSegments;
 
     return exports;
